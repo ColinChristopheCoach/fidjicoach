@@ -19945,8 +19945,12 @@ function pubData(){
   return {v:1,ctypes:db.ctypes,promos:db.promos||[],centres:stripBig(db.centres),remise:REMISE,tampon,fees,
     settings:{fin:fin(),travel:travelCfg(),buf:(typeof bufCfg==='function'?bufCfg():null),grpMin:S.grpMin,grpMax:S.grpMax}}}
 function privData(){return {v:1,recur:db.recur||[],settings:db.settings}}
+/* le cours public d'exemple de la démo n'a pas sa place dans le mode réel */
+const isSample=c=>c&&c.id==='tpub1'&&/\(exemple\)/.test(c.title||'');
+function dropSample(){if(Array.isArray(db.ctypes)&&db.ctypes.some(isSample)){db.ctypes=db.ctypes.filter(c=>!isSample(c));return true}return false}
+dropSample();
 function applyPub(d){if(!d||!d.ctypes)return;
-  db.ctypes=d.ctypes;db.promos=d.promos||[];if(Array.isArray(d.centres)&&d.centres.length)db.centres=d.centres;
+  db.ctypes=d.ctypes.filter(c=>!isSample(c));db.promos=d.promos||[];if(Array.isArray(d.centres)&&d.centres.length)db.centres=d.centres;
   db.settings=db.settings||{};const s=d.settings||{};['fin','travel','buf'].forEach(k=>{if(s[k])db.settings[k]=s[k]});
   if(s.grpMin!=null)db.settings.grpMin=s.grpMin;if(s.grpMax!=null)db.settings.grpMax=s.grpMax}
 async function loadPub(){if(!R.coachId)return null;
@@ -19996,7 +20000,12 @@ async function loadCoachSide(){
   await loadAgenda();await loadBookings();
   /* premier branchement : rien en ligne -> on publiera ce qui est sur cet appareil */
   R.snap.pub=pubRow?JSON.stringify(pubData()):null;R.snap.priv=pv?JSON.stringify(privData()):null;R.snap.slots=JSON.stringify(slotsPayload());
-  if(!pubRow||!pv)setTimeout(queueSync,50)}
+  if(!pubRow||!pv||(pubRow.data&&(pubRow.data.ctypes||[]).some(isSample)))setTimeout(queueSync,50)}
+/* cours public : retirer toutes les séances puis Enregistrer -> indiquer le bouton Supprimer */
+document.addEventListener('submit',e=>{const f=e.target;if(f.id!=='ctForm'||!st.draftCt||!st.draftCt.public)return;
+  const P=st.draftCt.pub;if(P&&!(P.sessions||[]).length){e.preventDefault();e.stopImmediatePropagation();
+    st.ctErr='Ce cours n\'a plus aucune séance. Pour l\'enlever complètement, cliquez sur « Supprimer » en bas de cette fenêtre. Pour le garder sans dates, décochez « Offert sur le site » et ajoutez une séance plus tard.';render()}},true);
+A.ctDel=(old=>function(){st.ctErr='';return old()})(A.ctDel);
 async function loadClientSide(){await loadPub();await loadAgenda();await loadBookings();
   try{const {data:p}=await R.sb.from('profiles').select('ref_credit,referred_by').eq('id',R.uid).single();const u=me();if(u&&p){u.credit=!!p.ref_credit;u.refBy=p.referred_by||null}}catch(e){}}
 
