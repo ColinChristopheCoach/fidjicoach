@@ -20110,4 +20110,317 @@ try{render()}catch(e){console.error(e)}
 bootReal().catch(e=>console.error(e));
 })();
 </script>
+<script>
+/* ================= Lecteur 3D FidjiCoach — phase 1 (24 oct. 2026) =================
+   Un seul lecteur 3D pour toute l'app (une seule vue WebGL, déplacée d'un écran à l'autre).
+   - Fiche exercice (touche un exercice) : le mannequin 3D reprend le mouvement 2D (POSES), converti en 3D.
+   - Test de Ruffier-Dickson, étape Effort : 30 squats en 45 s, synchronisés au métronome et au compteur.
+   Base visuelle : Routines FidjiCoach 3D V3 (mannequin clair, fond marine, muscles rouge-orangé).
+   Fichiers à mettre dans GitHub avec index.html : xbot-model.txt (mannequin, ~3,9 Mo, chargé seulement au besoin). */
+(()=>{
+const CDN='https://cdn.jsdelivr.net/npm/three@0.147.0/';
+const LIBS=['build/three.min.js','examples/js/loaders/GLTFLoader.js','examples/js/controls/OrbitControls.js','examples/js/shaders/CopyShader.js','examples/js/shaders/LuminosityHighPassShader.js','examples/js/postprocessing/EffectComposer.js','examples/js/postprocessing/RenderPass.js','examples/js/postprocessing/ShaderPass.js','examples/js/postprocessing/UnrealBloomPass.js'];
+const MODEL_URL='xbot-model.txt';
+const D=Math.PI/180,sin=a=>Math.sin(a*D),cos=a=>Math.cos(a*D);
+const L={torso:52,neck:6,head:11,ua:30,fa:28,th:44,sh:42,foot:14};
+
+/* ---------- styles ---------- */
+const css=document.createElement('style');css.textContent=`
+.f3d-host{position:relative}
+.f3d-host .f3d-stage{display:none}
+.f3d-host.f3d-on:not(.f3d-2d) .f3d-stage{display:block}
+.f3d-host.f3d-on:not(.f3d-2d) .f3d-fb{display:none}
+.f3d-host.f3d-on:not(.f3d-2d)+.figleg{display:none}
+.exbig.f3d-host.f3d-on:not(.f3d-2d){padding:0;background:none}
+.f3d-host.f3d-loading::after{content:"Chargement de la vue 3D…";position:absolute;right:8px;top:8px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--navy);color:var(--navy-ink);opacity:.85}
+.f3d-tog{all:unset;cursor:pointer;display:none;margin:6px auto 0;font-size:12px;font-weight:600;color:var(--muted);padding:4px 10px;border-radius:999px;border:1px solid var(--line)}
+.f3d-host.f3d-on .f3d-tog{display:table}
+.f3d-tog:focus-visible{outline:2px solid var(--accent)}
+.f3d-stage{position:relative;width:100%;aspect-ratio:4/5;max-height:58vh;margin:0 auto;background:#13325b;border-radius:16px;overflow:hidden;touch-action:none;color:#fff;font-family:var(--f-body)}
+.f3d-ruf .f3d-stage{aspect-ratio:3/4;max-height:52vh;max-width:380px}
+.f3d-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.f3d-view{all:unset;cursor:pointer;position:absolute;left:10px;bottom:10px;z-index:2;font-size:11.5px;font-weight:600;background:rgba(14,39,71,.82);border:1px solid rgba(255,255,255,.2);padding:5px 10px;border-radius:999px;display:flex;gap:6px;align-items:center;color:#fff}
+.f3d-view svg{width:13px;height:13px;fill:#9fb9dc}
+.f3d-view:focus-visible{outline:2px solid #fff}
+.f3d-tag{position:absolute;left:10px;top:10px;z-index:2;font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:12px;background:#d24a2a;padding:3px 9px;border-radius:999px}
+.f3d-hud{display:none}
+.f3d-ruf .f3d-hud{display:block}
+.f3d-ruf .f3d-tag,.f3d-ruf .f3d-view{display:none}
+.f3d-cnt{position:absolute;right:12px;bottom:8px;z-index:2;text-align:right;font-family:var(--f-display);font-weight:800;line-height:.9;pointer-events:none}
+.f3d-cnt b{font-size:54px;font-variant-numeric:tabular-nums}.f3d-cnt small{display:block;font-size:13px;letter-spacing:.08em;color:#9fb9dc;text-transform:uppercase}
+.f3d-sec{position:absolute;left:12px;bottom:8px;z-index:2;font-family:var(--f-display);font-weight:800;line-height:.9;pointer-events:none}
+.f3d-sec b{font-size:34px;font-variant-numeric:tabular-nums}.f3d-sec small{display:block;font-size:12px;letter-spacing:.08em;color:#9fb9dc;text-transform:uppercase}
+.f3d-cue{position:absolute;left:12px;right:12px;top:12px;z-index:2;text-align:center;font-family:var(--f-display);font-weight:800;text-transform:uppercase;font-size:clamp(22px,6.4vw,30px);text-shadow:0 2px 12px rgba(8,22,44,.7);pointer-events:none}
+.f3d-met{position:absolute;left:50%;top:54px;transform:translateX(-50%);z-index:2;display:flex;gap:8px;pointer-events:none}
+.f3d-met i{width:12px;height:12px;border-radius:50%;background:rgba(159,185,220,.35);transition:background .08s,transform .08s}
+.f3d-met i.on{background:#f0694a;transform:scale(1.35)}
+.f3d-bar{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(159,185,220,.2);z-index:2}.f3d-bar i{display:block;height:100%;width:0;background:#f0694a}
+@media (prefers-reduced-motion:reduce){.f3d-met i{transition:none}}
+`;document.head.appendChild(css);
+
+/* ---------- poses ---------- */
+/* poses 2D de la banque : x vers la droite, y vers le bas, sol à 92, jambe = 40 unités → cm */
+const S2=(L.th+L.sh)/40;
+/* poses couchées sur le ventre dessinées tête à gauche : on les retourne pour que la poitrine fasse face au sol */
+const PRONE=new Set(['pushup','plank','climber','superman','birddog','catcow','legcurl','bear','burpee','roll','sideplank','copen',
+ 'st_pigeon','st_child','st_dog','st_cobra','st_frog','st_lizard','st_sphinx','st_thread','st_puppy','st_rock','st_dogpedal']);
+const PPx=s=>{const o={};String(s).trim().split(/\s+/).forEach(t=>{const m=t.match(/^([A-Za-z])(-?[\d.]+),(-?[\d.]+)$/);if(m){const k=m[1]===m[1].toLowerCase()?m[1].toUpperCase()+'2':m[1];o[k]=[Number(m[2]),Number(m[3])]}});return o};
+function from2D(str,flip){const a=PPx(str);['E2','W2','K2','A2'].forEach(k=>{if(!a[k])a[k]=a[k[0]]});
+  const c=k=>[((flip?100-a[k][0]:a[k][0])-50)*S2,(92-a[k][1])*S2+5];
+  const J={hip:c('P'),sh:c('S'),head:c('H'),elbowN:c('E'),handN:c('W'),kneeN:c('K'),ankleN:c('A'),elbowF:c('E2'),handF:c('W2'),kneeF:c('K2'),ankleF:c('A2')};
+  const tv=[J.sh[0]-J.hip[0],J.sh[1]-J.hip[1]],t=Math.atan2(tv[0],tv[1])/D,fw=[tv[1],-tv[0]];
+  J.neck=[J.sh[0]+(J.head[0]-J.sh[0])*.3,J.sh[1]+(J.head[1]-J.sh[1])*.3];
+  for(const k of['N','F']){const kn=J['knee'+k],an=J['ankle'+k];let sx=an[0]-kn[0],sy=an[1]-kn[1];const l=Math.hypot(sx,sy)||1;sx/=l;sy/=l;
+    let px=-sy,py=sx;if(px*fw[0]+py*fw[1]<0){px=-px;py=-py}
+    if(an[1]<12&&Math.abs(sx)<.65){px=Math.sign(px)||1;py=0}
+    J['toe'+k]=[an[0]+px*L.foot,an[1]+py*L.foot]}
+  const contact=[];const g=k=>a[k][1]>=88;
+  if(g('A'))contact.push('RightFoot');if(g('A2'))contact.push('LeftFoot');if(g('W'))contact.push('RightHand');if(g('W2'))contact.push('LeftHand');
+  if(g('K'))contact.push('RightLeg');if(g('K2'))contact.push('LeftLeg');if(a.H[1]>=85)contact.push('Head');if(a.P[1]>=85)contact.push('Hips');
+  return {J,t,contact}}
+
+/* cinématique 2D de la V3 (pour le squat du test de Ruffier) */
+function ik(root,tgt,l1,l2,hint){let dx=tgt[0]-root[0],dy=tgt[1]-root[1],d=Math.hypot(dx,dy);const dmax=l1+l2-.01;if(d>dmax){dx*=dmax/d;dy*=dmax/d;d=dmax}
+  const base=Math.atan2(dy,dx),a=Math.acos(Math.max(-1,Math.min(1,(l1*l1+d*d-l2*l2)/(2*l1*d))));
+  const c1=[root[0]+l1*Math.cos(base+a),root[1]+l1*Math.sin(base+a)],c2=[root[0]+l1*Math.cos(base-a),root[1]+l1*Math.sin(base-a)];
+  const mx=root[0]+dx/2,my=root[1]+dy/2,s1=(c1[0]-mx)*hint[0]+(c1[1]-my)*hint[1],s2=(c2[0]-mx)*hint[0]+(c2[1]-my)*hint[1];
+  return [s1>=s2?c1:c2,[root[0]+dx,root[1]+dy]]}
+const add=(p,a,l)=>[p[0]+l*sin(a),p[1]-l*cos(a)];
+function limb(root,s,l1,l2){if(s.ik)return ik(root,s.ik,l1,l2,s.hint);const m=add(root,s.ang[0],l1);return[m,add(m,s.ang[1],l2)]}
+function solve(p){const J={hip:p.hip},h=p.h??p.t;
+  J.sh=[p.hip[0]+L.torso*sin(p.t),p.hip[1]+L.torso*cos(p.t)];
+  J.head=[J.sh[0]+(L.neck+L.head)*sin(h),J.sh[1]+(L.neck+L.head)*cos(h)];
+  J.neck=[J.sh[0]+L.neck*sin(h)*.9,J.sh[1]+L.neck*cos(h)*.9];
+  [['N',p.aN],['F',p.aF]].forEach(([k,s])=>{const[e,w]=limb(J.sh,s,L.ua,L.fa);J['elbow'+k]=e;J['hand'+k]=w});
+  [['N',p.lN],['F',p.lF]].forEach(([k,s])=>{const[kn,an]=limb(J.hip,s,L.th,L.sh);J['knee'+k]=kn;J['ankle'+k]=an;J['toe'+k]=add(an,s.foot,L.foot)});
+  return J}
+function lerp(a,b,t){if(typeof a==='number')return a+(b-a)*t;if(Array.isArray(a))return a.map((v,i)=>lerp(v,b[i],t));const o={};for(const k in a)o[k]=(k in b)?lerp(a[k],b[k],t):a[k];return o}
+/* squat du Ruffier : debout bras le long du corps → fesses près des talons, bras tendus devant */
+const RUF={A:{hip:[-3,89],t:0,h:0,aN:{ang:[84,88]},aF:{ang:[80,86]},lN:{ik:[0,5],hint:[1,0],foot:90},lF:{ik:[2,5],hint:[1,0],foot:90}},
+  B:{hip:[-20,34],t:30,h:18,aN:{ang:[90,92]},aF:{ang:[86,90]},lN:{ik:[0,5],hint:[1,0],foot:90},lF:{ik:[2,5],hint:[1,0],foot:90}}};
+
+/* ---------- état ---------- */
+const E={state:'idle',cfg:null,key:null,stage:null,canvas:null,renderer:null,scene:null,camera:null,controls:null,composer:null,ring:null,
+  model:null,rig:null,bones:{},rest:{},meshes:[],leftSign:1,K:1,F0:8,restHip:null,targets:{},raf:0,userMoved:false,lastBeat:-1,musKey:null,anim:null};
+window.fc3d=E;
+const BN=n=>E.bones['mixamorig'+n];
+
+function loadScript(src){return new Promise((ok,ko)=>{const s=document.createElement('script');s.async=false;s.src=src;s.onload=ok;s.onerror=()=>ko(new Error('Script 3D : '+src));document.head.appendChild(s)})}
+async function boot(){
+  if(E.state!=='idle')return;E.state='loading';
+  try{
+    const t=document.createElement('canvas');if(!(t.getContext('webgl2')||t.getContext('webgl')))throw new Error('WebGL absent');
+    /* scripts téléchargés en parallèle (exécutés dans l'ordre) pendant que le mannequin se télécharge */
+    const libs=Promise.all((window.THREE?LIBS.slice(1):LIBS).map(l=>loadScript(CDN+l)));
+    const txtP=fetch(MODEL_URL).then(r=>{if(!r.ok)throw new Error('Mannequin '+r.status);return r.text()});
+    const [txt]=await Promise.all([txtP,libs]);
+    buildStage();
+    const bin=atob(txt.trim()),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+    const gltf=await new Promise((ok,ko)=>new THREE.GLTFLoader().parse(u8.buffer,'',ok,ko));
+    onModel(gltf);E.state='ready';mount();
+  }catch(e){console.warn('Vue 3D indisponible',e);E.state='fail';document.querySelectorAll('[data-f3d]').forEach(h=>{h.classList.remove('f3d-loading');h.classList.add('f3d-fail')})}
+}
+
+function buildStage(){
+  const st_=document.createElement('div');st_.className='f3d-stage';
+  st_.innerHTML=`<canvas aria-label="Démonstration 3D. Glisse pour faire tourner le mannequin."></canvas><span class="f3d-tag">3D</span>
+   <button type="button" class="f3d-view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L8 6l4 4V7c3.3 0 6 2.7 6 6s-2.7 6-6 6-6-2.7-6-6H4c0 4.4 3.6 8 8 8s8-3.6 8-8-3.6-8-8-8z"/></svg><span>Glisse pour tourner · Vue de côté</span></button>
+   <div class="f3d-hud"><div class="f3d-cue" data-f3="cue"></div><div class="f3d-met" aria-hidden="true"><i></i><i></i></div>
+   <div class="f3d-sec"><b data-f3="sec">45</b><small>secondes</small></div><div class="f3d-cnt"><b data-f3="cnt">0</b><small>/ 30 flexions</small></div><div class="f3d-bar"><i data-f3="bar"></i></div></div>`;
+  E.stage=st_;E.canvas=st_.querySelector('canvas');
+  st_.querySelector('.f3d-view').addEventListener('click',e=>{e.stopPropagation();frame(true)});
+  const R=E.renderer=new THREE.WebGLRenderer({canvas:E.canvas,antialias:true,powerPreference:'high-performance'});
+  R.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  const S=E.scene=new THREE.Scene();S.background=new THREE.Color(0x13325b);
+  E.camera=new THREE.PerspectiveCamera(32,1,.05,50);
+  const C=E.controls=new THREE.OrbitControls(E.camera,E.canvas);C.enablePan=false;C.enableDamping=true;C.dampingFactor=.08;C.maxPolarAngle=Math.PI/2-.03;C.minPolarAngle=.25;
+  C.addEventListener('start',()=>{E.userMoved=true});
+  const haloTex=(()=>{const c=document.createElement('canvas');c.width=c.height=512;const g=c.getContext('2d');const r=g.createRadialGradient(256,256,0,256,256,256);
+    r.addColorStop(0,'rgba(159,185,220,0.22)');r.addColorStop(.4,'rgba(30,66,112,0.35)');r.addColorStop(.78,'rgba(19,50,91,0.95)');r.addColorStop(1,'rgba(19,50,91,1)');g.fillStyle=r;g.fillRect(0,0,512,512);return new THREE.CanvasTexture(c)})();
+  const halo=new THREE.Mesh(new THREE.PlaneGeometry(8,8),new THREE.MeshBasicMaterial({map:haloTex,transparent:true,depthWrite:false}));halo.rotation.x=-Math.PI/2;halo.position.y=.002;halo.renderOrder=-2;S.add(halo);
+  E.ring=new THREE.Mesh(new THREE.RingGeometry(.55,.565,96),new THREE.MeshBasicMaterial({color:0x9fb9dc,transparent:true,opacity:.55,depthWrite:false}));E.ring.rotation.x=-Math.PI/2;E.ring.position.y=.004;E.ring.renderOrder=-1;S.add(E.ring);
+  E.composer=new THREE.EffectComposer(R);E.composer.addPass(new THREE.RenderPass(S,E.camera));E.composer.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(256,256),.18,.4,.85));
+  if(window.ResizeObserver)new ResizeObserver(()=>resize()).observe(st_);
+}
+
+function holoMaterial(base){return new THREE.ShaderMaterial({uniforms:{uTime:{value:0},uBase:{value:base}},transparent:false,depthWrite:true,side:THREE.FrontSide,
+  vertexShader:`#include <common>
+#include <skinning_pars_vertex>
+attribute float muscle; attribute float farf; varying float vF; varying float vM; varying vec3 vN; varying vec3 vV; varying float vY;
+void main(){
+#include <beginnormal_vertex>
+#include <skinbase_vertex>
+#include <skinnormal_vertex>
+#include <defaultnormal_vertex>
+#include <begin_vertex>
+#include <skinning_vertex>
+#include <project_vertex>
+vN=normalize(transformedNormal); vV=normalize(-mvPosition.xyz); vM=muscle; vF=farf; vY=(modelMatrix*vec4(transformed,1.0)).y;}`,
+  fragmentShader:`uniform float uTime; uniform float uBase; varying float vF; varying float vM; varying vec3 vN; varying vec3 vV; varying float vY;
+void main(){float fr=pow(1.0-clamp(abs(dot(normalize(vN),normalize(vV))),0.0,1.0),2.0);vec3 n=normalize(vN);
+float key=max(dot(n,normalize(vec3(0.35,0.65,0.7))),0.0);float fill=max(dot(n,normalize(vec3(-0.6,-0.1,0.5))),0.0);float dimF=mix(1.0,0.72,vF);
+vec3 body=vec3(0.86,0.91,0.97)*(0.30+0.72*key+0.22*fill);vec3 rim=vec3(0.62,0.74,0.88)*pow(fr,2.2)*0.55;vec3 col=(body*uBase+rim)*dimF;
+float m=clamp(vM,0.0,1.0)*(0.7+0.3*sin(uTime*4.0))*mix(1.0,0.5,vF);float fib=0.8+0.2*sin(vY*900.0);
+col=mix(col,vec3(0.88,0.30,0.17)*(0.62+0.55*key+0.25*fr)*fib,m);gl_FragColor=vec4(col,1.0);}`})}
+
+function bindPos(mesh,name){const sk=mesh.skeleton,i=sk.bones.findIndex(b=>b.name==='mixamorig'+name);return new THREE.Vector3().setFromMatrixPosition(sk.boneInverses[i].clone().invert())}
+const ss=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t)};
+/* zones musculaires (codes de groupes de la banque : qua, fes, isc, mol, abs, pec, dos, epa, bic, tri, avb, cor) */
+function computeMuscles(codes){
+  const key=codes.join(',');if(E.musKey===key)return;E.musKey=key;
+  const want=new Set(codes);if(want.has('cor')){['qua','fes','abs','mol'].forEach(c=>want.add(c))}
+  for(const mesh of E.meshes){const g=mesh.geometry,pos=g.attributes.position,nor=g.attributes.normal,si=g.attributes.skinIndex,sw=g.attributes.skinWeight,n=pos.count;
+    const isJ=mesh.name.includes('Joints'),arr=g.attributes.muscle.array,far=g.attributes.farf.array,names=mesh.skeleton.bones.map(b=>b.name.replace('mixamorig',''));
+    const B=nm=>bindPos(mesh,nm).multiplyScalar(100);const hb=B('Hips'),sp2=B('Spine2'),nk=B('Neck');
+    const S={};for(const s of['Left','Right'])S[s]={ul:B(s+'UpLeg'),kn:B(s+'Leg'),ft:B(s+'Foot'),arm:B(s+'Arm'),fa:B(s+'ForeArm'),hd:B(s+'Hand'),sg:(s==='Left'?1:-1)*E.leftSign};
+    const farSg=-E.leftSign;
+    for(let v=0;v<n;v++){const x=pos.getX(v)*100,y=pos.getY(v)*100,nz=nor.getZ(v),ny=nor.getY(v);
+      const w={},G=['getX','getY','getZ','getW'];for(let j=0;j<4;j++){const wt=sw[G[j]](v);if(wt>0){const nm=names[si[G[j]](v)];w[nm]=(w[nm]||0)+wt}}
+      const W=nm=>w[nm]||0,front=ss(.05,.55,nz),back=ss(.05,.55,-nz);let m=0;
+      for(const s of['Left','Right']){const q=S[s],side=ss(-1,3,x*q.sg),ax=Math.abs(x),armX=Math.abs(q.arm.x),faX=Math.abs(q.fa.x),hdX=Math.abs(q.hd.x);
+        const M=(c,val)=>{if(want.has(c))m=Math.max(m,val)};
+        M('qua',W(s+'UpLeg')*front*ss(q.kn.y+4,q.kn.y+12,y)*(1-ss(q.ul.y-10,q.ul.y-4,y)));
+        M('isc',W(s+'UpLeg')*back*ss(q.kn.y+4,q.kn.y+12,y)*(1-ss(q.ul.y-20,q.ul.y-13,y)));
+        M('fes',back*side*ss(q.ul.y-22,q.ul.y-13,y)*(1-ss(hb.y+3,hb.y+11,y))*Math.min(1,(W('Hips')+W(s+'UpLeg'))*1.6));
+        M('mol',W(s+'Leg')*back*ss(q.ft.y+8,q.ft.y+18,y)*(1-ss(q.kn.y-7,q.kn.y-1,y)));
+        M('tri',W(s+'Arm')*back*ss(armX+3,armX+9,ax)*(1-ss(faX-4,faX,ax)));
+        M('bic',W(s+'Arm')*front*ss(armX+5,armX+10,ax)*(1-ss(faX-4,faX,ax)));
+        M('avb',W(s+'ForeArm')*ss(faX+3,faX+8,ax)*(1-ss(hdX-4,hdX,ax)));
+        M('epa',(W(s+'Arm')+W(s+'Shoulder'))*ss(armX-3,armX+1,ax)*(1-ss(armX+7,armX+11,ax))*ss(q.arm.y-9,q.arm.y-3,y)*Math.max(.5,ny));
+        M('pec',front*side*ss(sp2.y-3,sp2.y+3,y)*(1-ss(nk.y-9,nk.y-4,y))*(1-ss(15,20,ax))*Math.min(1,(W('Spine1')+W('Spine2')+W(s+'Shoulder'))*1.5));
+        M('dos',back*side*ss(hb.y+8,hb.y+14,y)*(1-ss(nk.y-6,nk.y-1,y))*(1-ss(17,21,ax))*Math.min(1,(W('Spine')+W('Spine1')+W('Spine2')+W(s+'Shoulder'))*1.5));
+      }
+      M2:{const val=front*ss(hb.y+1,hb.y+7,y)*(1-ss(sp2.y-1,sp2.y+5,y))*(1-ss(8,12,Math.abs(x)))*Math.min(1,(W('Hips')+W('Spine')+W('Spine1')+W('Spine2'))*1.5);if(want.has('abs'))m=Math.max(m,val)}
+      arr[v]=isJ?0:Math.min(1,m*1.25);far[v]=ss(-2,6,x*farSg)}
+    g.attributes.muscle.needsUpdate=true;g.attributes.farf.needsUpdate=true}
+}
+
+function onModel(gltf){
+  E.model=gltf.scene;E.rig=new THREE.Group();E.rig.add(E.model);E.scene.add(E.rig);
+  E.model.traverse(o=>{if(o.isBone){E.bones[o.name]=o;E.rest[o.name]=o.quaternion.clone()}
+    if(o.isSkinnedMesh){o.frustumCulled=false;o.renderOrder=1;o.material=holoMaterial(o.name.includes('Joints')?.6:1);const n=o.geometry.attributes.position.count;
+      o.geometry.setAttribute('muscle',new THREE.BufferAttribute(new Float32Array(n),1));o.geometry.setAttribute('farf',new THREE.BufferAttribute(new Float32Array(n),1));E.meshes.push(o)}});
+  E.model.updateMatrixWorld(true);
+  const surf=E.meshes.find(m=>m.name.includes('Surface'))||E.meshes[0];E.leftSign=Math.sign(bindPos(surf,'LeftUpLeg').x)||1;
+  E.restHip=BN('Hips').position.clone();
+  const wp=o=>o.getWorldPosition(new THREE.Vector3());const ul=BN('LeftUpLeg'),lg=BN('LeftLeg'),ft=BN('LeftFoot');
+  const legLen=(wp(ul).distanceTo(wp(lg))+wp(lg).distanceTo(wp(ft)))*100;
+  E.K=legLen/(L.th+L.sh);E.F0=wp(ft).y*100;
+  const s=new THREE.Vector3();BN('Hips').parent.getWorldScale(s);E.toLocal=1/(s.y*100);E.K*=E.toLocal;E.F0*=E.toLocal;
+  /* hauteur au repos de chaque point d'appui (m) */
+  E.targets={Foot:wp(ft).y,ToeBase:wp(BN('LeftToeBase')).y,Hand:.035,Leg:.06,Head:.1,Hips:.09};
+}
+
+/* orientation d'un os vers une direction du plan de profil */
+const _a=()=>new THREE.Vector3();let V1,V2,V3,Q1,Q2,Q3,RQ;
+function aim(bone,child,dir){if(!bone||!child)return;dir=V3.copy(dir).normalize().applyQuaternion(RQ);bone.getWorldPosition(V1);child.getWorldPosition(V2);
+  Q1.setFromUnitVectors(V2.sub(V1).normalize(),dir);bone.getWorldQuaternion(Q2);Q2.premultiply(Q1);bone.parent.getWorldQuaternion(Q3);bone.quaternion.copy(Q3.invert().multiply(Q2));bone.updateMatrixWorld(true)}
+const d2=(a,b,lat=0)=>new THREE.Vector3(lat,b[1]-a[1],b[0]-a[0]).normalize();
+function applyPose(J,t){
+  if(!V1){V1=_a();V2=_a();V3=_a();Q1=new THREE.Quaternion();Q2=new THREE.Quaternion();Q3=new THREE.Quaternion();RQ=new THREE.Quaternion()}
+  for(const k in E.bones)E.bones[k].quaternion.copy(E.rest[k]);
+  const hips=BN('Hips');hips.position.set(E.restHip.x,E.F0+(J.hip[1]-5)*E.K,E.restHip.z+J.hip[0]*E.K);
+  hips.quaternion.copy(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),t*D*.45)).multiply(E.rest['mixamorigHips']);
+  E.rig.updateMatrixWorld(true);E.rig.getWorldQuaternion(RQ);
+  aim(BN('Spine'),BN('Neck'),d2(J.hip,J.sh));aim(BN('Neck'),BN('Head'),d2(J.sh,J.head));
+  for(const[S,k]of[['Right','N'],['Left','F']]){const lat=(S==='Left'?1:-1)*E.leftSign;
+    aim(BN(S+'Arm'),BN(S+'ForeArm'),d2(J.sh,J['elbow'+k],lat*.16));aim(BN(S+'ForeArm'),BN(S+'Hand'),d2(J['elbow'+k],J['hand'+k],lat*.06));
+    aim(BN(S+'UpLeg'),BN(S+'Leg'),d2(J.hip,J['knee'+k],lat*.03));aim(BN(S+'Leg'),BN(S+'Foot'),d2(J['knee'+k],J['ankle'+k],lat*.02));
+    /* l'os du pied du mannequin descend d'environ 30° vers les orteils : on compense pour garder la semelle à plat */
+    const fx=J['toe'+k][0]-J['ankle'+k][0],fy=J['toe'+k][1]-J['ankle'+k][1],c=Math.cos(30*D),s_=Math.sin(30*D);
+    aim(BN(S+'Foot'),BN(S+'ToeBase'),d2([0,0],[fx*c-fy*s_,fx*s_+fy*c]))}
+}
+/* appuis au sol : pose les points d'appui sur le sol, et empêche de passer sous le sol */
+function groundFix(contact){const T=E.targets,y=nm=>BN(nm).getWorldPosition(V1).y;
+  const pts=[];const pt=(nm,tg)=>pts.push([nm,y(nm)-tg]);
+  for(const c of contact){if(/Foot$/.test(c)){pt(c,T.Foot);pt(c.replace('Foot','ToeBase'),T.ToeBase)}else if(/Hand$/.test(c))pt(c,T.Hand);else if(/Leg$/.test(c))pt(c,T.Leg);else if(c==='Head')pt('Head',T.Head);else if(c==='Hips')pt('Hips',T.Hips)}
+  let d=pts.length?Math.min(...pts.map(p=>p[1])):Infinity;
+  const all=['LeftToeBase','RightToeBase','LeftFoot','RightFoot','LeftHand','RightHand','Head'].map(nm=>y(nm)-(/Toe/.test(nm)?T.ToeBase:/Foot/.test(nm)?T.Foot:/Hand/.test(nm)?.02:.09));
+  const pen=Math.min(...all);if(!pts.length)d=Math.min(0,pen);else d=Math.min(d,pen);
+  if(Math.abs(d)>1e-4){const hips=BN('Hips');const s=new THREE.Vector3();hips.parent.getWorldScale(s);hips.position.y-=d/s.y;E.rig.updateMatrixWorld(true)}}
+
+/* ---------- animations ---------- */
+function exAnimCfg(pat,groups){const P=typeof POSES!=='undefined'?(POSES[pat]||POSES.squat):null;if(!P)return null;
+  const flip=PRONE.has(pat);const A=from2D(P[0],flip),B=from2D(P[1],flip);
+  return {kind:'ex',cycle:2.4,A,B,muscles:(groups||[]).filter(g=>g!=='mob'),bounds:[A.J,B.J]}}
+function rufCfg(){const A=solve(RUF.A),B=solve(RUF.B);return {kind:'ruf',muscles:['qua','fes'],bounds:[A,B]}}
+const easeC=k=>(1-Math.cos(2*Math.PI*k))/2;
+function lerpJ(A,B,k){const o={};for(const n in A.J)o[n]=[A.J[n][0]+(B.J[n][0]-A.J[n][0])*k,A.J[n][1]+(B.J[n][1]-A.J[n][1])*k];return o}
+
+function frame(force){const c=E.cfg;if(!c||!E.camera)return;let x0=1e9,x1=-1e9,y1=0;
+  for(const J of c.bounds)for(const k in J){x0=Math.min(x0,J[k][0]);x1=Math.max(x1,J[k][0]);y1=Math.max(y1,J[k][1])}
+  x0-=14;x1+=14;y1+=L.head+14;const sc=E.K*.01;
+  const cz=(x0+x1)/2*sc,h=Math.max(y1,40)*sc,w=(x1-x0)*sc,vf=E.camera.fov*D,asp=E.camera.aspect||1;
+  const dist=Math.max(h/(2*Math.tan(vf/2))/.8,w/(2*Math.tan(vf/2)*asp)/.88);
+  const target=new THREE.Vector3(0,h*.5,cz);
+  E.view={target,pos:new THREE.Vector3(-E.leftSign*dist*.99,h*.5+dist*.08,cz+dist*.14)};
+  E.controls.minDistance=dist*.55;E.controls.maxDistance=dist*1.8;
+  if(force||!E.userMoved){E.controls.target.copy(target);E.camera.position.copy(E.view.pos);E.userMoved=false}
+  E.ring.position.z=cz;E.ring.scale.setScalar(Math.max(.8,w*.9))}
+function resize(){if(!E.stage||!E.stage.isConnected)return;const r=E.stage.getBoundingClientRect();if(!r.width||!r.height)return;
+  E.renderer.setSize(r.width,r.height,false);E.composer.setSize(r.width,r.height);E.camera.aspect=r.width/r.height;E.camera.updateProjectionMatrix();frame(false)}
+
+/* ---------- Ruffier : compteur et métronome synchronisés ---------- */
+const PER=1.5,DUR=45,REPS=30;
+let RAC=null;function rbeep(fq,d){if(window.st&&st.rdMute)return;try{RAC=RAC||new (window.AudioContext||window.webkitAudioContext)();if(RAC.state==='suspended')RAC.resume();const o=RAC.createOscillator(),g=RAC.createGain();o.frequency.value=fq;g.gain.value=.15;o.connect(g);g.connect(RAC.destination);o.start();o.stop(RAC.currentTime+(d||.1))}catch(e){}}
+function rufState(){const f=(typeof st!=='undefined'&&st.rdF)||null;const t=f&&f.sqStart?(Date.now()-f.sqStart)/1000:null;return {f,t}}
+function rufTick(){const {f,t}=rufState();const q=s=>E.stage.querySelector(`[data-f3="${s}"]`);let k=0,cue='',cnt='0',sec=String(DUR),beat=-1,bar=0;
+  if(t==null){const ph=(performance.now()/1000%PER)/PER;k=easeC(ph);cue='Aperçu du rythme';beat=Math.floor(performance.now()/1000/PER*2)%2;}
+  else if(t<0){cue='Prêt… '+Math.ceil(-t);k=0}
+  else if(t<DUR){const ph=(t%PER)/PER;k=easeC(ph);const n=Math.min(REPS,Math.floor(t/PER)+1);cnt=String(n);sec=String(Math.max(0,Math.ceil(DUR-t)));
+    cue=ph<.5?'Descends':'Remonte';beat=ph<.5?0:1;bar=Math.min(100,t/DUR*100);
+    /* bip de métronome à l'image près (au début de chaque flexion), partagé avec le compte de l'app */
+    if(f&&n>f.sqLast){f.sqLast=n;rbeep(n===REPS?988:740,.08)}
+    const sq=document.querySelector('[data-rdclock="sq"]');if(sq&&sq.textContent!==String(n))sq.textContent=String(n);const b=document.querySelector('[data-rdbar="sq"]');if(b)b.style.width=bar+'%'}
+  else{cnt=String(REPS);sec='0';cue='Recouchez-vous!';k=0;bar=100}
+  const set=(s,v)=>{const el=q(s);if(el&&el.textContent!==v)el.textContent=v};set('cue',cue);set('cnt',cnt);set('sec',sec);
+  const bb=q('bar');if(bb)bb.style.width=bar+'%';
+  const tt=t==null?performance.now()/1000:t,ph=(tt%PER+PER)%PER,live=t==null||(t>=0&&t<DUR);
+  const dots=E.stage.querySelectorAll('.f3d-met i');if(dots[0])dots[0].classList.toggle('on',live&&ph<.2);if(dots[1])dots[1].classList.toggle('on',live&&ph>=.75&&ph<.95);
+  return k}
+
+function loop(now){E.raf=0;if(!E.stage||!E.stage.isConnected||!E.cfg)return;
+  const c=E.cfg;
+  if(c.kind==='ruf'){const k=rufTick();const p=lerp(RUF.A,RUF.B,k);applyPose(solve(p),p.t)}
+  else{const ph=((now/1000)%c.cycle)/c.cycle,k=easeC(ph);const J=lerpJ(c.A,c.B,k);const t=c.A.t+(c.B.t-c.A.t)*k;applyPose(J,t);groundFix(k<.5?c.A.contact:c.B.contact)}
+  for(const m of E.meshes)m.material.uniforms.uTime.value=now/1000;
+  E.controls.update();E.composer.render();E.raf=requestAnimationFrame(loop)}
+
+/* ---------- montage dans l'écran courant ---------- */
+function cfgFor(host){const k=host.dataset.f3d;
+  if(k==='ruffier')return rufCfg();
+  if(k.startsWith('ex:')){const x=typeof exById==='function'?exById(k.slice(3)):null;if(!x)return null;return exAnimCfg(x.pat,x.g)}
+  if(k.startsWith('pose:')){const[,pat,g]=k.split(':');return exAnimCfg(pat,(g||'').split(',').filter(Boolean))}
+  return null}
+function mount(){
+  const host=document.querySelector('[data-f3d]');
+  if(!host){if(E.raf){cancelAnimationFrame(E.raf);E.raf=0}return}
+  if(!host.querySelector('.f3d-tog')){const b=document.createElement('button');b.type='button';b.className='f3d-tog';b.textContent=E.flat2d?'Voir en 3D':'Voir le schéma 2D (angles)';
+    b.addEventListener('click',e=>{e.stopPropagation();E.flat2d=!E.flat2d;host.classList.toggle('f3d-2d',E.flat2d);b.textContent=E.flat2d?'Voir en 3D':'Voir le schéma 2D (angles)';if(!E.flat2d){resize();if(!E.raf)E.raf=requestAnimationFrame(loop)}});
+    if(host.dataset.f3d.startsWith('ex:'))host.appendChild(b)}
+  host.classList.toggle('f3d-2d',!!E.flat2d&&host.dataset.f3d!=='ruffier');
+  if(E.state==='fail'){host.classList.add('f3d-fail');return}
+  if(E.state!=='ready'){host.classList.add('f3d-loading');boot();return}
+  host.classList.remove('f3d-loading');
+  const key=host.dataset.f3d;
+  if(key!==E.key||!E.cfg){const c=cfgFor(host);if(!c)return;E.cfg=c;E.key=key;E.userMoved=false;E.musKey=null;computeMuscles(c.muscles)}
+  if(E.stage.parentNode!==host)host.insertBefore(E.stage,host.querySelector('.f3d-tog'));
+  host.classList.add('f3d-on');
+  resize();frame(false);
+  if(!E.raf)E.raf=requestAnimationFrame(loop)}
+
+/* ---------- branchements dans la V7 ---------- */
+/* fiche exercice : la vue animée devient le lecteur 3D (le schéma 2D reste en secours) */
+if(typeof MOD3==='object'&&MOD3.exView)MOD3.exView=(old=>function(u,m){const r=old(u,m);const x=typeof exById==='function'&&exById(m.x);if(!x||!r||!r[0])return r;
+  return [r[0].replace('<div class="exbig">',`<div class="exbig f3d-host" data-f3d="ex:${String(x.id).replace(/"/g,'')}"><div class="f3d-fb">`).replace(/(<div class="exbig f3d-host"[\s\S]*?<\/svg>)(\s*<\/div>)/,'$1</div>$2'),r[1]]})(MOD3.exView);
+/* test de Ruffier, étape Effort : mannequin 3D synchronisé au compteur */
+/* test de Ruffier, étape Effort : la figure animée devient le mannequin 3D synchronisé au compteur */
+function wrapRuffier(){const sq=document.querySelector('[data-rdclock="sq"]');if(!sq)return;const fig=document.querySelector('figure.rdfigsq');if(!fig||fig.closest('[data-f3d]'))return;
+  const h=document.createElement('div');h.className='f3d-host f3d-ruf';h.dataset.f3d='ruffier';const fb=document.createElement('div');fb.className='f3d-fb';fig.parentNode.insertBefore(h,fig);fb.appendChild(fig);h.appendChild(fb)}
+render=(old=>function(){old.apply(this,arguments);try{wrapRuffier();mount()}catch(e){console.warn(e)}})(render);
+addEventListener('resize',()=>{if(E.state==='ready')resize()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&E.state==='ready'&&!E.raf)mount()});
+})();
+
+</script>
 </body></html>
