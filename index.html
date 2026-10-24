@@ -1,5 +1,6 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>FidjiCoach</title>
+<meta name="description" content="Cours de ski de fond à Québec avec Colin Christophe : classique et patin, privé, duo ou petit groupe, ateliers de fartage.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -19645,6 +19646,128 @@ try{const ins=(arr,sec)=>{if(!arr||arr.some(x=>x.t===sec.t))return;const i=arr.f
  ins(GUIDE.clubath,{t:'Athlète Plus',i:'star',d:'L\'option d\'entraînement avancé, payée par l\'athlète ou la famille, par mois, sans engagement.',s:['Offre et boutique › Athlète Plus montre votre prix : un abonnement par athlète, ou un seul abonnement famille dont le prix dépend du nombre d\'athlètes de votre famille inscrits au club.','Touchez Essayer gratuitement : l\'essai dure quelques jours, puis l\'abonnement se renouvelle chaque mois. Vous pouvez l\'arrêter en tout temps; vos données restent dans votre compte.','Avec Athlète Plus : plan d\'entraînement adaptatif ajusté chaque semaine, test au lever (Ruffier-Dickson, VFC, symptômes), sorties GPS avec zones cardio et cartes des sentiers, nutrition, étirements, analyse vidéo et partage de position.','Si votre club recommande l\'option pour votre groupe, un rappel apparaît sur votre accueil, avec le mot du club.','Votre club n\'a rien à payer pour cette option et ne voit pas vos données de santé; les entraîneurs de votre groupe voient votre test du matin et vos sorties pour ajuster votre charge.'],tip:'Pour une famille, le parent gère l\'abonnement depuis son compte; les enfants en profitent automatiquement.'});
  ins(GUIDE.coach,{t:'Tarifs de la plateforme : clubs et Athlète Plus',i:'shield',d:'Pour le propriétaire de la plateforme : ce que paient les clubs et les athlètes de club.',s:['Administration › Entraîneurs FidjiCoach › Tarifs de la plateforme : les forfaits des entraîneurs privés (Solo, Pro), la licence des clubs par saison (quatre formules selon le nombre de membres) et le prix mensuel d\'Athlète Plus (1 athlète, puis prix famille de 2 à 5 athlètes et plus).','Ces prix s\'affichent automatiquement dans la page de création de compte (choix Entraîneur ou Club), dans les présentations « Pour les entraîneurs » et « Pour les clubs », et dans l\'espace de chaque club.','Onglet Clubs : les demandes de clubs reçues (nom, région, nombre de membres, contact, système actuel). Marquez-les Contacté, Licence signée ou Refusée.','La page de création de compte propose trois grands choix : Skieur ou parent (compte client, avec le choix Mes cours privés, Mon club ou Les deux), Entraîneur (demande d\'invitation et tarifs) et Club (tarifs et demande d\'inscription du club).'],tip:'Le forfait Club mensuel des entraîneurs n\'existe plus : un club prend une licence par saison, et plusieurs entraîneurs y travaillent sans frais supplémentaires.'});
 }catch(e){console.error('V7 guides tarifs',e)}
+try{render()}catch(e){console.error(e)}
+})();
+</script>
+<script>
+/* ================= Site public fidjicoach.ca : vitrine pour le public, démo complète pour les testeurs =================
+   Accès testeur : https://fidjicoach.ca/?testeur=CODE  (retenu dans le navigateur)
+   Quitter        : bouton « Quitter le mode testeur » dans la barre de démo, ou https://fidjicoach.ca/?testeur=off */
+(function(){
+const MAIL='colinchristophe.coach@outlook.com';
+const TKEY='fc-testeur';
+const CODE_H=['3ee05878']; /* empreinte du code testeur (pas le code lui-même) */
+const hash=s=>{let h=0x811c9dc5;s=String(s).trim().toUpperCase();for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0}return h.toString(16).padStart(8,'0')};
+const get=()=>{try{return localStorage.getItem(TKEY)==='1'}catch(e){return false}};
+const set=v=>{try{v?localStorage.setItem(TKEY,'1'):localStorage.removeItem(TKEY)}catch(e){}};
+
+/* lecture du lien ?testeur=… ou #testeur=… */
+let msg=null;
+try{
+  const u=new URL(location.href);
+  const c=u.searchParams.get('testeur')||(location.hash.match(/testeur=([^&]+)/)||[])[1];
+  if(c!=null){
+    if(String(c).toLowerCase()==='off'){set(false);msg='Mode testeur désactivé.'}
+    else if(CODE_H.includes(hash(decodeURIComponent(c)))){set(true);msg='Mode testeur activé : toute la démo est accessible.'}
+    else msg='Code testeur invalide.';
+    u.searchParams.delete('testeur');u.hash='';history.replaceState(null,'',u.pathname+u.search);
+  }
+}catch(e){}
+const TESTER=get();
+window.fcTester=TESTER;
+
+if(TESTER){
+  /* testeur : tout reste comme la V7, avec un bouton pour quitter */
+  demoBar=(old=>function(){return old().replace('</div></div>','<button class="linkbtn" data-a="quitTester">Quitter le mode testeur</button></div></div>')})(demoBar);
+  A.quitTester=function(){set(false);try{db.session=null;save()}catch(e){}location.href=location.pathname};
+  if(msg)setTimeout(()=>flash(msg),300);
+  try{render()}catch(e){}
+  return;
+}
+
+/* ---------- PUBLIC : vitrine ---------- */
+demoBar=function(){return ''};
+const OK_VIEWS=['home','apropos','centres','meteo'];
+const BLOCK=['bookNow','aboGo','hLogin','demoClient','demoAdmin','p3demo','demoOther','reset','repOpen','coachPitch','clubPitch','logout','demoTg'];
+const SUBJ={coachPitch:'Entraîneur — FidjiCoach',clubPitch:'Club — FidjiCoach',aboGo:'Plan mensuel'};
+
+document.head.insertAdjacentHTML('beforeend',`<style id="fcpub">
+.demo,[data-a="hLogin"],[data-a="p3demo"],[data-a="demoOther"],[data-a="repOpen"],[data-a="reset"]{display:none!important}
+.fcq{position:fixed;inset:0;z-index:1000;background:rgba(8,18,34,.55);display:grid;place-items:center;padding:16px;overflow:auto}
+.fcq[hidden]{display:none!important}
+.fcq form{background:var(--surface);color:var(--ink);border-radius:16px;max-width:560px;width:100%;padding:22px 20px;display:grid;gap:14px;max-height:calc(100vh - 32px);overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.fcq h2{font-size:1.9rem}
+.fcq .x{justify-self:end;background:var(--surface-2);border:0;border-radius:50%;width:36px;height:36px;font-size:1.2rem;color:var(--ink);margin:-6px -4px -40px 0}
+.fcq .ok{background:var(--ok-soft);color:var(--ink);border-radius:10px;padding:12px 14px;font-size:.92rem}
+.fcq .mail{user-select:all;font-weight:700}
+</style>`);
+
+/* formulaire de demande (hors de #app, donc pas effacé par render) */
+const box=document.createElement('div');box.className='fcq';box.hidden=true;
+box.innerHTML=`<form novalidate>
+<button type="button" class="x" aria-label="Fermer" data-x>×</button>
+<div><span class="eyebrow">Demande de réservation</span><h2>Réserver un cours</h2>
+<p class="small muted" style="margin-top:6px">Remplissez ce formulaire : votre application de courriel s'ouvrira avec la demande prête à envoyer. Je vous réponds rapidement pour confirmer la date, l'heure et le lieu.</p></div>
+<div class="grid2">
+<label class="field"><span>Nom <i>*</i></span><input type="text" name="nom" autocomplete="name" required></label>
+<label class="field"><span>Téléphone</span><input type="tel" name="tel" autocomplete="tel"></label>
+</div>
+<label class="field"><span>Courriel <i>*</i></span><input type="email" name="courriel" autocomplete="email" required></label>
+<div class="grid2">
+<label class="field"><span>Type de cours</span><select name="type"><option>Cours privé</option><option>Cours en duo</option><option>Petit groupe</option><option>Cours de groupe public</option><option>Atelier de fartage</option><option>Plan d'entraînement mensuel</option><option>Programme de musculation</option><option>Forfait saison</option><option>Club — FidjiCoach</option><option>Entraîneur — FidjiCoach</option><option>Autre question</option></select></label>
+<label class="field"><span>Technique</span><select name="tech"><option>Classique</option><option>Patin</option><option>Les deux</option><option>Je ne sais pas encore</option></select></label>
+<label class="field"><span>Niveau</span><select name="niveau"><option>Débutant</option><option>Intermédiaire</option><option>Avancé</option><option>Élite</option></select></label>
+<label class="field"><span>Nombre de personnes</span><input type="number" name="nb" min="1" max="12" value="1"></label>
+</div>
+<label class="field"><span>Dates et heures souhaitées</span><input type="text" name="dates" placeholder="Ex. samedis matin en décembre"></label>
+<label class="field"><span>Lieu souhaité</span><input type="text" name="lieu" placeholder="Ex. Plaines d'Abraham, Cap-Rouge, Mont-Sainte-Anne…"></label>
+<label class="field"><span>Message</span><textarea name="msg" placeholder="Objectifs, expérience, équipement…"></textarea></label>
+<p class="small" data-err style="color:var(--bad)" hidden>Indiquez votre nom et un courriel valide.</p>
+<div class="actions"><button type="submit" class="btn btn-accent">Envoyer la demande</button><button type="button" class="btn btn-plain" data-x>Annuler</button></div>
+<div class="ok small" data-done hidden>Votre application de courriel devrait s'ouvrir. Si rien ne s'ouvre, écrivez-moi directement à <span class="mail">${MAIL}</span>.</div>
+<p class="small muted">Aucun paiement en ligne pour l'instant : le paiement se fait après confirmation du cours.</p>
+</form>`;
+document.body.appendChild(box);
+const F=box.querySelector('form');
+const close=()=>{box.hidden=true;document.body.style.overflow=''};
+window.fcOpenReq=function(type){
+  F.reset();F.querySelector('[data-err]').hidden=true;F.querySelector('[data-done]').hidden=true;
+  if(type){const s=F.type;for(const o of s.options)if(o.text===type)s.value=o.text}
+  box.hidden=false;document.body.style.overflow='hidden';setTimeout(()=>F.nom.focus(),50);
+};
+box.addEventListener('click',e=>{if(e.target===box||e.target.closest('[data-x]'))close()});
+addEventListener('keydown',e=>{if(e.key==='Escape'&&!box.hidden)close()});
+F.addEventListener('submit',e=>{e.preventDefault();
+  const v=n=>(F[n].value||'').trim();
+  if(!v('nom')||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v('courriel'))){F.querySelector('[data-err]').hidden=false;return}
+  F.querySelector('[data-err]').hidden=true;
+  const body=['Bonjour Colin,','','Je souhaite réserver un cours de ski de fond.','',
+    'Nom : '+v('nom'),'Courriel : '+v('courriel'),'Téléphone : '+(v('tel')||'—'),
+    'Type de cours : '+v('type'),'Technique : '+v('tech'),'Niveau : '+v('niveau'),'Nombre de personnes : '+(v('nb')||'1'),
+    'Dates souhaitées : '+(v('dates')||'—'),'Lieu souhaité : '+(v('lieu')||'—'),'',v('msg'),'','Envoyé depuis fidjicoach.ca'].join('\n');
+  location.href='mailto:'+MAIL+'?subject='+encodeURIComponent('Demande de réservation — '+v('type')+' — '+v('nom'))+'&body='+encodeURIComponent(body);
+  F.querySelector('[data-done]').hidden=false;
+});
+
+/* les boutons de réservation, de connexion et de démo ouvrent le formulaire */
+addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('[data-a]');if(!el||box.contains(el))return;
+  const a=el.dataset.a;
+  const blocked=BLOCK.includes(a)||(a==='go'&&el.dataset.v&&!OK_VIEWS.includes(el.dataset.v));
+  if(!blocked)return;
+  e.preventDefault();e.stopImmediatePropagation();
+  if(a==='demoTg')return;
+  fcOpenReq(SUBJ[a]);
+},true);
+
+/* garde-fou : pas de session ni d'écran de compte pour le public */
+render=(old=>function(){
+  try{if(db.session){db.session=null;save()}}catch(e){}
+  if(!OK_VIEWS.includes(st.view))st.view='home';
+  old();
+})(render);
+
+if(msg)setTimeout(()=>flash(msg),300);
 try{render()}catch(e){console.error(e)}
 })();
 </script>
