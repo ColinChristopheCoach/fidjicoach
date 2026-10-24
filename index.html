@@ -19649,6 +19649,7 @@ try{const ins=(arr,sec)=>{if(!arr||arr.some(x=>x.t===sec.t))return;const i=arr.f
 try{render()}catch(e){console.error(e)}
 })();
 </script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script>
 /* ================= Site public fidjicoach.ca : vitrine pour le public, démo complète pour les testeurs =================
    Accès testeur : https://fidjicoach.ca/?testeur=CODE  (retenu dans le navigateur)
@@ -19688,11 +19689,11 @@ if(TESTER){
 /* ---------- PUBLIC : vitrine ---------- */
 demoBar=function(){return ''};
 const OK_VIEWS=['home','apropos','centres','meteo'];
-const BLOCK=['bookNow','aboGo','hLogin','demoClient','demoAdmin','p3demo','demoOther','reset','repOpen','coachPitch','clubPitch','logout','demoTg'];
+const BLOCK=['bookNow','aboGo','demoClient','demoAdmin','p3demo','demoOther','reset','repOpen','coachPitch','clubPitch','demoTg'];
 const SUBJ={coachPitch:'Entraîneur — FidjiCoach',clubPitch:'Club — FidjiCoach',aboGo:'Plan mensuel'};
 
 document.head.insertAdjacentHTML('beforeend',`<style id="fcpub">
-.demo,[data-a="hLogin"],[data-a="p3demo"],[data-a="demoOther"],[data-a="repOpen"],[data-a="reset"]{display:none!important}
+.demo,[data-a="p3demo"],[data-a="demoOther"],[data-a="repOpen"],[data-a="reset"]{display:none!important}
 .fcq{position:fixed;inset:0;z-index:1000;background:rgba(8,18,34,.55);display:grid;place-items:center;padding:16px;overflow:auto}
 .fcq[hidden]{display:none!important}
 .fcq form{background:var(--surface);color:var(--ink);border-radius:16px;max-width:560px;width:100%;padding:22px 20px;display:grid;gap:14px;max-height:calc(100vh - 32px);overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.3)}
@@ -19754,21 +19755,186 @@ addEventListener('click',e=>{
   const el=e.target.closest&&e.target.closest('[data-a]');if(!el||box.contains(el))return;
   const a=el.dataset.a;
   const blocked=BLOCK.includes(a)||(a==='go'&&el.dataset.v&&!OK_VIEWS.includes(el.dataset.v));
-  if(!blocked)return;
+  if(!blocked||R.on)return;
   e.preventDefault();e.stopImmediatePropagation();
   if(a==='demoTg')return;
   fcOpenReq(SUBJ[a]);
 },true);
 
-/* garde-fou : pas de session ni d'écran de compte pour le public */
+
+/* ================= Comptes réels (Supabase) — étape 2 =================
+   Public : vraie connexion / inscription, fiche client enregistrée dans la base.
+   Admin (Colin) : voit les clients inscrits et leurs fiches; notes privées enregistrées.
+   Le reste (réservations, paiements) arrive aux prochaines étapes : pour l'instant,
+   « Réserver » ouvre encore le formulaire de demande. */
+const SB_URL='https://cwqbhtsbewcqhxjbviog.supabase.co';
+const SB_KEY='sb_publishable_qtGHs-uOk50Lwd6zsCzZSg_qb5YtwQX';
+const COACH_SLUG='colin-christophe';
+const RKEY='fidjicoach-reel-1';
+const R={on:false,sb:null,uid:null,role:null,coachId:null,snap:{},busy:false,info:''};
+window.fcReal=R;
+
+/* --- espace de données local propre (aucune donnée d'exemple) --- */
+const EMPTY_ARR=['users','slots','bookings','inventory','rentals','notifs','perso','promos','convs','docs','cnotifs','newsletter','acts','coachLeads','platFb','expenses','outbox','events','feedback','subs','results','goals','videos','programs','progLogs','stLogs','clubs','res','rd','plan','tlog','ptests','recur'];
+const EMPTY_OBJ=['friends','share','devices'];
+function cleanDb(base){const d=JSON.parse(JSON.stringify(base));EMPTY_ARR.forEach(k=>{if(Array.isArray(d[k]))d[k]=[]});EMPTY_OBJ.forEach(k=>{if(d[k]&&typeof d[k]==='object')d[k]={}});d.cals=[];d.session=null;d.invSeq=0;return d}
+try{const s=localStorage.getItem(RKEY);db=s?JSON.parse(s):cleanDb(db)}catch(e){db=cleanDb(db)}
+save=function(){try{localStorage.setItem(RKEY,JSON.stringify(db))}catch(e){}if(R.on)queueSync()};
+
+const fr=m=>{m=String(m||'');
+  if(/Invalid login/i.test(m))return 'Courriel ou mot de passe incorrect.';
+  if(/Email not confirmed/i.test(m))return 'Activez d\'abord votre compte avec le lien reçu par courriel.';
+  if(/already registered|already been registered/i.test(m))return 'Un compte existe déjà avec ce courriel. Connectez-vous.';
+  if(/Password should be/i.test(m))return 'Le mot de passe doit contenir au moins 6 caractères.';
+  if(/rate limit|too many/i.test(m))return 'Trop de tentatives. Réessayez dans quelques minutes.';
+  if(/valid email|invalid.*email/i.test(m))return 'Ce courriel n\'est pas valide.';
+  if(/fetch|network/i.test(m))return 'Connexion impossible. Vérifiez votre accès Internet.';
+  return 'Erreur : '+m};
+
+/* --- conversion base <-> écrans de la V7 --- */
+function localUser(p,f){const data=(f&&f.data)||{};const fiche=Object.assign({},data);delete fiche._onb;
+  if(p.prenom&&!fiche.prenom)fiche.prenom=p.prenom;if(p.nom&&!fiche.nom)fiche.nom=p.nom;if(p.tel&&!fiche.tel)fiche.tel=p.tel;
+  return {id:p.role==='admin'?ADMIN_ID:p.id,sid:p.id,email:p.email,pass:null,role:p.role==='admin'?'admin':'client',code:p.ref_code||'',refBy:p.referred_by||null,credit:false,refRewarded:false,
+    created:String(p.created_at||'').slice(0,10),photo:null,fiche,notes:[],prefs:(typeof defPrefs==='function'?defPrefs():{}),newsletter:!!p.newsletter,termsAt:p.terms_at?String(p.terms_at).slice(0,10):null,
+    onboarded:p.role==='admin'?true:!!data._onb,tester:p.tester_until||null}}
+const snapOf=u=>JSON.stringify({f:u.fiche,o:u.onboarded,n:u.newsletter});
+
+async function loadMe(){
+  const {data:{user}}=await R.sb.auth.getUser();if(!user)return false;
+  const {data:p,error}=await R.sb.from('profiles').select('*').eq('id',user.id).single();
+  if(error||!p){flash('Profil introuvable : '+(error&&error.message||''));return false}
+  const {data:f}=await R.sb.from('client_fiches').select('*').eq('client_id',user.id).maybeSingle();
+  R.uid=user.id;R.role=p.role;
+  const me0=localUser(p,f);
+  db.users=db.users.filter(u=>u.sid&&u.sid!==user.id&&p.role==='admin');
+  db.users.unshift(me0);db.session=me0.id;R.snap[me0.id]=snapOf(me0);
+  const {data:c}=await R.sb.from('coaches').select('id,owner_id').eq('slug',COACH_SLUG).maybeSingle();R.coachId=c&&c.id;
+  if(p.role==='client'&&R.coachId)await R.sb.from('coach_clients').upsert({coach_id:R.coachId,client_id:user.id},{onConflict:'coach_id,client_id',ignoreDuplicates:true});
+  if(p.role==='admin')await loadClients();
+  R.on=true;localStorage.setItem(RKEY,JSON.stringify(db));return true}
+
+async function loadClients(){R.snap=Object.fromEntries(Object.entries(R.snap).filter(([k])=>!k.startsWith('n:')));
+  const [{data:ps},{data:fs},{data:ns}]=await Promise.all([
+    R.sb.from('profiles').select('*').neq('role','admin').order('created_at',{ascending:false}),
+    R.sb.from('client_fiches').select('*'),
+    R.sb.from('private_notes').select('*').order('created_at',{ascending:false})]);
+  const fm={};(fs||[]).forEach(f=>fm[f.client_id]=f);
+  const adm=db.users.find(u=>u.role==='admin');
+  db.users=[adm,...(ps||[]).map(p=>{const u=localUser(p,fm[p.id]);u.notes=(ns||[]).filter(n=>n.client_id===p.id).map(n=>({sid:n.id,date:String(n.created_at).slice(0,10),text:n.body}));R.snap['n:'+p.id]=u.notes.map(n=>n.sid);return u})].filter(Boolean)}
+
+/* --- envoi des changements vers la base (fiche du client, notes privées de l'entraîneur) --- */
+let tSync=null;function queueSync(){clearTimeout(tSync);tSync=setTimeout(pushChanges,600)}
+async function pushChanges(){if(!R.on||R.busy)return;R.busy=true;
+  try{const u=me();if(!u)return;
+    if(R.role==='client'&&R.snap[u.id]!==snapOf(u)){
+      const data=Object.assign({},u.fiche,{_onb:!!u.onboarded});
+      const {error}=await R.sb.from('client_fiches').upsert({client_id:R.uid,data,updated_at:new Date().toISOString()});
+      if(error)throw error;
+      await R.sb.from('profiles').update({prenom:u.fiche.prenom||null,nom:u.fiche.nom||null,tel:u.fiche.tel||null,newsletter:!!u.newsletter}).eq('id',R.uid);
+      R.snap[u.id]=snapOf(u)}
+    if(R.role==='admin'&&R.coachId){
+      for(const c of db.users.filter(x=>x.role==='client'&&x.sid)){
+        const notes=c.notes||[];
+        for(const n of notes.filter(n=>!n.sid&&n.text)){const {data,error}=await R.sb.from('private_notes').insert({coach_id:R.coachId,client_id:c.sid,body:n.text}).select('id').single();if(error)throw error;n.sid=data.id}
+        const keep=new Set(notes.map(n=>n.sid));const was=(R.snap['n:'+c.sid]||[]);
+        for(const id of was.filter(id=>!keep.has(id)))await R.sb.from('private_notes').delete().eq('id',id);
+        R.snap['n:'+c.sid]=[...keep].filter(Boolean)}}
+    localStorage.setItem(RKEY,JSON.stringify(db));
+  }catch(e){console.error(e);flash('Enregistrement en ligne impossible : '+fr(e.message))}
+  finally{R.busy=false}}
+
+function resetLocal(){db.users=[];db.session=null;R.on=false;R.uid=R.role=null;R.snap={};try{localStorage.setItem(RKEY,JSON.stringify(db))}catch(e){}}
+
+/* --- formulaire Connexion / Créer un compte de la V7, branché sur Supabase --- */
+addEventListener('submit',async e=>{const f=e.target;if(!f||f.id!=='authForm')return;
+  e.preventDefault();e.stopImmediatePropagation();
+  if(!R.sb){st.authErr='Le service de comptes ne répond pas. Réessayez plus tard.';render();return}
+  const email=document.getElementById('aEmail').value.trim(),pass=document.getElementById('aPass').value;
+  if(!email||!pass){st.authErr='Entrez votre courriel et votre mot de passe.';render();return}
+  const btn=f.querySelector('[type=submit]');if(btn){btn.disabled=true;btn.textContent='Un instant…'}
+  try{
+    if(st.authMode==='login'){
+      const {error}=await R.sb.auth.signInWithPassword({email,password:pass});if(error)throw error;
+      if(!await loadMe())return;R.info='';afterLogin();return}
+    if(pass.length<8){st.authErr='Choisissez un mot de passe d\'au moins 8 caractères.';render();return}
+    if(!document.getElementById('aTerms').checked){st.authErr='Vous devez accepter les conditions d\'utilisation pour créer un compte.';render();return}
+    const news=!!(document.getElementById('aNews')||{}).checked;
+    const {data,error}=await R.sb.auth.signUp({email,password:pass,options:{emailRedirectTo:location.origin+location.pathname,data:{newsletter:news}}});
+    if(error)throw error;
+    if(data.user&&Array.isArray(data.user.identities)&&!data.user.identities.length){st.authErr='Un compte existe déjà avec ce courriel. Connectez-vous.';st.authMode='login';render();return}
+    if(!data.session){st.authMode='login';st.authErr='';R.info='Presque terminé! Ouvrez le courriel envoyé à '+email+' et cliquez sur le lien pour activer votre compte. Revenez ensuite vous connecter.';render();return}
+    await R.sb.from('profiles').update({terms_at:new Date().toISOString(),newsletter:news}).eq('id',data.user.id);
+    if(!await loadMe())return;
+    R.info='';st.view='client';st.ob=1;st.tab=null;render();window.scrollTo(0,0);flash('Compte créé. Remplissons votre fiche.');
+  }catch(err){st.authErr=fr(err.message);render()}
+  finally{if(btn&&btn.isConnected){btn.disabled=false}}
+},true);
+
+/* termes acceptés à la première connexion après activation par courriel */
+async function stampTerms(){try{const {data:p}=await R.sb.from('profiles').select('terms_at').eq('id',R.uid).single();if(p&&!p.terms_at)await R.sb.from('profiles').update({terms_at:new Date().toISOString()}).eq('id',R.uid)}catch(e){}}
+
+/* --- mot de passe oublié / nouveau mot de passe --- */
+const pw=document.createElement('div');pw.className='fcq';pw.hidden=true;
+pw.innerHTML=`<form novalidate><div><span class="eyebrow">Votre compte</span><h2>Nouveau mot de passe</h2></div>
+<label class="field"><span>Nouveau mot de passe (8 caractères ou plus)</span><input type="password" name="p1" autocomplete="new-password"></label>
+<label class="field"><span>Confirmer</span><input type="password" name="p2" autocomplete="new-password"></label>
+<p class="small" data-err style="color:var(--bad)" hidden></p>
+<div class="actions"><button type="submit" class="btn btn-accent">Enregistrer</button></div></form>`;
+document.body.appendChild(pw);
+pw.querySelector('form').addEventListener('submit',async e=>{e.preventDefault();const F2=e.target,er=F2.querySelector('[data-err]');
+  if(F2.p1.value.length<8||F2.p1.value!==F2.p2.value){er.textContent='Les deux mots de passe doivent être identiques et contenir au moins 8 caractères.';er.hidden=false;return}
+  const {error}=await R.sb.auth.updateUser({password:F2.p1.value});if(error){er.textContent=fr(error.message);er.hidden=false;return}
+  pw.hidden=true;document.body.style.overflow='';if(await loadMe())afterLogin();flash('Mot de passe changé.')});
+async function forgot(){const v=(document.getElementById('aEmail')||{}).value||'';
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.trim())){st.authErr='Entrez d\'abord votre courriel dans le champ ci-dessus.';render();return}
+  const {error}=await R.sb.auth.resetPasswordForEmail(v.trim(),{redirectTo:location.origin+location.pathname});
+  st.authErr=error?fr(error.message):'';R.info=error?'':'Si un compte existe pour '+v.trim()+', un courriel avec un lien pour changer le mot de passe vient d\'être envoyé.';render()}
+
+/* --- actions de la V7 adaptées au mode réel --- */
+const CLIENT_TABS=['accueil','profil','centres',...PTABS.filter(t=>['fiche','reglages','notifs'].includes(t))];
+const reqFor=()=>{const u=me();fcOpenReq();const F=document.querySelector('.fcq:not([hidden]) form');if(F&&u){const n=((u.fiche.prenom||'')+' '+(u.fiche.nom||'')).trim();if(n&&F.nom)F.nom.value=n;if(F.courriel)F.courriel.value=u.email||'';if(F.tel&&u.fiche.tel)F.tel.value=u.fiche.tel}};
+A.hLogin=function(){R.info='';st.view='auth';st.authMode='login';st.authErr='';render();window.scrollTo(0,0)};
+A.logout=async function(){try{await R.sb.auth.signOut()}catch(e){}resetLocal();st.pushes=[];st.view='home';st.R=null;st.pk=null;render();flash('Vous êtes déconnecté.')};
+A.fcForgot=forgot;
+
+addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-a]');if(!el||!R.on||R.role!=='client')return;
+  const a=el.dataset.a,d=el.dataset;
+  const book=['bookNow','goRent','aboGo','p3demo','demoOther','repOpen'].includes(a)||(a==='tab'&&!CLIENT_TABS.includes(d.t))||(a==='hub'&&d.k&&!CLIENT_TABS.includes(d.k)&&d.k!=='__ctr')||(a==='ptab'&&d.p&&!CLIENT_TABS.includes(d.p));
+  if(!book)return;e.preventDefault();e.stopImmediatePropagation();reqFor()},true);
+
+/* --- ajouts après chaque affichage --- */
+function decorate(){const app=document.getElementById('app');if(!app)return;
+  if(st.view==='auth'){
+    app.querySelectorAll('#authForm p.muted.small').forEach(p=>{if(/demo123|Démo/.test(p.textContent))p.remove()});
+    const f=app.querySelector('#authForm');
+    if(f&&st.authMode==='login'&&!f.querySelector('[data-a="fcForgot"]'))f.insertAdjacentHTML('beforeend','<p class="small"><button type="button" class="linkbtn" data-a="fcForgot">Mot de passe oublié?</button></p>');
+    if(f&&R.info)f.insertAdjacentHTML('afterbegin',`<p class="info" style="background:var(--ok-soft);border-radius:10px;padding:12px 14px">${esc(R.info)}</p>`)}
+  if(R.on&&R.role==='admin'&&st.view==='admin'){const m=app.querySelector('main');
+    if(m&&!m.querySelector('.fcreal'))m.insertAdjacentHTML('afterbegin',`<p class="fcreal small" style="background:var(--warn-soft);border-radius:10px;padding:10px 14px;margin:0 0 14px">Mode réel : les comptes clients, leurs fiches et vos notes privées sont enregistrés en ligne (${db.users.filter(u=>u.role==='client').length} client${db.users.filter(u=>u.role==='client').length>1?'s':''}). Les autres sections (disponibilités, réservations, paiements…) ne sont pas encore branchées : ce que vous y entrez reste sur cet appareil. <button class="linkbtn" data-a="fcReload">Actualiser</button></p>`)}}
+A.fcReload=async function(){await loadClients();save();render();flash('Liste des clients à jour')};
+
+/* --- démarrage --- */
+async function bootReal(){
+  if(!window.supabase||!window.supabase.createClient){console.warn('supabase-js absent');return}
+  R.sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  R.sb.auth.onAuthStateChange((ev)=>{if(ev==='PASSWORD_RECOVERY'){pw.hidden=false;document.body.style.overflow='hidden'}
+    if(ev==='SIGNED_OUT'&&R.on){resetLocal();st.view='home';render()}});
+  const {data:{session}}=await R.sb.auth.getSession();
+  if(session){if(await loadMe()){stampTerms();if(st.view==='home'||st.view==='auth'){st.view=R.role==='admin'?'admin':'client';st.tab=R.role==='admin'?'today':(me().onboarded?'accueil':null)}render()}}
+  else{resetLocal();render()}}
+
+/* garde-fou : sans compte réel, seulement la vitrine et l'écran de connexion */
 render=(old=>function(){
-  try{if(db.session){db.session=null;save()}}catch(e){}
-  if(!OK_VIEWS.includes(st.view))st.view='home';
-  old();
+  if(!R.on){try{if(db.session){db.session=null;save()}}catch(e){}if(!OK_VIEWS.includes(st.view)&&st.view!=='auth')st.view='home'}
+  else{const okV=[...OK_VIEWS,'auth',R.role==='admin'?'admin':'client'];if(!okV.includes(st.view))st.view=R.role==='admin'?'admin':'client';
+    if(R.role==='client'&&st.view==='client'&&st.tab&&!CLIENT_TABS.includes(st.tab)&&!PTABS.includes(st.tab))st.tab='accueil';
+    if(R.role==='client'&&st.ptab&&!CLIENT_TABS.includes(st.ptab))st.ptab=null}
+  old();try{decorate()}catch(e){console.error(e)}
 })(render);
 
 if(msg)setTimeout(()=>flash(msg),300);
 try{render()}catch(e){console.error(e)}
+bootReal().catch(e=>console.error(e));
 })();
 </script>
 </body></html>
