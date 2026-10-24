@@ -19848,6 +19848,7 @@ function resetLocal(){db.users=[];db.session=null;R.on=false;R.uid=R.role=null;R
 /* --- formulaire Connexion / Créer un compte de la V7, branché sur Supabase --- */
 addEventListener('submit',async e=>{const f=e.target;if(!f||f.id!=='authForm')return;
   e.preventDefault();e.stopImmediatePropagation();
+  R.info='';
   if(!R.sb){st.authErr='Le service de comptes ne répond pas. Réessayez plus tard.';render();return}
   const email=document.getElementById('aEmail').value.trim(),pass=document.getElementById('aPass').value;
   if(!email||!pass){st.authErr='Entrez votre courriel et votre mot de passe.';render();return}
@@ -19885,7 +19886,7 @@ pw.querySelector('form').addEventListener('submit',async e=>{e.preventDefault();
   if(F2.p1.value.length<8||F2.p1.value!==F2.p2.value){er.textContent='Les deux mots de passe doivent être identiques et contenir au moins 8 caractères.';er.hidden=false;return}
   const {error}=await R.sb.auth.updateUser({password:F2.p1.value});if(error){er.textContent=fr(error.message);er.hidden=false;return}
   pw.hidden=true;document.body.style.overflow='';if(await loadMe())afterLogin();flash('Mot de passe changé.')});
-async function forgot(){const v=(document.getElementById('aEmail')||{}).value||'';
+async function forgot(){R.info='';st.authErr='';const v=(document.getElementById('aEmail')||{}).value||'';
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.trim())){st.authErr='Entrez d\'abord votre courriel dans le champ ci-dessus.';render();return}
   const {error}=await R.sb.auth.resetPasswordForEmail(v.trim(),{redirectTo:location.origin+location.pathname});
   st.authErr=error?fr(error.message):'';R.info=error?'':'Si un compte existe pour '+v.trim()+', un courriel avec un lien pour changer le mot de passe vient d\'être envoyé.';render()}
@@ -19896,6 +19897,11 @@ const reqFor=()=>{const u=me();fcOpenReq();const F=document.querySelector('.fcq:
 A.hLogin=function(){R.info='';st.view='auth';st.authMode='login';st.authErr='';render();window.scrollTo(0,0)};
 A.logout=async function(){try{await R.sb.auth.signOut()}catch(e){}resetLocal();st.pushes=[];st.view='home';st.R=null;st.pk=null;render();flash('Vous êtes déconnecté.')};
 A.fcForgot=forgot;
+
+/* menu du petit bonhomme : un toucher ouvre le menu (Tableau de bord, Réglages, Se déconnecter) au lieu de naviguer */
+addEventListener('click',e=>{if(!R.on)return;const av=e.target.closest&&e.target.closest('.umenu .uav');if(!av)return;
+  e.preventDefault();e.stopImmediatePropagation();const m=av.closest('.umenu');const o=!m.classList.contains('open');m.classList.toggle('open',o);av.setAttribute('aria-expanded',o);st.um=o;
+  const mn=m.querySelector('.menu');if(mn&&o){const r=av.getBoundingClientRect();Object.assign(mn.style,{position:'fixed',top:(r.bottom+8)+'px',left:Math.max(12,Math.min(r.left,innerWidth-Math.min(280,innerWidth-24)-12))+'px',right:'auto',zIndex:'200',width:Math.min(280,innerWidth-24)+'px',maxHeight:(innerHeight-r.bottom-20)+'px',overflow:'auto'})}},true);
 
 addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-a]');if(!el||!R.on||R.role!=='client')return;
   const a=el.dataset.a,d=el.dataset;
