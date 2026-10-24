@@ -19689,7 +19689,7 @@ if(TESTER){
 /* ---------- PUBLIC : vitrine ---------- */
 demoBar=function(){return ''};
 const OK_VIEWS=['home','apropos','centres','meteo'];
-const BLOCK=['bookNow','aboGo','demoClient','demoAdmin','p3demo','demoOther','reset','repOpen','coachPitch','clubPitch','demoTg'];
+const BLOCK=['aboGo','demoClient','demoAdmin','p3demo','demoOther','reset','repOpen','coachPitch','clubPitch','demoTg'];
 const SUBJ={coachPitch:'Entraîneur — FidjiCoach',clubPitch:'Club — FidjiCoach',aboGo:'Plan mensuel'};
 
 document.head.insertAdjacentHTML('beforeend',`<style id="fcpub">
@@ -19811,6 +19811,8 @@ async function loadMe(){
   const {data:c}=await R.sb.from('coaches').select('id,owner_id').eq('slug',COACH_SLUG).maybeSingle();R.coachId=c&&c.id;
   if(p.role==='client'&&R.coachId)await R.sb.from('coach_clients').upsert({coach_id:R.coachId,client_id:user.id},{onConflict:'coach_id,client_id',ignoreDuplicates:true});
   if(p.role==='admin')await loadClients();
+  try{if(R.coachId){if(p.role==='admin')await loadCoachSide();else await loadClientSide()}}
+  catch(e){console.error(e);setTimeout(()=>flash('Disponibilités et réservations en ligne indisponibles : '+fr(e.message)),500)}
   R.on=true;localStorage.setItem(RKEY,JSON.stringify(db));return true}
 
 async function loadClients(){R.snap=Object.fromEntries(Object.entries(R.snap).filter(([k])=>!k.startsWith('n:')));
@@ -19838,12 +19840,13 @@ async function pushChanges(){if(!R.on||R.busy)return;R.busy=true;
         for(const n of notes.filter(n=>!n.sid&&n.text)){const {data,error}=await R.sb.from('private_notes').insert({coach_id:R.coachId,client_id:c.sid,body:n.text}).select('id').single();if(error)throw error;n.sid=data.id}
         const keep=new Set(notes.map(n=>n.sid));const was=(R.snap['n:'+c.sid]||[]);
         for(const id of was.filter(id=>!keep.has(id)))await R.sb.from('private_notes').delete().eq('id',id);
-        R.snap['n:'+c.sid]=[...keep].filter(Boolean)}}
+        R.snap['n:'+c.sid]=[...keep].filter(Boolean)}
+      await pushCoach()}
     localStorage.setItem(RKEY,JSON.stringify(db));
   }catch(e){console.error(e);flash('Enregistrement en ligne impossible : '+fr(e.message))}
   finally{R.busy=false}}
 
-function resetLocal(){db.users=[];db.session=null;R.on=false;R.uid=R.role=null;R.snap={};try{localStorage.setItem(RKEY,JSON.stringify(db))}catch(e){}}
+function resetLocal(){db.users=[];db.session=null;db.bookings=[];db.slots=[];db.recur=[];if(R.taken)R.taken=[];R.on=false;R.uid=R.role=null;R.snap={};try{localStorage.setItem(RKEY,JSON.stringify(db))}catch(e){}}
 
 /* --- formulaire Connexion / Créer un compte de la V7, branché sur Supabase --- */
 addEventListener('submit',async e=>{const f=e.target;if(!f||f.id!=='authForm')return;
@@ -19892,7 +19895,7 @@ async function forgot(){R.info='';st.authErr='';const v=(document.getElementById
   st.authErr=error?fr(error.message):'';R.info=error?'':'Si un compte existe pour '+v.trim()+', un courriel avec un lien pour changer le mot de passe vient d\'être envoyé.';render()}
 
 /* --- actions de la V7 adaptées au mode réel --- */
-const CLIENT_TABS=['accueil','profil','centres',...PTABS.filter(t=>['fiche','reglages','notifs'].includes(t))];
+const CLIENT_TABS=['accueil','reserver','resa','profil','centres',...PTABS.filter(t=>['fiche','reglages','notifs'].includes(t))];
 const reqFor=()=>{const u=me();fcOpenReq();const F=document.querySelector('.fcq:not([hidden]) form');if(F&&u){const n=((u.fiche.prenom||'')+' '+(u.fiche.nom||'')).trim();if(n&&F.nom)F.nom.value=n;if(F.courriel)F.courriel.value=u.email||'';if(F.tel&&u.fiche.tel)F.tel.value=u.fiche.tel}};
 A.hLogin=function(){R.info='';st.view='auth';st.authMode='login';st.authErr='';render();window.scrollTo(0,0)};
 A.logout=async function(){try{await R.sb.auth.signOut()}catch(e){}resetLocal();st.pushes=[];st.view='home';st.R=null;st.pk=null;render();flash('Vous êtes déconnecté.')};
@@ -19905,19 +19908,174 @@ addEventListener('click',e=>{if(!R.on)return;const av=e.target.closest&&e.target
 
 addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-a]');if(!el||!R.on||R.role!=='client')return;
   const a=el.dataset.a,d=el.dataset;
-  const book=['bookNow','goRent','aboGo','p3demo','demoOther','repOpen'].includes(a)||(a==='tab'&&!CLIENT_TABS.includes(d.t))||(a==='hub'&&d.k&&!CLIENT_TABS.includes(d.k)&&d.k!=='__ctr')||(a==='ptab'&&d.p&&!CLIENT_TABS.includes(d.p));
+  const book=['goRent','aboGo','p3demo','demoOther','repOpen'].includes(a)||(a==='tab'&&!CLIENT_TABS.includes(d.t))||(a==='hub'&&d.k&&!CLIENT_TABS.includes(d.k)&&d.k!=='__ctr')||(a==='ptab'&&d.p&&!CLIENT_TABS.includes(d.p));
   if(!book)return;e.preventDefault();e.stopImmediatePropagation();reqFor()},true);
 
 /* --- ajouts après chaque affichage --- */
 function decorate(){const app=document.getElementById('app');if(!app)return;
+  if(R.on){const sb=document.querySelector('[data-a="stripeOk"]');if(sb&&!sb.dataset.fc){sb.dataset.fc='1';sb.textContent='Continuer';const info=sb.closest('.actions')&&sb.closest('.actions').previousElementSibling;if(info&&info.classList.contains('info'))info.textContent='Le paiement en ligne par carte sera activé très bientôt. Votre réservation est enregistrée; elle sera confirmée une fois le paiement reçu.'}}
   if(st.view==='auth'){
     app.querySelectorAll('#authForm p.muted.small').forEach(p=>{if(/demo123|Démo/.test(p.textContent))p.remove()});
     const f=app.querySelector('#authForm');
     if(f&&st.authMode==='login'&&!f.querySelector('[data-a="fcForgot"]'))f.insertAdjacentHTML('beforeend','<p class="small"><button type="button" class="linkbtn" data-a="fcForgot">Mot de passe oublié?</button></p>');
     if(f&&R.info)f.insertAdjacentHTML('afterbegin',`<p class="info" style="background:var(--ok-soft);border-radius:10px;padding:12px 14px">${esc(R.info)}</p>`)}
   if(R.on&&R.role==='admin'&&st.view==='admin'){const m=app.querySelector('main');
-    if(m&&!m.querySelector('.fcreal'))m.insertAdjacentHTML('afterbegin',`<p class="fcreal small" style="background:var(--warn-soft);border-radius:10px;padding:10px 14px;margin:0 0 14px">Mode réel : les comptes clients, leurs fiches et vos notes privées sont enregistrés en ligne (${db.users.filter(u=>u.role==='client').length} client${db.users.filter(u=>u.role==='client').length>1?'s':''}). Les autres sections (disponibilités, réservations, paiements…) ne sont pas encore branchées : ce que vous y entrez reste sur cet appareil. <button class="linkbtn" data-a="fcReload">Actualiser</button></p>`)}}
-A.fcReload=async function(){await loadClients();save();render();flash('Liste des clients à jour')};
+    if(m&&!m.querySelector('.fcreal'))m.insertAdjacentHTML('afterbegin',`<p class="fcreal small" style="background:var(--warn-soft);border-radius:10px;padding:10px 14px;margin:0 0 14px">Mode réel : les comptes clients, leurs fiches et vos notes privées sont enregistrés en ligne (${db.users.filter(u=>u.role==='client').length} client${db.users.filter(u=>u.role==='client').length>1?'s':''}). Vos disponibilités, vos tarifs et les réservations des clients sont aussi en ligne. Le paiement par carte (Stripe) et les autres sections arrivent aux prochaines étapes : ce que vous y entrez reste sur cet appareil. <button class="linkbtn" data-a="fcReload">Actualiser</button></p>`)}}
+A.fcReload=async function(){busyOn('Mise à jour…');try{await loadClients();await syncAll()}finally{busyOff()}save();render();flash('Clients, disponibilités et réservations à jour')};
+
+
+/* ================= Étape 3 : disponibilités et réservations réelles (Supabase) =================
+   Entraîneur : ses tarifs, lieux, promotions et disponibilités sont publiés en ligne à chaque changement.
+   Client     : voit les vraies plages libres; la réservation est créée et le prix calculé PAR LE SERVEUR
+                (fonction create_booking). Annuler, déplacer, planifier passent aussi par le serveur.
+   Paiement par carte (Stripe) : prochaine étape. Interac : l'entraîneur confirme la réception. */
+R.taken=[];R.pubAt=null;
+const TZ='America/Toronto';
+const tzFmt=new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+function tzParts(ts){const o={};tzFmt.formatToParts(new Date(ts)).forEach(p=>o[p.type]=p.value);return {date:o.year+'-'+o.month+'-'+o.day,start:o.hour+':'+o.minute}}
+const lid=x=>x?(x===R.uid&&R.role==='admin'?ADMIN_ID:x):null;
+const REC_ID=/^r.+_\d{4}-\d\d-\d\d$/;
+
+/* --- tarifs et règles publiés par l'entraîneur --- */
+function stripBig(v){return JSON.parse(JSON.stringify(v||[],(k,x)=>typeof x==='string'&&x.length>40000?'':x))}
+function pubData(){
+  const fees={};(db.centres||[]).forEach(c=>{try{fees[c.name]={af:accessFee(c),tf:travelFee(c)}}catch(e){}});
+  let tampon=TAMPON;try{const B_=bufCfg();tampon=B_.mode==='fixe'?Number(B_.fixed)||0:Number(B_.same)||TAMPON}catch(e){}
+  const S=db.settings||{};
+  return {v:1,ctypes:db.ctypes,promos:db.promos||[],centres:stripBig(db.centres),remise:REMISE,tampon,fees,
+    settings:{fin:fin(),travel:travelCfg(),buf:(typeof bufCfg==='function'?bufCfg():null),grpMin:S.grpMin,grpMax:S.grpMax}}}
+function privData(){return {v:1,recur:db.recur||[],settings:db.settings}}
+function applyPub(d){if(!d||!d.ctypes)return;
+  db.ctypes=d.ctypes;db.promos=d.promos||[];if(Array.isArray(d.centres)&&d.centres.length)db.centres=d.centres;
+  db.settings=db.settings||{};const s=d.settings||{};['fin','travel','buf'].forEach(k=>{if(s[k])db.settings[k]=s[k]});
+  if(s.grpMin!=null)db.settings.grpMin=s.grpMin;if(s.grpMax!=null)db.settings.grpMax=s.grpMax}
+async function loadPub(){if(!R.coachId)return null;
+  const {data}=await R.sb.from('coach_public').select('data,updated_at').eq('coach_id',R.coachId).maybeSingle();
+  if(data){applyPub(data.data);R.pubAt=data.updated_at}return data}
+
+/* --- disponibilités --- */
+function slotsPayload(){const t=today();return (db.slots||[]).filter(s=>s.date>=t&&s.start&&s.end&&s.end>s.start).map(s=>({k:String(s.id),d:s.date,s:s.start,e:s.end})).sort((a,b)=>(a.d+a.s).localeCompare(b.d+b.s))}
+async function loadAgenda(){if(!R.coachId)return;
+  const {data,error}=await R.sb.rpc('coach_agenda',{p_coach:R.coachId});if(error)throw error;
+  const sl=(data&&data.slots)||[];R.taken=(data&&data.busy)||[];
+  db.slots=sl.map(s=>{const id=String(s.id);const o={id,date:s.date,start:s.start,end:s.end};
+    /* plages générées par une disponibilité récurrente : id « r<règle>_<date> » */
+    if(R.role==='admin'&&REC_ID.test(id))o.rec=id.slice(1,id.lastIndexOf('_'));return o})}
+
+/* --- réservations : base -> écrans de la V7 --- */
+function toLocal(row){const d=row.details||{};
+  const ss=(row.booking_sessions||[]).slice().sort((a,b)=>a.starts_at.localeCompare(b.starts_at));
+  const sessions=ss.filter(s=>!s.cancelled).map(s=>{const o=Object.assign({id:s.id},tzParts(s.starts_at));if(s.pending_to)o.pendingMove=tzParts(s.pending_to);return o});
+  const gone=ss.filter(s=>s.cancelled&&s.cancel_kind!=='coach').map(s=>{const k=s.cancel_kind;return Object.assign(tzParts(s.starts_at),{credit:k==='credit',refund:k==='refund',late:k==='late'})});
+  const pays=(row.payments||[]).slice().sort((a,b)=>a.created_at.localeCompare(b.created_at));
+  const parts=pays.map((p,i)=>({pid:p.id,userId:lid(p.payer_id),amount:p.amount_cents/100,method:p.method,paid:p.status==='payee',paidAt:p.paid_at?String(p.paid_at).slice(0,10):null,
+    lines:p.lines||[],invited:!p.payer_id,payerOnly:i===0&&d.me===false,split:{}}));
+  return {id:row.id,sid:row.id,real:true,ref:row.ref,owner:lid(row.owner_id),payer:lid(row.owner_id),type:d.ctype||row.type,formule:row.formule||'ind',tech:row.technique||'',niveau:row.niveau||'',
+    dur:row.duree_min||60,qty:row.nb_cours||1,nb:row.nb_pers||1,lieu:row.lieu||'',created:row.created_at,sessions,gone,rental:{},cancelled:row.status==='annulee',
+    gift:d.me===false?{msg:d.giftMsg||''}:null,shareCode:d.shareCode||null,addr:d.addr||undefined,video:d.video||undefined,parental:d.parental||undefined,waiverAt:d.waiverAt||null,parts}}
+async function loadBookings(){if(!R.coachId)return;
+  const {data,error}=await R.sb.from('bookings').select('*,booking_sessions(*),payments(*)').eq('coach_id',R.coachId).order('created_at',{ascending:true});
+  if(error)throw error;
+  const local=(db.bookings||[]).filter(b=>!b.real&&!b.sid&&R.role==='admin');/* l'entraîneur garde ce qu'il a saisi à la main sur cet appareil */
+  db.bookings=(data||[]).map(toLocal).concat(local)}
+async function syncAll(){try{await Promise.all([loadBookings(),loadAgenda()]);save()}catch(e){console.error(e);flash('Mise à jour impossible : '+fr(e.message))}}
+
+/* --- ce que l'entraîneur publie (appelé par pushChanges) --- */
+async function pushCoach(){if(R.role!=='admin'||!R.coachId)return;
+  const pub=JSON.stringify(pubData());
+  if(R.snap.pub!==pub){const {error}=await R.sb.from('coach_public').upsert({coach_id:R.coachId,data:JSON.parse(pub),updated_at:new Date().toISOString()});if(error)throw error;R.snap.pub=pub}
+  const priv=JSON.stringify(privData());
+  if(R.snap.priv!==priv){const {error}=await R.sb.from('coach_private').upsert({coach_id:R.coachId,data:JSON.parse(priv),updated_at:new Date().toISOString()});if(error)throw error;R.snap.priv=priv}
+  const sl=JSON.stringify(slotsPayload());
+  if(R.snap.slots!==sl){const {error}=await R.sb.rpc('sync_slots',{p_coach:R.coachId,p_slots:JSON.parse(sl)});if(error)throw error;R.snap.slots=sl}}
+
+async function loadCoachSide(){
+  const [pubRow,{data:pv}]=await Promise.all([loadPub(),R.sb.from('coach_private').select('data').eq('coach_id',R.coachId).maybeSingle()]);
+  if(pv&&pv.data){if(Array.isArray(pv.data.recur))db.recur=pv.data.recur;if(pv.data.settings)db.settings=Object.assign(db.settings||{},pv.data.settings)}
+  if(pubRow)applyPub(pubRow.data);
+  await loadAgenda();await loadBookings();
+  /* premier branchement : rien en ligne -> on publiera ce qui est sur cet appareil */
+  R.snap.pub=pubRow?JSON.stringify(pubData()):null;R.snap.priv=pv?JSON.stringify(privData()):null;R.snap.slots=JSON.stringify(slotsPayload());
+  if(!pubRow||!pv)setTimeout(queueSync,50)}
+async function loadClientSide(){await loadPub();await loadAgenda();await loadBookings();
+  try{const {data:p}=await R.sb.from('profiles').select('ref_credit,referred_by').eq('id',R.uid).single();const u=me();if(u&&p){u.credit=!!p.ref_credit;u.refBy=p.referred_by||null}}catch(e){}}
+
+/* --- les heures déjà réservées par d'autres clients bloquent le calendrier (sans les montrer) --- */
+startsFor=(old=>function(slot,dur,ignore){
+  if(!R.on||R.role!=='client'||!R.taken.length)return old(slot,dur,ignore);
+  const keep=db.bookings;const mine=new Set(keep.flatMap(b=>(b.sessions||[]).map(s=>s.id)));
+  const extra=R.taken.filter(x=>x.date===slot.date&&!mine.has(x.id)).map(x=>({id:'busy'+x.id,owner:'',lieu:x.lieu||'',dur:x.dur,cancelled:false,sessions:[{id:x.id,date:x.date,start:x.start}],parts:[],gone:[]}));
+  if(!extra.length)return old(slot,dur,ignore);db.bookings=keep.concat(extra);try{return old(slot,dur,ignore)}finally{db.bookings=keep}})(startsFor);
+
+/* --- petit voile « un instant » pendant les appels au serveur --- */
+const wait=document.createElement('div');wait.className='fcq';wait.hidden=true;
+wait.innerHTML='<form onsubmit="return false" style="max-width:340px;text-align:center"><p style="font-weight:700" data-t>Un instant…</p></form>';document.body.appendChild(wait);
+const busyOn=t=>{wait.querySelector('[data-t]').textContent=t||'Un instant…';wait.hidden=false};const busyOff=()=>{wait.hidden=true};
+
+/* --- code de parrainage vérifié par le serveur --- */
+A.applyRef=(old=>async function(){if(!R.on||R.role!=='client')return old();const Rq=st.R;
+  const c=((document.getElementById('rRef')||{}).value||'').trim().toUpperCase();Rq.ref=c;
+  if(!c){Rq.refOk=false;Rq.refMsg='';render();return}
+  const {data,error}=await R.sb.rpc('check_ref_code',{p_code:c});
+  if(error){Rq.refOk=false;Rq.refMsg=fr(error.message).replace(/^Erreur : /,'')}
+  else{Rq.refOk=true;Rq.refMsg='Code appliqué : 5 % de rabais. '+data+' recevra aussi 5 %.'}render()})(A.applyRef);
+
+/* --- réservation : créée par le serveur, qui recalcule le prix --- */
+A.book=(old=>async function(){
+  if(!R.on||R.role!=='client')return old();
+  const Rq=st.R;if(!Rq)return old();
+  if(Rq.what&&Rq.what!=='cours'){reqFor();return}
+  if(Rq.wantRent){flash('La location d\'équipement en ligne arrive bientôt : retirez-la de la réservation et écrivez-moi pour la réserver.');return}
+  if(!R.coachId){flash('Réservation en ligne indisponible pour le moment.');return}
+  const u=me();const shown=quote(Rq,u);const n0=db.bookings.length;
+  old();                                   /* validations et écrans de la V7 */
+  if(db.bookings.length===n0)return;       /* une étape incomplète : la V7 a déjà affiché le message */
+  const b=db.bookings[db.bookings.length-1];const modal=st.modal;
+  const payload={coach_id:R.coachId,type:Rq.type,formule:Rq.formule,dur:Rq.dur,qty:Rq.qty,nb:Rq.nb,niveau:Rq.niveau,tech:Rq.tech,lieu:b.lieu,
+    me:Rq.me!==false,payAll:!!Rq.payAll,pay:Rq.pay==='interac'?'interac':'carte',ref:Rq.refOk?Rq.ref:'',
+    sessions:(b.sessions||[]).map(s=>({date:s.date,start:s.start})),
+    others:(Rq.others||[]).map(o=>{const x=o.sel?userById(o.sel):null;return {prenom:(x&&x.fiche&&x.fiche.prenom)||o.prenom||'',nom:(x&&x.fiche&&x.fiche.nom)||o.nom||'',lien:o.lien||'',niveau:o.niveau||'',email:o.email||''}}),
+    details:{addr:b.addr||null,parental:b.parental||null,waiverAt:b.waiverAt||null,giftMsg:(b.gift&&b.gift.msg)||null}};
+  st.modal=null;busyOn('Enregistrement de votre réservation…');
+  try{
+    const {data,error}=await R.sb.rpc('create_booking',{p:payload});if(error)throw error;
+    await syncAll();
+    const nb=db.bookings.find(x=>x.id===data.id);
+    if(nb&&(Rq.others||[]).length&&!payload.payAll)nb.shareCode=data.shareCode;
+    st.modal=modal&&nb?Object.assign({},modal,{bid:nb.id,i:0}):null;
+    if(Math.abs(Number(data.total)-Number(shown&&shown.mine||0))>0.01)setTimeout(()=>flash('Montant confirmé par le serveur : '+money(Number(data.total))),400);
+    if(!st.modal){st.view='client';st.tab='resa'}
+  }catch(e){
+    console.error(e);db.bookings=db.bookings.filter(x=>x!==b);st.R=Rq;st.modal=null;
+    flash(fr(e.message).replace(/^Erreur : /,''));try{await loadAgenda()}catch(_){}
+  }finally{busyOff();save();render()}})(A.book);
+
+/* paiement par carte : Stripe arrive à la prochaine étape — on ne simule plus un paiement réussi */
+A.stripeOk=(old=>function(){if(!R.on)return old();const m=st.modal;
+  if(m&&m.next==='share')st.modal={kind:'share',bid:m.bid};else{st.modal=null;st.view=R.role==='admin'?'admin':'client';st.tab='resa'}
+  render();flash('Réservation enregistrée. Le paiement en ligne par carte sera activé sous peu.')})(A.stripeOk);
+
+/* actions qui passent par le serveur avant de modifier l'écran */
+function viaServer(name,build){if(typeof A[name]!=='function')return;
+  A[name]=(old=>async function(d,...rest){if(!R.on)return old(d,...rest);let a=null;try{a=build(d||{})}catch(e){}
+    if(!a)return old(d,...rest);
+    busyOn();try{const {data,error}=await R.sb.rpc('booking_action',{p_booking:a.b,p_action:a.act,p:a.p||{}});if(error)throw error;
+      if(a.act==='move_session'&&data&&data.pending&&R.role!=='admin'){/* moins de 48 h : la V7 affiche « demande envoyée » */}
+      old(d,...rest);await syncAll()}
+    catch(e){console.error(e);flash(fr(e.message).replace(/^Erreur : /,''))}
+    finally{busyOff();render()}})(A[name])}
+const realB=id=>{const b=db.bookings.find(x=>x.id===id);return b&&b.real?b:null};
+viaServer('cancelGo',d=>{const m=st.modal||{};const b=realB(m.bid);return b&&{b:b.sid,act:'cancel_session',p:{session:m.sid,how:d.how}}});
+viaServer('moveOk',()=>{const m=st.modal||{};const b=realB(m.bid);const n=st.pk&&st.pk.sel&&st.pk.sel[0];return b&&n&&{b:b.sid,act:'move_session',p:{session:m.sid,date:n.date,start:n.start}}});
+viaServer('mvOk',d=>{const b=realB(d.b);return b&&{b:b.sid,act:'approve_move',p:{session:d.s}}});
+viaServer('mvNo',d=>{const b=realB(d.b);return b&&{b:b.sid,act:'refuse_move',p:{session:d.s}}});
+viaServer('planOk',()=>{const m=st.modal||{};const b=realB(m.bid);const n=st.pk&&st.pk.sel&&st.pk.sel[0];return b&&n&&{b:b.sid,act:'plan_session',p:{date:n.date,start:n.start}}});
+viaServer('cancelYes',d=>{const b=realB(d.b);return b&&{b:b.sid,act:'cancel_booking',p:{}}});
+viaServer('interacOk',d=>{const b=realB(d.b);const p=b&&b.parts[Number(d.i)];return p&&p.pid&&{b:b.sid,act:'confirm_payment',p:{payment:p.pid}}});
+
+/* location seule et cours publics : encore par demande, pour l'instant */
+A.rentLong=(old=>function(){if(R.on&&R.role==='client'){reqFor();return}return old()})(A.rentLong);
+if(typeof A.pubBook==='function')A.pubBook=(old=>function(d){if(R.on&&R.role==='client'){reqFor();return}return old(d)})(A.pubBook);
 
 /* --- démarrage --- */
 async function bootReal(){
@@ -19927,7 +20085,7 @@ async function bootReal(){
     if(ev==='SIGNED_OUT'&&R.on){resetLocal();st.view='home';render()}});
   const {data:{session}}=await R.sb.auth.getSession();
   if(session){if(await loadMe()){stampTerms();if(st.view==='home'||st.view==='auth'){st.view=R.role==='admin'?'admin':'client';st.tab=R.role==='admin'?'today':(me().onboarded?'accueil':null)}render()}}
-  else{resetLocal();render()}}
+  else{resetLocal();try{const {data:c}=await R.sb.from('coaches').select('id').eq('slug',COACH_SLUG).maybeSingle();R.coachId=c&&c.id;if(R.coachId&&await loadPub())render()}catch(e){}render()}}
 
 /* garde-fou : sans compte réel, seulement la vitrine et l'écran de connexion */
 render=(old=>function(){
