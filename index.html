@@ -19913,14 +19913,14 @@ addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-
 
 /* --- ajouts après chaque affichage --- */
 function decorate(){const app=document.getElementById('app');if(!app)return;
-  if(R.on){const sb=document.querySelector('[data-a="stripeOk"]');if(sb&&!sb.dataset.fc){sb.dataset.fc='1';sb.textContent='Continuer';const info=sb.closest('.actions')&&sb.closest('.actions').previousElementSibling;if(info&&info.classList.contains('info'))info.textContent='Le paiement en ligne par carte sera activé très bientôt. Votre réservation est enregistrée; elle sera confirmée une fois le paiement reçu.'}}
+  if(R.on){const sb=document.querySelector('[data-a="stripeOk"]');if(sb&&!sb.dataset.fc){sb.dataset.fc='1';sb.textContent='Payer par carte';const info=sb.closest('.actions')&&sb.closest('.actions').previousElementSibling;if(info&&info.classList.contains('info'))info.innerHTML='Vous serez dirigé vers la page de paiement sécurisée de Stripe. Votre réservation est enregistrée; elle est confirmée dès que le paiement est reçu.'+(STRIPE_TEST?'<br><b>Mode test</b> : carte 4242 4242 4242 4242, une date future et n\'importe quel code de 3 chiffres.':'');const nx=sb.nextElementSibling;if(nx&&nx.dataset.a==='close'){nx.textContent='Payer plus tard'}}}
   if(st.view==='auth'){
     app.querySelectorAll('#authForm p.muted.small').forEach(p=>{if(/demo123|Démo/.test(p.textContent))p.remove()});
     const f=app.querySelector('#authForm');
     if(f&&st.authMode==='login'&&!f.querySelector('[data-a="fcForgot"]'))f.insertAdjacentHTML('beforeend','<p class="small"><button type="button" class="linkbtn" data-a="fcForgot">Mot de passe oublié?</button></p>');
     if(f&&R.info)f.insertAdjacentHTML('afterbegin',`<p class="info" style="background:var(--ok-soft);border-radius:10px;padding:12px 14px">${esc(R.info)}</p>`)}
   if(R.on&&R.role==='admin'&&st.view==='admin'){const m=app.querySelector('main');
-    if(m&&!m.querySelector('.fcreal'))m.insertAdjacentHTML('afterbegin',`<p class="fcreal small" style="background:var(--warn-soft);border-radius:10px;padding:10px 14px;margin:0 0 14px">Mode réel : les comptes clients, leurs fiches et vos notes privées sont enregistrés en ligne (${db.users.filter(u=>u.role==='client').length} client${db.users.filter(u=>u.role==='client').length>1?'s':''}). Vos disponibilités, vos tarifs et les réservations des clients sont aussi en ligne. Le paiement par carte (Stripe) et les autres sections arrivent aux prochaines étapes : ce que vous y entrez reste sur cet appareil. <button class="linkbtn" data-a="fcReload">Actualiser</button></p>`)}}
+    if(m&&!m.querySelector('.fcreal'))m.insertAdjacentHTML('afterbegin',`<p class="fcreal small" style="background:var(--warn-soft);border-radius:10px;padding:10px 14px;margin:0 0 14px">Mode réel : les comptes clients, leurs fiches et vos notes privées sont enregistrés en ligne (${db.users.filter(u=>u.role==='client').length} client${db.users.filter(u=>u.role==='client').length>1?'s':''}). Vos disponibilités, vos tarifs et les réservations des clients sont aussi en ligne. Le paiement par carte passe par Stripe${STRIPE_TEST?' (mode test)':''}. Les autres sections arrivent aux prochaines étapes : ce que vous y entrez reste sur cet appareil. <button class="linkbtn" data-a="fcReload">Actualiser</button></p>`)}}
 A.fcReload=async function(){busyOn('Mise à jour…');try{await loadClients();await syncAll()}finally{busyOff()}save();render();flash('Clients, disponibilités et réservations à jour')};
 
 
@@ -19928,7 +19928,7 @@ A.fcReload=async function(){busyOn('Mise à jour…');try{await loadClients();aw
    Entraîneur : ses tarifs, lieux, promotions et disponibilités sont publiés en ligne à chaque changement.
    Client     : voit les vraies plages libres; la réservation est créée et le prix calculé PAR LE SERVEUR
                 (fonction create_booking). Annuler, déplacer, planifier passent aussi par le serveur.
-   Paiement par carte (Stripe) : prochaine étape. Interac : l'entraîneur confirme la réception. */
+   Paiement par carte : Stripe Checkout (étape 4, plus bas). Interac : l'entraîneur confirme la réception. */
 R.taken=[];R.pubAt=null;
 const TZ='America/Toronto';
 const tzFmt=new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
@@ -19971,7 +19971,7 @@ function toLocal(row){const d=row.details||{};
   const ss=(row.booking_sessions||[]).slice().sort((a,b)=>a.starts_at.localeCompare(b.starts_at));
   const sessions=ss.filter(s=>!s.cancelled).map(s=>{const o=Object.assign({id:s.id},tzParts(s.starts_at));if(s.pending_to)o.pendingMove=tzParts(s.pending_to);return o});
   const gone=ss.filter(s=>s.cancelled&&s.cancel_kind!=='coach').map(s=>{const k=s.cancel_kind;return Object.assign(tzParts(s.starts_at),{credit:k==='credit',refund:k==='refund',late:k==='late'})});
-  const pays=(row.payments||[]).slice().sort((a,b)=>a.created_at.localeCompare(b.created_at));
+  const pays=(row.payments||[]).slice().sort((a,b)=>((a.payer_id===row.owner_id?0:1)-(b.payer_id===row.owner_id?0:1))||a.created_at.localeCompare(b.created_at)||String(a.claimed_at||'9').localeCompare(String(b.claimed_at||'9'))||a.id.localeCompare(b.id));
   const parts=pays.map((p,i)=>({pid:p.id,userId:lid(p.payer_id),amount:p.amount_cents/100,method:p.method,paid:p.status==='payee',paidAt:p.paid_at?String(p.paid_at).slice(0,10):null,
     lines:p.lines||[],invited:!p.payer_id,payerOnly:i===0&&d.me===false,split:{}}));
   return {id:row.id,sid:row.id,real:true,ref:row.ref,owner:lid(row.owner_id),payer:lid(row.owner_id),type:d.ctype||row.type,formule:row.formule||'ind',tech:row.technique||'',niveau:row.niveau||'',
@@ -20059,10 +20059,92 @@ A.book=(old=>async function(){
     flash(fr(e.message).replace(/^Erreur : /,''));try{await loadAgenda()}catch(_){}
   }finally{busyOff();save();render()}})(A.book);
 
-/* paiement par carte : Stripe arrive à la prochaine étape — on ne simule plus un paiement réussi */
-A.stripeOk=(old=>function(){if(!R.on)return old();const m=st.modal;
-  if(m&&m.next==='share')st.modal={kind:'share',bid:m.bid};else{st.modal=null;st.view=R.role==='admin'?'admin':'client';st.tab='resa'}
-  render();flash('Réservation enregistrée. Le paiement en ligne par carte sera activé sous peu.')})(A.stripeOk);
+/* ================= Étape 4 : paiement par carte (Stripe Checkout) et lien « chacun paie sa part » =================
+   Carte   : le site demande à l'Edge Function « create-checkout » une page de paiement Stripe, créée à partir du
+             MONTANT EN BASE. Seul le webhook Stripe (« stripe-webhook ») marque la part « payée ».
+   Partage : fidjicoach.ca/#payer-CODE — le partenaire voit le cours, se connecte, prend sa part (claim_share)
+             puis paie par carte ou par Interac.
+   Mettre STRIPE_TEST à false quand les clés Stripe passeront en mode réel. */
+var STRIPE_TEST=true;
+const errMsg=async e=>{let m=e&&e.message||String(e||'');try{if(e&&e.context&&typeof e.context.json==='function'){const j=await e.context.json();if(j&&j.error)m=j.error}}catch(_){}return fr(m).replace(/^Erreur : /,'')};
+async function goCheckout(pid){
+  busyOn('Ouverture de la page de paiement sécurisée…');
+  try{const {data,error}=await R.sb.functions.invoke('create-checkout',{body:{payment_id:pid}});if(error)throw error;
+    if(data&&data.paid){await syncAll();busyOff();st.modal=null;render();flash('Ce paiement est déjà réglé.');return}
+    if(!data||!data.url)throw new Error('Réponse inattendue du service de paiement.');
+    location.href=data.url}
+  catch(e){console.error(e);busyOff();render();flash('Paiement par carte indisponible : '+await errMsg(e))}}
+
+A.stripeOk=(old=>async function(){if(!R.on)return old();const m=st.modal||{};const u=me();const b=m.bid&&B(m.bid);
+  let p=b&&b.parts[m.i];if(b&&u&&(!p||p.userId!==u.id))p=b.parts.find(x=>x.userId===u.id&&!x.paid);
+  if(!b||!p||!p.pid){st.modal=null;render();flash('Paiement introuvable : actualisez la page.');return}
+  if(p.paid){st.modal=null;render();flash('Cette part est déjà payée.');return}
+  await goCheckout(p.pid)})(A.stripeOk);
+
+/* --- retour de la page Stripe : ?b=<réservation>&paiement=ok|annule --- */
+async function stripeReturn(){const q=new URLSearchParams(location.search);const k=q.get('paiement');if(!k)return;
+  const bid=q.get('b');history.replaceState(null,'',location.pathname+location.hash);
+  if(!R.on){flash(k==='ok'?'Paiement reçu. Connectez-vous pour voir votre réservation.':'Paiement annulé.');return}
+  st.modal=null;if(R.role==='admin'){st.view='admin'}else{st.view='client';st.tab='resa';st.ptab=null}
+  const mine=()=>{const b=db.bookings.find(x=>x.id===bid);return {b,p:b&&b.parts.find(x=>x.userId===(me()||{}).id)}};
+  if(k==='ok'){busyOn('Confirmation du paiement…');
+    try{for(let t=0;t<8;t++){await syncAll();const {p}=mine();if(!p||p.paid)break;await new Promise(r=>setTimeout(r,1500))}}finally{busyOff()}
+    const {b,p}=mine();
+    flash(p&&p.paid?'Paiement reçu, merci! Réservation '+b.ref+(b.parts.every(x=>x.paid)?' confirmée.':' : en attente des autres participants.')
+      :'Paiement reçu par Stripe. La confirmation peut prendre une minute : actualisez au besoin.')}
+  else flash('Paiement annulé. Votre réservation est gardée : vous pouvez la payer plus tard dans vos réservations.');
+  const {b}=mine();const u=me();
+  if(b&&u&&b.owner===u.id&&b.shareCode&&!b.cancelled&&b.parts.some(x=>!x.userId))st.modal={kind:'share',bid:b.id};
+  render()}
+
+/* --- page du lien de partage (#payer-CODE) --- */
+R.join={code:null};
+const JKEY='fcJoin';
+const jSet=c=>{try{localStorage.setItem(JKEY,c)}catch(_){}};const jGet=()=>{try{return localStorage.getItem(JKEY)}catch(_){return null}};const jDel=()=>{try{localStorage.removeItem(JKEY)}catch(_){}};
+/* après la connexion (même via le lien du courriel d'activation), on revient à la page du lien */
+function joinResume(){const c=jGet();const u=me();if(!c||R.role!=='client'||!u||!u.onboarded||st.view==='join'||st.modal)return;
+  jDel();st.joinCode=c;st.view='join';R.join={code:null}}
+async function loadJoin(){const c=st.joinCode,uid=R.uid||null;if(!c||!R.sb||(R.join.code===c&&R.join.uid===uid))return;R.join={code:c,uid,loading:true};
+  const {data,error}=await R.sb.rpc('share_info',{p_code:c});
+  R.join={code:c,uid,data:error?null:data,err:error?await errMsg(error):null};render()}
+const jWrap=inner=>`<main class="wrap app"><div class="authbox card" style="padding:22px;gap:14px">${inner}</div></main>`;
+joinV=(old=>function(u){if(!R.sb)return jWrap('<p class="muted">Chargement…</p>');
+  if(R.join.code!==st.joinCode||R.join.uid!==(R.uid||null)){setTimeout(loadJoin,0);return jWrap('<p class="muted">Chargement de l\'invitation…</p>')}
+  if(u&&R.role==='client')jDel();
+  const J=R.join;if(J.loading)return jWrap('<p class="muted">Chargement de l\'invitation…</p>');
+  const d=J.data;if(J.err||!d||!d.valid)return jWrap(`<div class="empty">${esc(J.err||'Ce lien n\'est plus valide.')}</div><button class="btn btn-plain" data-a="go" data-v="home">Accueil</button>`);
+  const kv=`<dl class="kv"><dt>Activité</dt><dd>${esc(d.title)}</dd><dt>Date</dt><dd>${(d.dates||[]).map(s=>dlong(s.date)+' · '+hfmt(s.start)).join('<br>')||'À planifier'}</dd><dt>Lieu</dt><dd>${esc(d.lieu||'')}</dd><dt>Réservation</dt><dd>${esc(d.ref)}</dd></dl>`;
+  const head=`<span class="eyebrow">Invitation</span><h2>${esc(d.organizer)} vous invite à un cours</h2>${kv}`;
+  const m=d.mine;const paid=m&&m.status==='payee';
+  const payBtns=(amt,credit)=>`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:1.15rem"><span>Votre part</span><span class="num">${money(amt)}</span></div>
+    <p class="muted small">Cours et votre part des frais de l'entraîneur, taxes incluses.</p>${credit?'<p class="small" style="color:var(--ok)">Votre crédit parrainage de 5 % sera appliqué.</p>':''}
+    <div class="actions"><button class="btn btn-accent" data-a="fcJoinPay" data-m="carte">Payer par carte</button><button class="btn btn-plain" data-a="fcJoinPay" data-m="interac">Payer par Interac</button></div>`;
+  let action;
+  if(d.cancelled)action='<p class="info">Ce cours a été annulé.</p>';
+  else if(d.isOwner)action=`<p class="info">C'est votre réservation. Envoyez ce lien à vos participants : chacun crée son compte et paie sa part.</p>
+    <div class="copy"><input id="shareLink" type="text" readonly value="${esc(shareLink(st.joinCode))}"></div><button class="btn btn-plain" data-a="go" data-v="client">Mon compte</button>`;
+  else if(paid)action='<p class="info"><b>Votre place est confirmée.</b> Merci!</p><button class="btn btn-plain" data-a="go" data-v="client">Mon compte</button>';
+  else if(m&&J.interac)action=`<h3>Virement Interac</h3><dl class="kv"><dt>Destinataire</dt><dd><b>819-640-2429</b></dd><dt>Montant</dt><dd class="num"><b>${money(m.amount)}</b></dd><dt>Message</dt><dd><b>${esc(d.ref)}</b></dd></dl>
+    <p class="muted small">Votre place est confirmée dès que Colin reçoit le virement.</p><button class="btn btn-plain" data-a="go" data-v="client">Mon compte</button>`;
+  else if(m)action=payBtns(m.amount,false);
+  else if(!d.open)action='<p class="info">Toutes les places de ce groupe sont déjà prises.</p>';
+  else if(!u)action=`<div class="alert"><b>Compte obligatoire</b>Chaque participant crée son compte et sa fiche (niveau, contact d'urgence). Colin peut ensuite vous écrire et suivre vos progrès.</div>
+    <button class="btn btn-accent" data-a="fcJoinAuth" data-m="signup">Créer mon compte</button><button class="linkbtn small" data-a="fcJoinAuth" data-m="login">J'ai déjà un compte</button>`;
+  else if(u.role!=='client')action='<p class="muted">Connectez-vous avec un compte client pour payer une part.</p>';
+  else if(!u.onboarded||!ficheMin(u))action=`<p class="muted">Complétez votre fiche (nom, téléphone, contact d'urgence, niveau) : c'est obligatoire pour chaque participant.</p><button class="btn btn-accent" data-a="fcJoinFiche">Compléter ma fiche</button>`;
+  else action=payBtns(u.credit?r2(d.part*0.95):d.part,u.credit);
+  return jWrap(head+action)})(joinV);
+Object.assign(A,{
+  fcJoinAuth(d){jSet(st.joinCode);st.after='join';st.view='auth';st.authMode=d.m==='login'?'login':'signup';st.authErr='';render();window.scrollTo(0,0)},
+  fcJoinFiche(){const u=me();jSet(st.joinCode);st.after='join';st.view='client';st.tab='fiche';if(!u.onboarded)st.ob=1;else st.ptab='fiche';render();window.scrollTo(0,0)},
+  async fcJoinPay(d){const code=st.joinCode;busyOn();
+    try{const {data,error}=await R.sb.rpc('claim_share',{p_code:code,p_method:d.m==='interac'?'interac':'carte'});if(error)throw error;
+      jDel();
+      if(data.paid){R.join={code:null};busyOff();render();return}
+      if(d.m==='interac'){R.join={code:null};await loadJoin();R.join.interac=true;syncAll();busyOff();render();flash('Votre place est réservée. Envoyez le virement Interac.');return}
+      busyOff();await goCheckout(data.payment_id)}
+    catch(e){console.error(e);busyOff();R.join={code:null};render();flash(await errMsg(e))}}
+});
 
 /* actions qui passent par le serveur avant de modifier l'écran */
 function viaServer(name,build){if(typeof A[name]!=='function')return;
@@ -20098,8 +20180,8 @@ async function bootReal(){
 
 /* garde-fou : sans compte réel, seulement la vitrine et l'écran de connexion */
 render=(old=>function(){
-  if(!R.on){try{if(db.session){db.session=null;save()}}catch(e){}if(!OK_VIEWS.includes(st.view)&&st.view!=='auth')st.view='home'}
-  else{const okV=[...OK_VIEWS,'auth',R.role==='admin'?'admin':'client'];if(!okV.includes(st.view))st.view=R.role==='admin'?'admin':'client';
+  if(!R.on){try{if(db.session){db.session=null;save()}}catch(e){}if(!OK_VIEWS.includes(st.view)&&st.view!=='auth'&&st.view!=='join')st.view='home'}
+  else{joinResume();const okV=[...OK_VIEWS,'auth','join',R.role==='admin'?'admin':'client'];if(!okV.includes(st.view))st.view=R.role==='admin'?'admin':'client';
     if(R.role==='client'&&st.view==='client'&&st.tab&&!CLIENT_TABS.includes(st.tab)&&!PTABS.includes(st.tab))st.tab='accueil';
     if(R.role==='client'&&st.ptab&&!CLIENT_TABS.includes(st.ptab))st.ptab=null}
   old();try{decorate()}catch(e){console.error(e)}
@@ -20107,7 +20189,7 @@ render=(old=>function(){
 
 if(msg)setTimeout(()=>flash(msg),300);
 try{render()}catch(e){console.error(e)}
-bootReal().catch(e=>console.error(e));
+bootReal().then(stripeReturn).catch(e=>console.error(e));
 })();
 </script>
 <script>
