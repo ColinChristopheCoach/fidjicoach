@@ -2064,7 +2064,7 @@ function modalV(u){
   else if(m.kind==='interac'){const p=b.parts.find(x=>x.userId===(u&&u.id))||b.parts[0];
     inner=`<span class="eyebrow">Réservation enregistrée</span><h3>Virement Interac</h3>
     <dl class="kv"><dt>Destinataire</dt><dd><b>819-640-2429</b></dd><dt>Montant</dt><dd class="num"><b>${money(p.amount)}</b></dd><dt>Message</dt><dd><b>${b.ref}</b></dd></dl>
-    <p class="muted small">Votre place est confirmée dès que Colin reçoit le virement. Vous recevrez un courriel de confirmation.</p><div class="actions"><button class="btn btn-accent" data-a="afterModal">Compris</button></div>`}
+    <p class="muted small">Votre place est confirmée dès que Colin reçoit le virement. Vous recevrez un courriel de confirmation de <b>reservations@fidjicoach.ca</b> : la première fois, vérifiez vos courriels indésirables.</p><div class="actions"><button class="btn btn-accent" data-a="afterModal">Compris</button></div>`}
   else if(m.kind==='share'){const link=location.href.split('#')[0]+'#payer-'+b.shareCode;const open=b.parts.filter(p=>!p.userId).length;
     inner=`<span class="eyebrow">Étape suivante</span><h3>Invitez vos participants</h3>
     <p class="muted">Envoyez ce lien aux ${open} autre${open>1?'s':''} participant${open>1?'s':''}. Chacun doit obligatoirement créer son compte et son profil, puis payer sa part. La réservation est confirmée quand toutes les parts sont payées.</p>
@@ -19913,7 +19913,7 @@ addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-
 
 /* --- ajouts après chaque affichage --- */
 function decorate(){const app=document.getElementById('app');if(!app)return;
-  if(R.on){const sb=document.querySelector('[data-a="stripeOk"]');if(sb&&!sb.dataset.fc){sb.dataset.fc='1';sb.textContent='Payer par carte';const info=sb.closest('.actions')&&sb.closest('.actions').previousElementSibling;if(info&&info.classList.contains('info'))info.innerHTML='Vous serez dirigé vers la page de paiement sécurisée de Stripe. Votre réservation est enregistrée; elle est confirmée dès que le paiement est reçu.'+(STRIPE_TEST?'<br><b>Mode test</b> : carte 4242 4242 4242 4242, une date future et n\'importe quel code de 3 chiffres.':'');const nx=sb.nextElementSibling;if(nx&&nx.dataset.a==='close'){nx.textContent='Payer plus tard'}}}
+  if(R.on){const sb=document.querySelector('[data-a="stripeOk"]');if(sb&&!sb.dataset.fc){sb.dataset.fc='1';sb.textContent='Payer par carte';const info=sb.closest('.actions')&&sb.closest('.actions').previousElementSibling;if(info&&info.classList.contains('info'))info.innerHTML='Vous serez dirigé vers la page de paiement sécurisée de Stripe. Votre réservation est enregistrée; elle est confirmée dès que le paiement est reçu.<br>Vous recevrez une confirmation et votre reçu de <b>reservations@fidjicoach.ca</b> : la première fois, vérifiez vos courriels indésirables.'+(STRIPE_TEST?'<br><b>Mode test</b> : carte 4242 4242 4242 4242, une date future et n\'importe quel code de 3 chiffres.':'');const nx=sb.nextElementSibling;if(nx&&nx.dataset.a==='close'){nx.textContent='Payer plus tard'}}}
   if(st.view==='auth'){
     app.querySelectorAll('#authForm p.muted.small').forEach(p=>{if(/demo123|Démo/.test(p.textContent))p.remove()});
     const f=app.querySelector('#authForm');
@@ -20129,7 +20129,7 @@ joinV=(old=>function(u){if(!R.sb)return jWrap('<p class="muted">Chargement…</p
   const head=`<span class="eyebrow">Invitation</span><h2>${esc(d.organizer)} vous invite à un cours</h2>${kv}`;
   const m=d.mine;const paid=m&&m.status==='payee';
   const payBtns=(amt,credit)=>`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:1.15rem"><span>Votre part</span><span class="num">${money(amt)}</span></div>
-    <p class="muted small">Cours et votre part des frais de l'entraîneur, taxes incluses.</p>${credit?'<p class="small" style="color:var(--ok)">Votre crédit parrainage de 5 % sera appliqué.</p>':''}
+    <p class="muted small">Cours et votre part des frais de l'entraîneur, taxes incluses. Votre reçu viendra de <b>reservations@fidjicoach.ca</b> (vérifiez vos indésirables la première fois).</p>${credit?'<p class="small" style="color:var(--ok)">Votre crédit parrainage de 5 % sera appliqué.</p>':''}
     <div class="actions"><button class="btn btn-accent" data-a="fcJoinPay" data-m="carte">Payer par carte</button><button class="btn btn-plain" data-a="fcJoinPay" data-m="interac">Payer par Interac</button></div>`;
   let action;
   if(d.cancelled)action='<p class="info">Ce cours a été annulé.</p>';
