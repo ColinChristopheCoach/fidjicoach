@@ -19895,7 +19895,7 @@ async function forgot(){R.info='';st.authErr='';const v=(document.getElementById
   st.authErr=error?fr(error.message):'';R.info=error?'':'Si un compte existe pour '+v.trim()+', un courriel avec un lien pour changer le mot de passe vient d\'être envoyé.';render()}
 
 /* --- actions de la V7 adaptées au mode réel --- */
-const CLIENT_TABS=['accueil','reserver','resa','profil','centres',...PTABS.filter(t=>['fiche','reglages','notifs'].includes(t))];
+const CLIENT_TABS=['accueil','reserver','resa','resa5','profil','centres',...PTABS.filter(t=>['fiche','reglages','notifs'].includes(t))];
 const reqFor=()=>{const u=me();fcOpenReq();const F=document.querySelector('.fcq:not([hidden]) form');if(F&&u){const n=((u.fiche.prenom||'')+' '+(u.fiche.nom||'')).trim();if(n&&F.nom)F.nom.value=n;if(F.courriel)F.courriel.value=u.email||'';if(F.tel&&u.fiche.tel)F.tel.value=u.fiche.tel}};
 A.hLogin=function(){R.info='';st.view='auth';st.authMode='login';st.authErr='';render();window.scrollTo(0,0)};
 A.logout=async function(){try{await R.sb.auth.signOut()}catch(e){}resetLocal();st.pushes=[];st.view='home';st.R=null;st.pk=null;render();flash('Vous êtes déconnecté.')};
@@ -19920,7 +19920,7 @@ function decorate(){const app=document.getElementById('app');if(!app)return;
     if(f&&st.authMode==='login'&&!f.querySelector('[data-a="fcForgot"]'))f.insertAdjacentHTML('beforeend','<p class="small"><button type="button" class="linkbtn" data-a="fcForgot">Mot de passe oublié?</button></p>');
     if(f&&R.info)f.insertAdjacentHTML('afterbegin',`<p class="info" style="background:var(--ok-soft);border-radius:10px;padding:12px 14px">${esc(R.info)}</p>`)}
   if(R.on&&R.role==='admin'&&st.view==='admin'){const m=app.querySelector('main');
-    if(m&&!m.querySelector('.fcreal'))m.insertAdjacentHTML('afterbegin',`<p class="fcreal small" style="background:var(--warn-soft);border-radius:10px;padding:10px 14px;margin:0 0 14px">Mode réel : les comptes clients, leurs fiches et vos notes privées sont enregistrés en ligne (${db.users.filter(u=>u.role==='client').length} client${db.users.filter(u=>u.role==='client').length>1?'s':''}). Vos disponibilités, vos tarifs et les réservations des clients sont aussi en ligne. Le paiement par carte passe par Stripe${STRIPE_TEST?' (mode test)':''}. Les autres sections arrivent aux prochaines étapes : ce que vous y entrez reste sur cet appareil. <button class="linkbtn" data-a="fcReload">Actualiser</button></p>`)}}
+    if(m&&!m.querySelector('.fcreal'))m.insertAdjacentHTML('afterbegin',`<p class="fcreal small" style="background:var(--warn-soft);border-radius:10px;padding:10px 14px;margin:0 0 14px">Mode réel : les comptes clients, leurs fiches et vos notes privées sont enregistrés en ligne (${db.users.filter(u=>u.role==='client').length} client${db.users.filter(u=>u.role==='client').length>1?'s':''}). Vos disponibilités, vos tarifs et les réservations des clients sont aussi en ligne. Le paiement par carte passe par Stripe${STRIPE_TEST?' (mode test)':''}; les remboursements et les courriels aux clients sont automatiques. Les autres sections arrivent aux prochaines étapes : ce que vous y entrez reste sur cet appareil. <button class="linkbtn" data-a="fcReload">Actualiser</button></p>`)}}
 A.fcReload=async function(){busyOn('Mise à jour…');try{await loadClients();await syncAll()}finally{busyOff()}save();render();flash('Clients, disponibilités et réservations à jour')};
 
 
@@ -19972,16 +19972,28 @@ function toLocal(row){const d=row.details||{};
   const sessions=ss.filter(s=>!s.cancelled).map(s=>{const o=Object.assign({id:s.id},tzParts(s.starts_at));if(s.pending_to)o.pendingMove=tzParts(s.pending_to);return o});
   const gone=ss.filter(s=>s.cancelled&&s.cancel_kind!=='coach').map(s=>{const k=s.cancel_kind;return Object.assign(tzParts(s.starts_at),{credit:k==='credit',refund:k==='refund',late:k==='late'})});
   const pays=(row.payments||[]).slice().sort((a,b)=>((a.payer_id===row.owner_id?0:1)-(b.payer_id===row.owner_id?0:1))||a.created_at.localeCompare(b.created_at)||String(a.claimed_at||'9').localeCompare(String(b.claimed_at||'9'))||a.id.localeCompare(b.id));
-  const parts=pays.map((p,i)=>({pid:p.id,userId:lid(p.payer_id),amount:p.amount_cents/100,method:p.method,paid:p.status==='payee',paidAt:p.paid_at?String(p.paid_at).slice(0,10):null,
-    lines:p.lines||[],invited:!p.payer_id,payerOnly:i===0&&d.me===false,split:{}}));
+  const parts=pays.map((p,i)=>({pid:p.id,userId:lid(p.payer_id),amount:p.amount_cents/100,method:p.method,paid:p.status==='payee'||p.status==='remboursee',paidAt:p.paid_at?String(p.paid_at).slice(0,10):null,
+    lines:p.lines||[],invited:!p.payer_id,payerOnly:i===0&&d.me===false,split:{},
+    status:p.status,refunded:(p.refunded_cents||0)/100,refunds:(p.refunds||[]).slice().sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)))}));
   return {id:row.id,sid:row.id,real:true,ref:row.ref,owner:lid(row.owner_id),payer:lid(row.owner_id),type:d.ctype||row.type,formule:row.formule||'ind',tech:row.technique||'',niveau:row.niveau||'',
     dur:row.duree_min||60,qty:row.nb_cours||1,nb:row.nb_pers||1,lieu:row.lieu||'',created:row.created_at,sessions,gone,rental:{},cancelled:row.status==='annulee',
     gift:d.me===false?{msg:d.giftMsg||''}:null,shareCode:d.shareCode||null,addr:d.addr||undefined,video:d.video||undefined,parental:d.parental||undefined,waiverAt:d.waiverAt||null,parts}}
 async function loadBookings(){if(!R.coachId)return;
-  const {data,error}=await R.sb.from('bookings').select('*,booking_sessions(*),payments(*)').eq('coach_id',R.coachId).order('created_at',{ascending:true});
+  const q=sel=>R.sb.from('bookings').select(sel).eq('coach_id',R.coachId).order('created_at',{ascending:true});
+  let {data,error}=await q('*,booking_sessions(*),payments(*,refunds(*))');
+  if(error){console.warn('Remboursements non disponibles (script SQL étape 5?)',error.message);({data,error}=await q('*,booking_sessions(*),payments(*)'))}
   if(error)throw error;
+  await loadPeople();
   const local=(db.bookings||[]).filter(b=>!b.real&&!b.sid&&R.role==='admin');/* l'entraîneur garde ce qu'il a saisi à la main sur cet appareil */
   db.bookings=(data||[]).map(toLocal).concat(local)}
+/* étape 5 : prénom et nom des partenaires d'une réservation (sinon on verrait « Participant à venir »).
+   Ajoutés comme « fantômes » dans db.users : rôle « participant », jamais listés comme clients. */
+async function loadPeople(){if(!R.coachId||!R.uid)return;
+  try{const {data,error}=await R.sb.rpc('booking_people',{p_coach:R.coachId});if(error)throw error;
+    db.users=(db.users||[]).filter(u=>!u.ghost);
+    (data||[]).forEach(p=>{const id=lid(p.id);if(db.users.some(u=>u.id===id))return;
+      db.users.push({id,sid:p.id,ghost:true,role:'participant',email:null,fiche:{prenom:p.prenom||'',nom:p.nom||''},notes:[],prefs:{},onboarded:true})})}
+  catch(e){console.warn('Noms des participants indisponibles',e.message)}}
 async function syncAll(){try{await Promise.all([loadBookings(),loadAgenda()]);save()}catch(e){console.error(e);flash('Mise à jour impossible : '+fr(e.message))}}
 
 /* --- ce que l'entraîneur publie (appelé par pushChanges) --- */
@@ -20152,7 +20164,14 @@ function viaServer(name,build){if(typeof A[name]!=='function')return;
     if(!a)return old(d,...rest);
     busyOn();try{const {data,error}=await R.sb.rpc('booking_action',{p_booking:a.b,p_action:a.act,p:a.p||{}});if(error)throw error;
       if(a.act==='move_session'&&data&&data.pending&&R.role!=='admin'){/* moins de 48 h : la V7 affiche « demande envoyée » */}
-      old(d,...rest);await syncAll()}
+      old(d,...rest);await syncAll();
+      /* étape 5 : remboursements lancés par le serveur */
+      if(data&&data.refunds>0){const tot=money((data.refund_cents||0)/100),man=data.manual||0;
+        flash(R.role==='admin'?'Remboursement de '+tot+' lancé'+(man?' · '+man+' par Interac à faire vous-même (voir la réservation)':' sur la carte du client')+'. Le client reçoit un courriel.'
+          :'Cours annulé. Remboursement de '+tot+(man?' : Colin vous le renverra par Interac.':' en cours sur votre carte. Vous recevrez un courriel de confirmation.'));
+        setTimeout(()=>{syncAll().then(render)},6000)}
+      else if(data&&data.refunds===0&&(a.act==='cancel_booking'||(a.act==='cancel_session'&&(d.how==='refund'||R.role==='admin'&&!d.how))))
+        flash(a.act==='cancel_booking'?'Réservation annulée. Aucun paiement à rembourser. Les participants reçoivent un courriel.':'Cours annulé. Aucun paiement à rembourser.')}
     catch(e){console.error(e);flash(fr(e.message).replace(/^Erreur : /,''))}
     finally{busyOff();render()}})(A[name])}
 const realB=id=>{const b=db.bookings.find(x=>x.id===id);return b&&b.real?b:null};
@@ -20163,6 +20182,83 @@ viaServer('mvNo',d=>{const b=realB(d.b);return b&&{b:b.sid,act:'refuse_move',p:{
 viaServer('planOk',()=>{const m=st.modal||{};const b=realB(m.bid);const n=st.pk&&st.pk.sel&&st.pk.sel[0];return b&&n&&{b:b.sid,act:'plan_session',p:{date:n.date,start:n.start}}});
 viaServer('cancelYes',d=>{const b=realB(d.b);return b&&{b:b.sid,act:'cancel_booking',p:{}}});
 viaServer('interacOk',d=>{const b=realB(d.b);const p=b&&b.parts[Number(d.i)];return p&&p.pid&&{b:b.sid,act:'confirm_payment',p:{payment:p.pid}}});
+
+/* ================= Étape 5 : remboursements Stripe (bouton de l'entraîneur, suivi pour le client) =================
+   Annulation par le client (> 48 h, « Demander le remboursement ») ou par l'entraîneur : la base met le remboursement
+   en file et l'Edge Function « refund-payment » l'envoie à Stripe. Paiements Interac : « à renvoyer » par l'entraîneur.
+   Bouton « Rembourser… » : remboursement complet ou partiel d'une part payée (fonction coach_refund). */
+const RST={a_faire:['En cours','warn'],en_cours:['En cours','warn'],en_attente:['En traitement par la banque','info'],reussi:['Remboursé','ok'],
+  echoue:['Échec','bad'],manuel:['Interac à renvoyer','warn'],fait_main:['Remboursé par Interac','ok'],annule:['Non remboursé','neutral']};
+const RCOMMIT=['a_faire','en_cours','en_attente','reussi','manuel','fait_main'];
+const refLeft=p=>Math.max(0,Math.round((p.amount||0)*100)-(p.refunds||[]).filter(r=>RCOMMIT.includes(r.status)).reduce((n,r)=>n+(r.amount_cents||0),0));
+const refPayable=p=>p.pid&&(p.status==='payee'||p.status==='remboursee')&&refLeft(p)>0;
+const payLbl=m=>m==='interac'?'Interac':m==='credit'?'crédit':'carte';
+/* forfait entamé : une séance déjà passée, ou annulée à moins de 48 h (cours dû) */
+const forfaitStarted=b=>{const n=new Date();const past=x=>new Date(x.date+'T'+x.start+':00')<n;
+  return (b.sessions||[]).some(past)||(b.gone||[]).some(g=>g.late)};
+/* fenêtre d'annulation du client : plus de choix « Demander le remboursement » pour un forfait entamé */
+const cancelModalFix=()=>{const m=st.modal;if(!R.on||R.role!=='client'||!m||m.kind!=='cancelS')return;const b=B(m.bid);if(!b||!b.real||!(b.qty>1)||!forfaitStarted(b))return;
+  const btn=document.querySelector('[data-a="cancelGo"][data-how="refund"]');if(!btn)return;
+  const p=btn.closest('.actions')&&btn.closest('.actions').previousElementSibling;
+  if(p&&p.classList.contains('muted'))p.textContent='Votre forfait est entamé : selon les conditions, les cours restants ne sont plus remboursables. Vous pouvez garder ce cours en crédit pour le replanifier plus tard, ou le déplacer tout de suite.';
+  btn.outerHTML=`<button class="btn btn-plain" data-a="move" data-b="${b.id}" data-s="${m.sid}">Déplacer plutôt</button>`};
+render=(old=>function(){old();try{cancelModalFix()}catch(e){console.error(e)}})(render);
+function refundBlock(b,u,admin){
+  const rows=[];
+  b.parts.forEach(p=>{if(!admin&&!(u&&p.userId===u.id))return;
+    (p.refunds||[]).forEach(r=>{if(!admin&&(r.status==='annule'||r.status==='echoue'))return;const s=RST[r.status]||[r.status,'neutral'];
+      const who=admin||b.parts.length>1?esc(name(userById(p.userId)))+' · ':'';
+      let act='';
+      if(admin&&r.status==='echoue')act=`<button class="btn-xs" data-a="fcRefRetry" data-r="${r.id}">Réessayer</button><button class="btn-xs" data-a="fcRefCancel" data-r="${r.id}">Ne pas rembourser</button>`;
+      if(admin&&r.status==='manuel')act=`<button class="btn-xs" data-a="fcRefDone" data-r="${r.id}">Remboursé par Interac</button><button class="btn-xs" data-a="fcRefCancel" data-r="${r.id}">Ne pas rembourser</button>`;
+      rows.push(`<div class="part"><span>${who}<span class="num">${money((r.amount_cents||0)/100)}</span> <span class="muted small">${esc(r.reason||'')}${admin&&r.error?' · '+esc(r.error):''}${r.status==='manuel'&&!admin?' · Colin vous renverra ce montant par Interac':''}</span></span><span class="actions"><span class="pill ${s[1]}">${s[0]}</span>${act}</span></div>`)})});
+  const can=admin&&b.parts.some(refPayable);
+  if(!rows.length&&!can)return '';
+  return `<div class="fcrefunds" style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><b class="small">Remboursements</b>${can?`<button class="btn btn-sm btn-plain" data-a="fcRefund" data-b="${b.id}">Rembourser…</button>`:''}</div>${rows.join('')}</div>`}
+bookingCard=(old=>function(b,u,admin){let h=old(b,u,admin);if(!R.on||!b||!b.real)return h;
+  if(admin)h=h.replace('Annuler toute la réservation? Le remboursement se fait manuellement.','Annuler toute la réservation? Les parts payées par carte sont remboursées automatiquement et les participants reçoivent un courriel.');
+  if(!admin&&b.qty>1&&!b.cancelled&&forfaitStarted(b))h=h.replace('<div class="parts">',`<p class="muted small" style="margin:8px 0 0">Forfait entamé : les cours restants ne sont plus remboursables, mais vous pouvez les déplacer ou les garder en crédit.</p><div class="parts">`);
+  const blk=refundBlock(b,u,admin);if(!blk)return h;const i=h.lastIndexOf('</article>');return i<0?h+blk:h.slice(0,i)+blk+h.slice(i)})(bookingCard);
+
+/* fenêtre « Rembourser » de l'entraîneur */
+const rf=document.createElement('div');rf.className='fcq';rf.hidden=true;document.body.appendChild(rf);
+const rfClose=()=>{rf.hidden=true;document.body.style.overflow=''};
+rf.addEventListener('click',e=>{if(e.target===rf||(e.target.closest&&e.target.closest('[data-x]')))rfClose()});
+A.fcRefund=function(d){const b=B(d.b);if(!b||!b.real||R.role!=='admin')return;
+  const list=b.parts.filter(refPayable);
+  if(!list.length){flash('Rien à rembourser sur cette réservation.');return}
+  rf.innerHTML=`<form novalidate><button type="button" class="x" data-x aria-label="Fermer">×</button><div><span class="eyebrow">Réservation ${esc(b.ref)}</span><h2>Rembourser</h2></div>
+    <label class="field"><span>Part à rembourser</span><select name="pid">${list.map(p=>`<option value="${p.pid}" data-left="${refLeft(p)}" data-m="${esc(p.method||'')}">${esc(name(userById(p.userId)))} · payé ${money(p.amount)} (${payLbl(p.method)}) · reste ${money(refLeft(p)/100)}</option>`).join('')}</select></label>
+    <div class="field"><span>Montant</span>
+      <label style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="radio" name="kind" value="full" checked> Tout ce qui reste (<b data-full></b>)</label>
+      <label style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-weight:500"><input type="radio" name="kind" value="part"> Une partie : <input type="number" name="amt" min="0.01" step="0.01" inputmode="decimal" style="max-width:120px" disabled> $</label></div>
+    <label class="field"><span>Motif (indiqué au client dans son courriel)</span><input type="text" name="why" maxlength="140" placeholder="Ex. : cours écourté à cause de la météo"></label>
+    <p class="small muted" data-note></p><p class="small" data-err style="color:var(--bad)" hidden></p>
+    <div class="actions"><button type="submit" class="btn btn-accent">Rembourser</button><button type="button" class="btn btn-plain" data-x>Annuler</button></div></form>`;
+  const F=rf.querySelector('form');
+  const upd=()=>{const o=F.pid.selectedOptions[0];const l=Number(o.dataset.left);const part=F.kind.value==='part';
+    F.querySelector('[data-full]').textContent=money(l/100);F.amt.disabled=!part;F.amt.max=(l/100).toFixed(2);if(part&&!F.amt.value)F.amt.focus();
+    F.querySelector('[data-note]').textContent=o.dataset.m==='carte'
+      ?'Remboursé sur la carte du client par Stripe, en quelques secondes. Le client reçoit un courriel. Les frais Stripe du paiement d\'origine ne vous sont pas rendus.'
+      :'Paiement Interac : le remboursement sera noté « Interac à renvoyer ». Envoyez le virement vous-même, puis cliquez « Remboursé par Interac » : le client reçoit alors un courriel.'};
+  F.addEventListener('change',upd);upd();
+  F.addEventListener('submit',async e=>{e.preventDefault();const er=F.querySelector('[data-err]');er.hidden=true;
+    const l=Number(F.pid.selectedOptions[0].dataset.left);let cents=null;
+    if(F.kind.value==='part'){cents=Math.round(Number(String(F.amt.value).replace(',','.'))*100);
+      if(!(cents>0)||cents>l){er.textContent='Entrez un montant entre 0,01 $ et '+money(l/100)+'.';er.hidden=false;return}if(cents===l)cents=null}
+    const btn=F.querySelector('[type=submit]');btn.disabled=true;btn.textContent='Un instant…';
+    try{const {data,error}=await R.sb.rpc('coach_refund',{p_payment:F.pid.value,p_cents:cents,p_reason:F.why.value.trim()||null});if(error)throw error;
+      rfClose();await syncAll();render();
+      flash(data.method==='carte'?'Remboursement de '+money(Number(data.amount))+' envoyé à Stripe. Le client reçoit un courriel dès qu\'il est accepté.'
+        :'Remboursement Interac de '+money(Number(data.amount))+' noté : envoyez le virement, puis cliquez « Remboursé par Interac ».');
+      setTimeout(()=>{syncAll().then(render)},6000)}
+    catch(err){console.error(err);er.textContent=fr(err.message).replace(/^Erreur : /,'');er.hidden=false;btn.disabled=false;btn.textContent='Rembourser'}});
+  rf.hidden=false;document.body.style.overflow='hidden'};
+async function rfCall(fn,args,ok){busyOn();try{const {error}=await R.sb.rpc(fn,args);if(error)throw error;await syncAll();flash(ok)}
+  catch(e){console.error(e);flash(fr(e.message).replace(/^Erreur : /,''))}finally{busyOff();render()}}
+A.fcRefRetry=d=>rfCall('refund_retry',{p_refund:d.r},'Remboursement relancé chez Stripe. Actualisez dans quelques secondes.');
+A.fcRefDone=d=>rfCall('refund_mark_done',{p_refund:d.r},'Remboursement Interac noté. Le client reçoit un courriel.');
+A.fcRefCancel=d=>{if(!confirm('Ne pas faire ce remboursement? Le client ne sera pas remboursé de ce montant.'))return;rfCall('refund_cancel',{p_refund:d.r},'Remboursement retiré.')};
 
 /* location seule et cours publics : encore par demande, pour l'instant */
 A.rentLong=(old=>function(){if(R.on&&R.role==='client'){reqFor();return}return old()})(A.rentLong);
