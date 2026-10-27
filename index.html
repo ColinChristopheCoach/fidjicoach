@@ -10584,9 +10584,9 @@ function filterBar(k,admin){const F=fSt(k);
    <div class="v5srch"><label class="field"><span>${admin?'Rechercher un client, un lieu, un no de réservation':'Rechercher (lieu, type, participant, no)'}</span><input type="search" data-v5q="${k}" value="${esc(F.q)}" placeholder="${admin?'Ex. : Tremblay':'Ex. : Plaines'}" ${admin?'list="v5cli"':''}></label>
    <label class="field"><span>Date précise</span><input type="date" data-v5d="${k}" value="${esc(F.d)}"></label>${F.q||F.d?`<button class="btn btn-plain btn-sm" data-a="v5fclear" data-k="${k}">Effacer</button>`:''}</div>
    ${admin?`<datalist id="v5cli">${db.users.filter(x=>x.role==='client'&&x.fiche).map(x=>`<option value="${esc(name(x))}">`).join('')}</datalist>`:''}</div>`}
-function bookMatches(b,F){const ds=b.sessions.map(s=>s.date);if(F.d&&!ds.includes(F.d))return false;if(!F.d&&!ds.some(d=>inWin(d,F.w)))return false;
+function bookMatches(b,F){const ds=(b.sessions.length?b.sessions:(b.gone||[])).map(s=>s.date);/* réservation entièrement annulée : classée à la date annulée */if(F.d&&!ds.includes(F.d))return false;if(!F.d&&!ds.some(d=>inWin(d,F.w)))return false;
   if(F.q){const hay=norm([b.ref,b.lieu,b.type,b.formule,b.niveau,b.tech,...b.parts.map(p=>{const x=userById(p.userId);return x?name(x)+' '+(x.email||''):''}),...ds.map(d=>dlong(d))].join(' '));if(!norm(F.q).split(/\s+/).every(w=>hay.includes(w)))return false}return true}
-function keyDate(b,F){const ds=b.sessions.map(s=>s.date).sort();if(F.d)return F.d;const up=ds.filter(d=>d>=today()&&inWin(d,F.w));return up[0]||ds.filter(d=>inWin(d,F.w)).pop()||ds[0]}
+function keyDate(b,F){const ds=(b.sessions.length?b.sessions:(b.gone||[])).map(s=>s.date).sort();if(F.d)return F.d;const up=ds.filter(d=>d>=today()&&inWin(d,F.w));return up[0]||ds.filter(d=>inWin(d,F.w)).pop()||ds[0]}
 function grouped(items){const by={};items.forEach(x=>{(by[x.g]=by[x.g]||[]).push(x)});
   return BORD.filter(g=>by[g]).map(g=>`<h3 class="v5bh">${g} <small class="muted">${by[g].length}</small></h3><div class="list">${by[g].sort((a,b)=>g==='Passées'?b.k.localeCompare(a.k):a.k.localeCompare(b.k)).map(x=>x.h).join('')}</div>`).join('')}
 const clubCard=s=>`<article class="card v5club ${s.cancel?'cx':''}"><div class="row"><h3>${NI.club||''} Entraînement de club</h3>${s.cancel?`<span class="pill bad">Annulé · ${esc(s.cancel)}</span>`:'<span class="pill neutral">Club</span>'}</div><p class="small"><b>${esc(dlong(s.date))} · ${hfmt(s.start)}${s.end?' à '+hfmt(s.end):''}</b><br><span class="muted">${esc(s.club)} · ${esc(s.group)} · ${esc(s.lieu||'')}</span></p>${s.cancel||!window.p2calBtn||s.date<today()?'':'<div class="actions">'+window.p2calBtn([{id:'cl'+s.date+s.start+s.group,date:s.date,start:s.start,end:s.end,title:'Entraînement '+s.group+' · '+s.club,loc:s.lieu||'',desc:'Entraînement de club'}])+'</div>'}</article>`;
@@ -20203,6 +20203,13 @@ const cancelModalFix=()=>{const m=st.modal;if(!R.on||R.role!=='client'||!m||m.ki
   if(p&&p.classList.contains('muted'))p.textContent='Votre forfait est entamé : selon les conditions, les cours restants ne sont plus remboursables. Vous pouvez garder ce cours en crédit pour le replanifier plus tard, ou le déplacer tout de suite.';
   btn.outerHTML=`<button class="btn btn-plain" data-a="move" data-b="${b.id}" data-s="${m.sid}">Déplacer plutôt</button>`};
 render=(old=>function(){old();try{cancelModalFix()}catch(e){console.error(e)}})(render);
+
+const toDo=b=>R.on&&b.real&&(b.parts||[]).some(p=>(p.refunds||[]).some(r=>r.status==='manuel'||r.status==='echoue'));
+/* bandeau de l'entraîneur : remboursements à traiter (Interac à renvoyer, échecs Stripe) */
+decorate=(old=>function(){old();if(!R.on||R.role!=='admin'||st.view!=='admin')return;const bar=document.querySelector('.fcreal');if(!bar||bar.querySelector('.fcrtodo'))return;
+  const n=(db.bookings||[]).filter(toDo).length;if(!n)return;
+  bar.insertAdjacentHTML('beforeend',`<br><b class="fcrtodo">⚠ ${n} réservation${n>1?'s':''} avec un remboursement à traiter</b> (Interac à renvoyer ou échec Stripe) : <button class="linkbtn" data-a="fcRefTodo">voir</button>`)})(decorate);
+A.fcRefTodo=function(){st.view='admin';st.tab='resa';const F=st.v5ra||(st.v5ra={w:{},q:'',d:'',club:0});F.d='';F.q='';Object.assign(F.w,{past:1,jour:1,sem:1,mois:1,plus:1});render();window.scrollTo(0,0)};
 function refundBlock(b,u,admin){
   const rows=[];
   b.parts.forEach(p=>{if(!admin&&!(u&&p.userId===u.id))return;
