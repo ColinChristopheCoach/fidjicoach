@@ -2532,7 +2532,7 @@ function adminV(){
 }
 function todoAdmin(){const o=[];
   db.bookings.filter(b=>!b.cancelled).forEach(b=>{b.parts.forEach((p,i)=>{if(!p.paid&&p.method==='interac')o.push({k:'warn',t:'Virement Interac à confirmer',d:esc(name(userById(p.userId)))+' · '+money(p.amount)+' · '+b.ref,btn:`<button class="btn btn-sm btn-accent" data-a="interacOk" data-b="${b.id}" data-i="${i}">Virement reçu</button>`})});
-    b.sessions.forEach(s=>{if(s.pendingMove)o.push({k:'warn',t:'Déplacement à approuver',d:esc(name(userById(b.owner)))+' · du '+dfmt(s.date)+' au '+dfmt(s.pendingMove.date)+' '+hfmt(s.pendingMove.start),btn:`<span class="actions"><button class="btn btn-sm btn-accent" data-a="mvOk" data-b="${b.id}" data-s="${s.id}">Approuver</button><button class="btn btn-sm btn-plain" data-a="mvNo" data-b="${b.id}" data-s="${s.id}">Refuser</button></span>`});
+    b.sessions.forEach(s=>{if(s.pendingMove)o.push({k:'warn',t:'Déplacement à approuver',d:esc(name(userById(b.owner)))+' · '+b.ref+' · '+esc(b.lieu||'')+'<br>Cours actuel : <b>'+dfmt(s.date)+' · '+hfmt(s.start)+'</b> → demandé : <b>'+dfmt(s.pendingMove.date)+' · '+hfmt(s.pendingMove.start)+'</b>',btn:`<span class="actions"><button class="btn btn-sm btn-accent" data-a="mvOk" data-b="${b.id}" data-s="${s.id}">Approuver</button><button class="btn btn-sm btn-plain" data-a="mvNo" data-b="${b.id}" data-s="${s.id}">Refuser</button></span>`});
       if(hoursUntil(s)*60+b.dur<0&&!s.report)o.push({k:'',t:'Rapport de cours à rédiger',d:esc(name(userById(b.owner)))+' · '+dfmt(s.date)+' · '+bDesc(b),btn:`<button class="btn btn-sm btn-plain" data-a="report" data-b="${b.id}" data-s="${s.id}">Rédiger</button>`})})});
   (db.rentals||[]).forEach(r=>{if(!r.paid&&r.method==='interac'&&!r.ended)o.push({k:'warn',t:'Virement Interac à confirmer (location)',d:esc(name(userById(r.userId)))+' · '+money(r.amount),btn:`<button class="btn btn-sm btn-accent" data-a="rentPaid" data-r="${r.id}">Virement reçu</button>`})});
   const m=unreadMsgAdmin();if(m)o.push({k:'',t:m+' message'+(m>1?'s':'')+' non lu'+(m>1?'s':''),d:'',btn:`<button class="btn btn-sm btn-plain" data-a="tab" data-t="msg">Lire</button>`});
@@ -3518,7 +3518,7 @@ bookingCard=function(b,u,admin){
   if(admin&&!b.cancelled&&b.sessions.length)actions+=`<button class="btn btn-sm btn-plain" data-a="eqEdit" data-b="${b.id}">${r&&r.lines.length?'Modifier l\'équipement':'Ajouter de l\'équipement'}</button>`;
   if(admin&&!b.cancelled)actions+=st.confirm===b.id?`<span class="small">Annuler toute la réservation? Le remboursement se fait manuellement.</span><button class="btn btn-sm btn-accent" data-a="cancelYes" data-b="${b.id}">Oui, annuler</button><button class="btn btn-sm btn-plain" data-a="cancelNo">Non</button>`:`<button class="btn btn-sm btn-plain" data-a="cancelAsk" data-b="${b.id}">Annuler la réservation</button>`;
   const fees=b.parts[0].split;
-  return `<article class="card"><div class="row"><h3>${bDesc(b)}</h3><span class="actions">${b.gift?'<span class="pill neutral">Cadeau</span>':''}<span class="pill ${c}">${s}</span></span></div>
+  return `<article class="card"><div class="row"><h3>${bDesc(b)}</h3><span class="actions"><span class="pill neutral num" title="Numéro de réservation">${b.ref}</span>${b.gift?'<span class="pill neutral">Cadeau</span>':''}<span class="pill ${c}">${s}</span></span></div>
   <dl class="kv">${admin?`<dt>Client</dt><dd><button class="linkbtn" data-a="openClient" data-u="${b.owner}">${esc(name(owner))}</button></dd>`:''}
     <dt>N° de réservation</dt><dd class="num">${b.ref}</dd>
     ${b.qty>1?`<dt>Forfait</dt><dd>${b.qty} cours (−${REMISE[b.qty]*100} %)${left>0?` · ${left} en crédit`:''}</dd>`:''}
@@ -20205,6 +20205,14 @@ const cancelModalFix=()=>{const m=st.modal;if(!R.on||R.role!=='client'||!m||m.ki
 render=(old=>function(){old();try{cancelModalFix()}catch(e){console.error(e)}})(render);
 
 const toDo=b=>R.on&&b.real&&(b.parts||[]).some(p=>(p.refunds||[]).some(r=>r.status==='manuel'||r.status==='echoue'));
+/* « À traiter » (Aujourd'hui) : remboursements Interac à renvoyer et échecs Stripe, avec les boutons pour les régler */
+todoAdmin=(old=>function(){const o=old();if(!R.on)return o;const add=[];
+  (db.bookings||[]).forEach(b=>{if(!b.real)return;(b.parts||[]).forEach(p=>(p.refunds||[]).forEach(r=>{
+    if(r.status==='manuel')add.push({k:'warn',t:'Remboursement Interac à envoyer',d:esc(name(userById(p.userId)))+' · <b>'+money((r.amount_cents||0)/100)+'</b> · '+b.ref+(r.reason?' · '+esc(r.reason):''),
+      btn:`<span class="actions"><button class="btn btn-sm btn-accent" data-a="fcRefDone" data-r="${r.id}">Virement envoyé</button><button class="btn btn-sm btn-plain" data-a="fcRefCancel" data-r="${r.id}">Ne pas rembourser</button></span>`});
+    else if(r.status==='echoue')add.push({k:'warn',t:'Remboursement par carte refusé par Stripe',d:esc(name(userById(p.userId)))+' · <b>'+money((r.amount_cents||0)/100)+'</b> · '+b.ref+(r.error?' · '+esc(r.error):''),
+      btn:`<span class="actions"><button class="btn btn-sm btn-accent" data-a="fcRefRetry" data-r="${r.id}">Réessayer</button><button class="btn btn-sm btn-plain" data-a="fcRefCancel" data-r="${r.id}">Ne pas rembourser</button></span>`})}))});
+  return add.concat(o)})(todoAdmin);
 /* bandeau de l'entraîneur : remboursements à traiter (Interac à renvoyer, échecs Stripe) */
 decorate=(old=>function(){old();if(!R.on||R.role!=='admin'||st.view!=='admin')return;const bar=document.querySelector('.fcreal');if(!bar||bar.querySelector('.fcrtodo'))return;
   const n=(db.bookings||[]).filter(toDo).length;if(!n)return;
