@@ -20399,6 +20399,13 @@ offerFile=(old=>async function(filename,blob){if(window.claude&&window.claude.us
     setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},4000);flash('Fichier prêt : '+filename)}
   catch(e){console.error(e);flash('Téléchargement impossible : '+(e&&e.message||e))}})(offerFile);
 
+/* --- formulaire de dépense : choix photo / photothèque / fichier sur cellulaire (plus de caméra forcée),
+   et ce qui est déjà tapé est conservé quand on joint le reçu --- */
+expForm=(old=>function(E){return old(E).replace(' capture="environment"','')})(expForm);
+function expKeep(){const f=document.getElementById('expForm');if(!f||!st.expD)return;const v=Object.fromEntries(new FormData(f).entries());
+  Object.assign(st.expD,{date:v.date,cat:v.cat,desc:v.desc,amount:v.amount,tps:v.tps,tvq:v.tvq})}
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='expFile')expKeep()},true);
+
 /* --- chargement : avis + comptabilité avec le reste --- */
 loadCoachSide=(old=>async function(){await old();await Promise.all([loadNotifs(),loadLedger(),loadExpenses()]);subNotifs()})(loadCoachSide);
 loadClientSide=(old=>async function(){await old();await loadNotifs();subNotifs()})(loadClientSide);
