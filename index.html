@@ -20388,6 +20388,14 @@ cpXls=(old=>async function(){if(!R.on||R.role!=='admin')return old();if(!window.
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rev.length?rev:[{'(aucun revenu)':''}]),'Revenus');XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ex.length?ex:[{'(aucune dépense)':''}]),'Dépenses');
   await offerFile('comptabilite-'+(P.mode==='mois'?P.m:P.y)+'.xlsx',new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})]))})(cpXls);
 
+/* --- téléchargements sur fidjicoach.ca : la V7 passait par le téléchargement des artifacts Claude (absent sur le vrai site);
+   ici, téléchargement normal du navigateur (Excel de la comptabilité, sauvegardes, étiquettes, CSV) --- */
+offerFile=(old=>async function(filename,blob){if(window.claude&&window.claude.use)return old(filename,blob);
+  try{const b=blob instanceof Blob?blob:new Blob([blob]);if(!b.size){flash('Le fichier généré est vide : réessayez');return}
+    const url=URL.createObjectURL(b);const a=document.createElement('a');a.href=url;a.download=filename;a.rel='noopener';document.body.appendChild(a);a.click();
+    setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},4000);flash('Fichier prêt : '+filename)}
+  catch(e){console.error(e);flash('Téléchargement impossible : '+(e&&e.message||e))}})(offerFile);
+
 /* --- chargement : avis + comptabilité avec le reste --- */
 loadCoachSide=(old=>async function(){await old();await Promise.all([loadNotifs(),loadLedger(),loadExpenses()]);subNotifs()})(loadCoachSide);
 loadClientSide=(old=>async function(){await old();await loadNotifs();subNotifs()})(loadClientSide);
