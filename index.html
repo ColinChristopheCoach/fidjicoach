@@ -19765,8 +19765,7 @@ addEventListener('click',e=>{
 /* ================= Comptes réels (Supabase) — étape 2 =================
    Public : vraie connexion / inscription, fiche client enregistrée dans la base.
    Admin (Colin) : voit les clients inscrits et leurs fiches; notes privées enregistrées.
-   Le reste (réservations, paiements) arrive aux prochaines étapes : pour l'instant,
-   « Réserver » ouvre encore le formulaire de demande. */
+   Étapes 3 à 6 : réservations, paiements Stripe, remboursements, courriels, notifications en ligne, comptabilité. */
 const SB_URL='https://cwqbhtsbewcqhxjbviog.supabase.co';
 const SB_KEY='sb_publishable_qtGHs-uOk50Lwd6zsCzZSg_qb5YtwQX';
 const COACH_SLUG='colin-christophe';
@@ -20288,6 +20287,118 @@ async function bootReal(){
   const {data:{session}}=await R.sb.auth.getSession();
   if(session){if(await loadMe()){stampTerms();if(st.view==='home'||st.view==='auth'){st.view=R.role==='admin'?'admin':'client';st.tab=R.role==='admin'?'today':(me().onboarded?'accueil':null)}render()}}
   else{resetLocal();try{const {data:c}=await R.sb.from('coaches').select('id').eq('slug',COACH_SLUG).maybeSingle();R.coachId=c&&c.id;if(R.coachId&&await loadPub())render()}catch(e){}render()}}
+
+
+/* ================= Étape 6 : notifications en ligne, comptabilité nette, mode Stripe =================
+   Cloche      : les avis (réservation, paiement, rappel, annulation, déplacement, remboursement) sont enregistrés
+                 en ligne par le serveur (table « notifications ») : l'entraîneur et les clients les voient sur tous
+                 leurs appareils, en direct (Supabase Realtime), et « lu » est partagé.
+   Comptabilité : revenus par paiement, remboursements déduits, taxes perçues par taxe, dépenses en ligne (avec reçu),
+                 export Excel. Les lignes viennent du serveur (fonction coach_ledger).
+   Mode Stripe : lu au démarrage (fonction platform_info) : plus besoin de modifier index.html pour passer en réel. */
+
+/* --- la cloche --- */
+R.chan=null;R.ledger=[];R.nbUnread=0;
+const nRow=n=>{const t=tzParts(n.created_at);return {id:n.id,sid:n.id,at:t.date+' '+t.start,kind:n.kind||'Avis',text:n.text||'',read:!!n.read_at,ch:['app'],userId:lid(n.user_id),booking:n.booking_id||null}};
+async function loadNotifs(){if(!R.on&&!R.uid)return;
+  const {data,error}=await R.sb.from('notifications').select('*').eq('user_id',R.uid).order('created_at',{ascending:false}).limit(200);
+  if(error){console.warn('Notifications en ligne indisponibles (script SQL étape 6?)',error.message);return}
+  const rows=(data||[]).map(nRow);
+  if(R.role==='admin')db.notifs=rows;else db.cnotifs=rows;
+  R.nbUnread=rows.filter(n=>!n.read).length}
+async function nRead(ids){if(!R.on)return;try{const {error}=await R.sb.rpc('notif_read',{p_ids:ids});if(error)throw error}catch(e){console.warn('notif_read',e.message)}}
+/* en mode réel, les avis viennent du serveur : les avis locaux de la V7 ne sont plus créés (ils seraient en double) */
+notify=(old=>function(kind,text){if(R.on)return;return old(kind,text)})(notify);
+notifyClient=(old=>function(id,cat,k,t){if(R.on)return;return old(id,cat,k,t)})(notifyClient);
+/* « Marquer comme lu » : même geste qu'avant, mais enregistré en ligne */
+A.aAck=(old=>function(d){old(d);nRead([d.n])})(A.aAck);
+A.cAck=(old=>function(d){old(d);nRead([d.n])})(A.cAck);
+A.aAckAll=(old=>function(d){old(d);nRead(null)})(A.aAckAll);
+A.cAckAll=(old=>function(d){old(d);nRead(null)})(A.cAckAll);
+A.pushX=(old=>function(d){old(d);nRead([d.n])})(A.pushX);
+/* arrivée d'un avis en direct : on l'ajoute, on affiche la bulle, et on rafraîchit les réservations */
+const typing=()=>/^(INPUT|TEXTAREA|SELECT)$/.test(((document.activeElement||{}).tagName)||'');
+function nArrive(n){const r=nRow(n);const list=R.role==='admin'?db.notifs:(db.cnotifs=db.cnotifs||[]);
+  if(list.some(x=>x.id===r.id))return;list.unshift(r);R.nbUnread++;
+  st.pushes=(st.pushes||[]).filter(x=>x.id!==r.id);st.pushes.unshift(r);
+  save();if(!typing()&&!st.modal)render();
+  syncAll().then(()=>{if(!typing()&&!st.modal)render()})}
+function subNotifs(){if(!R.sb||!R.uid)return;if(R.chan){try{R.sb.removeChannel(R.chan)}catch(e){}R.chan=null}
+  try{R.chan=R.sb.channel('fc-notifs-'+R.uid).on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+R.uid},p=>{try{nArrive(p.new)}catch(e){console.error(e)}}).subscribe()}
+  catch(e){console.warn('Realtime indisponible',e.message)}}
+/* filet de sécurité : si le direct ne passe pas, on relit les avis toutes les 3 minutes (sans redessiner l'écran pour rien) */
+setInterval(async()=>{if(!R.on||document.visibilityState!=='visible')return;const before=R.nbUnread;try{await loadNotifs()}catch(e){return}
+  if(R.nbUnread!==before&&!typing()&&!st.modal)render()},180000);
+resetLocal=(old=>function(){old();db.notifs=[];db.cnotifs=[];R.ledger=[];R.nbUnread=0;if(R.chan&&R.sb){try{R.sb.removeChannel(R.chan)}catch(e){}}R.chan=null})(resetLocal);
+
+/* --- comptabilité en ligne --- */
+async function loadLedger(){if(R.role!=='admin'||!R.coachId)return;
+  const {data,error}=await R.sb.rpc('coach_ledger',{p_coach:R.coachId});
+  if(error){console.warn('Comptabilité en ligne indisponible (script SQL étape 6?)',error.message);return}R.ledger=data||[]}
+/* dépenses de l'entraîneur : enregistrées en ligne avec leur reçu */
+R.snap.exp=R.snap.exp||{};
+const expRow=r=>({id:r.local_id,date:String(r.date).slice(0,10),cat:r.cat||'',desc:r.descr||'',amount:Number(r.amount)||0,tps:Number(r.tps)||0,tvq:Number(r.tvq)||0,receipt:r.receipt||null});
+const expHash=e=>JSON.stringify([e.date,e.cat,e.desc,e.amount,e.tps,e.tvq,e.receipt?(e.receipt.name||'')+':'+(e.receipt.data||'').length:'']);
+async function loadExpenses(){if(R.role!=='admin'||!R.coachId)return;
+  const {data,error}=await R.sb.from('expenses').select('*').eq('coach_id',R.coachId).order('date');
+  if(error){console.warn('Dépenses en ligne indisponibles (script SQL étape 6?)',error.message);return}
+  const local=db.expenses||[];
+  if(!(data||[]).length&&local.length){R.snap.exp={};setTimeout(queueSync,50);return}   /* premier branchement : on publie ce qui est sur cet appareil */
+  db.expenses=(data||[]).map(expRow);R.snap.exp={};db.expenses.forEach(e=>R.snap.exp[e.id]=expHash(e))}
+async function pushExpenses(){if(R.role!=='admin'||!R.coachId)return;const S=R.snap.exp;const cur=db.expenses||[];
+  for(const e of cur){const h=expHash(e);if(S[e.id]===h)continue;
+    const {error}=await R.sb.from('expenses').upsert({coach_id:R.coachId,local_id:String(e.id),date:e.date,cat:e.cat||null,descr:e.desc||null,amount:r2(Number(e.amount)||0),tps:r2(Number(e.tps)||0),tvq:r2(Number(e.tvq)||0),receipt:e.receipt||null,updated_at:new Date().toISOString()},{onConflict:'coach_id,local_id'});
+    if(error)throw error;S[e.id]=h}
+  const keep=new Set(cur.map(e=>String(e.id)));
+  for(const id of Object.keys(S).filter(id=>!keep.has(id))){const {error}=await R.sb.from('expenses').delete().eq('coach_id',R.coachId).eq('local_id',id);if(error)throw error;delete S[id]}}
+pushCoach=(old=>async function(){await old();await pushExpenses()})(pushCoach);
+/* les revenus de la comptabilité : paiements reçus (+) et remboursements faits (−), venant du serveur;
+   les réservations saisies à la main sur cet appareil et les locations restent comptées comme avant */
+moneyIn=(old=>function(){if(!R.on||R.role!=='admin')return old();
+  const keep=db.bookings;db.bookings=keep.filter(b=>!b.real);let base=[];try{base=old()}finally{db.bookings=keep}
+  const rows=(R.ledger||[]).map(x=>({date:x.date,who:x.client||'',what:(x.kind==='remboursement'?'Remboursement ':'Cours ')+x.ref+(x.reason?' · '+x.reason:''),inv:'',method:x.method||'',
+    cours:r2(Number(x.cours)||0),access:r2(Number(x.acces)||0),travel:r2(Number(x.deplacement)||0),rent:0,total:r2(Number(x.total)||0),taxes:x.taxes||{},tax:r2(Number(x.tax_total)||0),kind:x.kind}));
+  return base.concat(rows).sort((a,b)=>a.date.localeCompare(b.date))})(moneyIn);
+comptaV=(old=>function(){let h=old();if(!R.on||R.role!=='admin')return h;const P=st.cp;if(!P)return h;
+  const inP=d=>d&&(P.mode==='mois'?d.slice(0,7)===P.m:d.slice(0,4)===P.y);const L=moneyIn().filter(x=>x.kind&&inP(x.date));
+  const refunds=r2(L.filter(x=>x.kind==='remboursement').reduce((n,x)=>n+x.total,0));const gross=r2(L.filter(x=>x.kind==='paiement').reduce((n,x)=>n+x.total,0));
+  const byTax={};L.forEach(x=>Object.entries(x.taxes||{}).forEach(([k,v])=>byTax[k]=r2((byTax[k]||0)+(Number(v)||0))));const tax=r2(Object.values(byTax).reduce((n,v)=>n+v,0));
+  const names=Object.keys(byTax);const det=names.length?' <span class="muted small">('+names.map(k=>esc(k)+' '+money(byTax[k])).join(' · ')+')</span>':'';
+  /* ligne « Taxes perçues » de la V7 (calculée à partir des parts locales) remplacée par les taxes réelles, nettes des remboursements */
+  const taxLine=`<div class="cline"><span>Taxes perçues (à remettre)${det}</span><b>${money(tax)}</b></div>`;
+  if(/<span>Taxes perçues \(à remettre\)<\/span>/.test(h))h=h.replace(/<div class="cline"><span>Taxes perçues \(à remettre\)<\/span><b>[^<]*<\/b><\/div>/,taxLine);
+  else h=h.replace('<div class="cline tot"><span>Total</span>',taxLine+'<div class="cline tot"><span>Total</span>');
+  const refLine=`<div class="cline"><span>Paiements reçus</span><b>${money(gross)}</b></div><div class="cline"><span>Remboursements</span><b>${money(refunds)}</b></div>`;
+  h=h.replace('<div class="cline"><span>Taxes perçues',refLine+'<div class="cline"><span>Taxes perçues');
+  h=h.replace('<span>revenus encaissés</span>','<span>revenus nets (remboursements déduits)</span>');
+  h=h.replace('<p class="muted small">Les frais d\'accès refacturés sont payés aux centres','<p class="muted small">Les montants viennent des paiements reçus en ligne (carte et Interac confirmés); chaque remboursement est déduit, taxes comprises, à la date où il a été fait. Les frais d\'accès refacturés sont payés aux centres');
+  return h})(comptaV);
+/* export Excel : mêmes feuilles qu'avant + type de ligne, mode de paiement et taxes par taxe */
+cpXls=(old=>async function(){if(!R.on||R.role!=='admin')return old();if(!window.XLSX){flash('Le module Excel n\'est pas chargé');return}
+  const P=st.cp;const inP=d=>d&&(P.mode==='mois'?d.slice(0,7)===P.m:d.slice(0,4)===P.y);
+  const L=moneyIn().filter(x=>inP(x.date));const taxNames=[...new Set(L.flatMap(x=>Object.keys(x.taxes||{})))];
+  const rev=L.map(x=>{const o={'Date':x.date,'Type':x.kind==='remboursement'?'Remboursement':x.kind==='paiement'?'Paiement':'Autre','Client':x.who,'Objet':x.what,'Paiement':x.method||'','Cours ($)':x.cours,'Location ($)':x.rent||0,'Accès refacturés ($)':x.access,'Déplacement ($)':x.travel};
+    taxNames.forEach(k=>o[k+' ($)']=r2(Number((x.taxes||{})[k])||0));o['Total ($)']=x.total;return o});
+  const ex=(db.expenses||[]).filter(x=>inP(x.date)).sort((a,b)=>a.date.localeCompare(b.date)).map(x=>({'Date':x.date,'Catégorie':x.cat,'Description':x.desc,'Total ($)':Number(x.amount),'TPS ($)':Number(x.tps||0),'TVQ ($)':Number(x.tvq||0),'Reçu':x.receipt?'Oui':'Non'}));
+  const gross=r2(L.filter(x=>x.kind!=='remboursement').reduce((n,x)=>n+x.total,0)),refunds=r2(L.filter(x=>x.kind==='remboursement').reduce((n,x)=>n+x.total,0)),te=r2(ex.reduce((n,x)=>n+x['Total ($)'],0));
+  const som={'Période':P.mode==='mois'?P.m:P.y,'Paiements reçus ($)':gross,'Remboursements ($)':refunds,'Revenus nets ($)':r2(gross+refunds)};
+  taxNames.forEach(k=>som[k+' perçue ($)']=r2(L.reduce((n,x)=>n+(Number((x.taxes||{})[k])||0),0)));
+  som['Dépenses ($)']=te;som['Résultat net ($)']=r2(gross+refunds-te);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([som]),'Sommaire');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rev.length?rev:[{'(aucun revenu)':''}]),'Revenus');XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ex.length?ex:[{'(aucune dépense)':''}]),'Dépenses');
+  await offerFile('comptabilite-'+(P.mode==='mois'?P.m:P.y)+'.xlsx',new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})]))})(cpXls);
+
+/* --- chargement : avis + comptabilité avec le reste --- */
+loadCoachSide=(old=>async function(){await old();await Promise.all([loadNotifs(),loadLedger(),loadExpenses()]);subNotifs()})(loadCoachSide);
+loadClientSide=(old=>async function(){await old();await loadNotifs();subNotifs()})(loadClientSide);
+syncAll=(old=>async function(){await old();try{await Promise.all([loadNotifs(),loadLedger()])}catch(e){console.warn(e)}})(syncAll);
+/* après chaque connexion, le compte d'avis non lus vient du serveur (et plus de cet appareil) */
+afterLogin=(old=>function(){old();if(R.on){const list=R.role==='admin'?db.notifs:(db.cnotifs||[]);st.pushes=list.filter(n=>!n.read).slice(0,3)}})(afterLogin);
+/* mode Stripe lu au démarrage : « Mode test » disparaît tout seul quand la base dit « live » */
+bootReal=(old=>async function(){await old();try{if(!R.sb)return;const {data}=await R.sb.rpc('platform_info');
+  if(data&&typeof data.stripe_test==='boolean'&&data.stripe_test!==STRIPE_TEST){STRIPE_TEST=data.stripe_test;render()}}catch(e){}})(bootReal);
+decorate=(old=>function(){old();if(!R.on||R.role!=='admin'||st.view!=='admin')return;const bar=document.querySelector('.fcreal');if(!bar||bar.dataset.v6)return;bar.dataset.v6='1';
+  bar.innerHTML=bar.innerHTML.replace('Les autres sections arrivent aux prochaines étapes : ce que vous y entrez reste sur cet appareil.','Vos alertes, votre comptabilité et vos dépenses sont aussi en ligne. Les autres sections (messages, documents, équipement…) arrivent aux prochaines étapes : ce que vous y entrez reste sur cet appareil.')})(decorate);
 
 /* garde-fou : sans compte réel, seulement la vitrine et l'écran de connexion */
 render=(old=>function(){
