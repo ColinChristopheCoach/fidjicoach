@@ -20342,8 +20342,11 @@ const expHash=e=>JSON.stringify([e.date,e.cat,e.desc,e.amount,e.tps,e.tvq,e.rece
 async function loadExpenses(){if(R.role!=='admin'||!R.coachId)return;
   const {data,error}=await R.sb.from('expenses').select('*').eq('coach_id',R.coachId).order('date');
   if(error){console.warn('Dépenses en ligne indisponibles (script SQL étape 6?)',error.message);return}
-  const local=db.expenses||[];
-  if(!(data||[]).length&&local.length){R.snap.exp={};setTimeout(queueSync,50);return}   /* premier branchement : on publie ce qui est sur cet appareil */
+  const local=db.expenses||[];const MIG='fc-exp-migre-'+R.coachId;let migre=false;try{migre=!!localStorage.getItem(MIG)}catch(e){}
+  /* tout premier branchement de cet appareil : s'il a des dépenses et que rien n'est en ligne, on les publie (une seule fois) */
+  if(!migre&&!(data||[]).length&&local.length){try{localStorage.setItem(MIG,'1')}catch(e){}R.snap.exp={};setTimeout(queueSync,50);return}
+  try{localStorage.setItem(MIG,'1')}catch(e){}
+  /* ensuite, ce qui est en ligne a toujours le dernier mot (ajouts et suppressions faits sur un autre appareil) */
   db.expenses=(data||[]).map(expRow);R.snap.exp={};db.expenses.forEach(e=>R.snap.exp[e.id]=expHash(e))}
 async function pushExpenses(){if(R.role!=='admin'||!R.coachId)return;const S=R.snap.exp;const cur=db.expenses||[];
   for(const e of cur){const h=expHash(e);if(S[e.id]===h)continue;
@@ -20399,7 +20402,7 @@ offerFile=(old=>async function(filename,blob){if(window.claude&&window.claude.us
 /* --- chargement : avis + comptabilité avec le reste --- */
 loadCoachSide=(old=>async function(){await old();await Promise.all([loadNotifs(),loadLedger(),loadExpenses()]);subNotifs()})(loadCoachSide);
 loadClientSide=(old=>async function(){await old();await loadNotifs();subNotifs()})(loadClientSide);
-syncAll=(old=>async function(){await old();try{await Promise.all([loadNotifs(),loadLedger()])}catch(e){console.warn(e)}})(syncAll);
+syncAll=(old=>async function(){await old();try{await Promise.all([loadNotifs(),loadLedger(),st.expD?Promise.resolve():loadExpenses()])}catch(e){console.warn(e)}})(syncAll);
 /* après chaque connexion, le compte d'avis non lus vient du serveur (et plus de cet appareil) */
 afterLogin=(old=>function(){old();if(R.on){const list=R.role==='admin'?db.notifs:(db.cnotifs||[]);st.pushes=list.filter(n=>!n.read).slice(0,3)}})(afterLogin);
 /* mode Stripe lu au démarrage : « Mode test » disparaît tout seul quand la base dit « live » */
