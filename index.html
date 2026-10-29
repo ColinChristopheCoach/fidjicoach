@@ -10876,10 +10876,13 @@ adminV=(old=>function(){let h=old();const s=st.adm&&st.adm.sec||null;
   const groups=AGROUPS().map(([g,ks])=>[g,ks.filter(k=>ASEC[k]).map(k=>({l:ASEC[k].l,i:ASEC[k].i,on:k===cur,attrs:`data-a="nav" data-s="${k}"`,n:k==='msg'?(typeof unreadMsgAdmin==='function'?unreadMsgAdmin():0):0}))]);
   h=h.replace(/<aside class="side"[\s\S]*?<\/aside>/,sideHTML('a',groups));
   return h.replace('<main class="wrap app v6 adm">','<main class="wrap app v6 adm v5">')})(adminV);
+/* Corrections 2 : le même menu, pour les pages À propos, Centres et Météo, et pour les menus favoris */
+window.fcCMAP=CMAP;
+window.fcSideFor=function(u){if(u&&u.role==='admin'){const groups=AGROUPS().map(([g,ks])=>[g,ks.filter(k=>ASEC[k]).map(k=>({l:ASEC[k].l,i:ASEC[k].i,on:false,attrs:`data-a="nav" data-s="${k}"`,n:k==='msg'?(typeof unreadMsgAdmin==='function'?unreadMsgAdmin():0):0}))]);return sideHTML('a',groups)}return sideHTML('c',CMAP())};
 
 /* ---------- en-tête : bouton Menu (mobile) et panier ---------- */
 header=(old=>function(u){let h=old(u);if(!u)return h;
-  const inApp=(st.view==='client'&&u.role==='client')||(st.view==='admin'&&u.role==='admin');
+  const inApp=(st.view==='client'&&u.role==='client')||(st.view==='admin'&&u.role==='admin')||(['apropos','centres','meteo'].includes(st.view)&&!st.p3on&&(u.role==='admin'||(u.role==='client'&&u.onboarded)));
   const burger=inApp?`<button class="hicon v5burger" data-a="v5menu" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>`:'';
   const cart=u.role==='client'&&cartOf(u).length?`<button class="hicon v5cartb" data-a="v5go" data-t="panier" aria-label="Mon panier" title="Mon panier">${ico('tag')}<span class="rbadge">${cartOf(u).length}</span></button>`:'';
   return h.replace(/(<button class="hicon[^"]*" data-a="hNotif")/,cart+'$1').replace(/<button class="brand"/,burger+'<button class="brand"')})(header);
@@ -19193,7 +19196,7 @@ Object.assign(A,{ap7on(){const u=me(),c=CC();if(!u)return;u.aplus={on:1,at:today
 VIEWS.a_home=(old=>function(c,u){let h=old(c,u);try{const A=ap7(c);if(!(u.aplus&&u.aplus.on)&&myRs(c,u).some(r=>A.g[r.g]))h=`<button class="todo warn" data-a="p3go" data-p="a_plus" style="margin-bottom:12px"><span><b>Athlète Plus recommandé par votre club</b><small>Plan adaptatif, test au lever, sorties GPS · ${money(window.fc7aplus(Math.max(1,myRs(c,u).length)))} par mois, ${window.fc7().aplus.trial} jours d'essai</small></span><span>›</span></button>`+h}catch(e){}return h})(VIEWS.a_home);
 }catch(e){console.error('V7 tarifs club',e)}
 /* ================= Modifications du 28 oct. 2026 : « Mon entraînement » pour les entraîneurs d'un club ================= */
-try{PG.s_moi={l:'Mon entraînement',i:'run',who:'s',perm:null};if(!SGROUPS.some(g=>g[1].includes('s_moi')))SGROUPS.push(['Pour moi',['s_moi']]);
+try{PG.s_moi={l:'Mon entraînement',i:'run',who:'s',perm:null};if(!SGROUPS.some(g=>g[1].includes('s_moi')))SGROUPS.push(['Entraînement personnel',['s_moi']]);
   VIEWS.s_moi=(c,u)=>window.fcSelfV?window.fcSelfV():'<div class="empty">Page à venir.</div>'}catch(e){console.error('Mon entraînement (club)',e)}
 
 })();
@@ -21134,6 +21137,293 @@ loadCoachSide=(old=>async function(){await old();if(R.role!=='admin')return;
     else if(Object.keys(selfContent()).length){R.snap.priv=null;setTimeout(queueSync,120)}}
   catch(e){console.warn('Mon entraînement : synchronisation impossible',e.message)}})(loadCoachSide);
 
+
+/* ================= Étape 7 : messages et documents en ligne (29 oct. 2026) =================
+   Messages    : conversations client ↔ entraîneur (privées, ou de groupe pour une réservation) enregistrées en ligne
+                 (fonctions msg_inbox, msg_start, msg_send, msg_mark, msg_star), en direct par Supabase Realtime;
+                 un avis dans la cloche, et un courriel si le message reste non lu 10 minutes.
+   Documents   : déposés par l'entraîneur pour un client (table client_docs) avec le fichier dans le stockage privé « fc-docs ».
+   Programmes  : programmes de musculation, routines d'étirements et séances faites (table shared_items, fonctions sd_get,
+                 sd_put, sd_del) : préparés sur un appareil, visibles par le client sur tous ses appareils.
+   Corrections : entraînement personnel, mannequin 3D du test au lever, menu ☰ partout, distance par la route,
+                 « À traiter » en haut du tableau de bord, menus favoris parmi tous les menus. */
+document.head.insertAdjacentHTML('beforeend',`<style>
+.fcdocf{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.fcdocf .itemmain{display:flex;gap:10px;align-items:center;min-width:0}
+.fcdocf b{overflow-wrap:anywhere}
+.fcdocf .thumb{min-width:44px;height:44px;border-radius:8px;display:grid;place-items:center;background:var(--navy,#13325b);color:#fff;font-weight:800;font-size:.75rem}
+.fcdocimg{display:block;max-width:100%;max-height:340px;border-radius:10px;margin-top:8px;background:var(--surface-2)}
+.fcmailpref{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.86rem;color:var(--muted);margin:2px 0 0}
+.fcmailpref input{width:18px;height:18px;accent-color:var(--accent);margin:0}
+.fcmsgoff{background:var(--warn-soft);border-radius:10px;padding:10px 14px;margin:0 0 12px;font-size:.9rem}
+</style>`);
+const ETAPE7_VER='Étape 7 · 29 oct. 2026';
+R.coachOwner=null;R.inbox=null;R.docsOn=null;R.sd={meta:{},loaded:false,off:false,busy:false};R.urls={};
+async function coachOwner(){if(R.coachOwner||!R.coachId||!R.sb)return R.coachOwner;
+  try{const {data}=await R.sb.from('coaches').select('owner_id').eq('id',R.coachId).maybeSingle();R.coachOwner=data&&data.owner_id||null}catch(e){}
+  return R.coachOwner}
+/* l'entraîneur est toujours « ADMIN_ID » dans les écrans (pour lui-même comme pour ses clients) */
+const mid=x=>!x?null:(R.coachOwner&&x===R.coachOwner?ADMIN_ID:lid(x));
+const atLocal=ts=>{const t=tzParts(ts);return t.date+' '+t.start};
+const ghost=(id,sid,p,n)=>{if(!id||id===ADMIN_ID||db.users.some(u=>u.id===id))return;db.users.push({id,sid,ghost:true,role:'participant',email:null,fiche:{prenom:p||'',nom:n||''},notes:[],prefs:{},onboarded:true})};
+const errTxt=e=>fr(e&&e.message||String(e||'')).replace(/^Erreur : /,'');
+const missing=e=>/does not exist|schema cache|Could not find|not found|404/i.test(String(e&&e.message||e||''));
+
+/* ---------- 1. Messages ---------- */
+let inboxH='';
+async function loadInbox(){if(!R.uid||!R.coachId||!R.sb)return;await coachOwner();
+  const {data,error}=await R.sb.rpc('msg_inbox',{p_coach:R.coachId});
+  if(error){console.warn('Messages en ligne indisponibles (script SQL étape 7?)',error.message);if(missing(error))R.inbox=false;return}
+  R.inbox=true;const meId=(me()||{}).id;
+  const convs=(data||[]).map(c=>{const mem=c.members||[];
+    mem.forEach(m=>ghost(mid(m.id),m.id,m.prenom,m.nom));
+    const lr={};mem.forEach(m=>{lr[mid(m.id)]=m.last_read_at?new Date(m.last_read_at).getTime():0});
+    const msgs=(c.msgs||[]).map(m=>{const from=mid(m.from)||'?';const t=new Date(m.at).getTime();const readBy=[],readAt={};
+      Object.keys(lr).forEach(id=>{if(id===from||(lr[id]&&lr[id]>=t)){readBy.push(id);if(id!==from&&lr[id])readAt[id]=atLocal(lr[id])}});
+      return {id:m.id,from,text:m.body,at:atLocal(m.at),readBy,readAt}});
+    const mine=mem.find(m=>mid(m.id)===meId);
+    return {id:c.id,sid:c.id,real:true,subject:c.subject||'Message',members:mem.map(m=>mid(m.id)),msgs,imp:mine&&mine.important?[meId]:[],booking:c.booking_id||null}});
+  db.convs=convs;inboxH=JSON.stringify(convs.map(c=>[c.id,c.msgs.length,c.imp.length,c.msgs.map(m=>m.readBy.length).join('')]))}
+const convOf=id=>(db.convs||[]).find(x=>x.id===id&&x.real);
+async function msgCall(fn,args){const {data,error}=await R.sb.rpc(fn,args);if(error)throw error;return data}
+/* ouvrir une conversation : lue en ligne aussi (et ses avis de la cloche) */
+const marking=new Set();
+msgCenter=(old=>function(u){if(R.on&&st.conv){const c=convOf(st.conv);const vid=u&&u.id;
+    if(c&&vid&&c.msgs.some(m=>m.from!==vid&&!(m.readBy||[]).includes(vid))&&!marking.has(c.id)){marking.add(c.id);
+      setTimeout(()=>{msgCall('msg_mark',{p_conv:c.sid,p_read:true}).then(()=>loadNotifs()).then(()=>{if(!typing()&&!st.modal)render()}).catch(e=>console.warn(e)).finally(()=>marking.delete(c.id))},50)}}
+  let h=old(u);
+  if(R.on&&R.inbox===false)h=`<p class="fcmsgoff">Les messages en ligne ne sont pas encore activés : exécutez le script SQL de l'étape 7 dans Supabase.</p>`+h;
+  if(R.on&&u&&u.role==='admin'&&R.inbox){const on=((db.settings||{}).fcMail||{}).msg!==false;
+    h=h.replace('<div class="mxtools',`<label class="fcmailpref"><input type="checkbox" data-fcmail="msg" ${on?'checked':''}> Recevoir un courriel quand un client m'écrit (s'il reste non lu 10 minutes)</label><div class="mxtools`)}
+  else if(R.on&&u&&u.role==='client'&&R.inbox){const p=(u.prefs||{}).msg||{};
+    h=h.replace('<div class="mxtools',`<p class="fcmailpref">${p.email===false?'Avis par courriel désactivés pour les messages':'Vous recevez un courriel si un message reste non lu 10 minutes'} · <button class="linkbtn small" data-a="v5go" data-p="reglages">Changer</button></p><div class="mxtools`)}
+  return h})(msgCenter);
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.fcmail)return;db.settings=db.settings||{};db.settings.fcMail=db.settings.fcMail||{};
+  db.settings.fcMail[t.dataset.fcmail]=!!t.checked;save();flash(t.checked?'Vous recevrez un courriel pour les messages non lus.':'Plus de courriel pour les messages (la cloche reste).')});
+/* envoyer : réponse et nouveau message passent par le serveur */
+addEventListener('submit',async e=>{const f=e.target;if(!R.on||!f||!['msgForm','newMsgForm'].includes(f.id))return;
+  e.preventDefault();e.stopImmediatePropagation();
+  if(R.inbox===false){flash('Messages en ligne indisponibles : exécutez le script SQL de l\'étape 7 dans Supabase.');return}
+  const btn=f.querySelector('[type=submit]');const lbl=btn&&btn.textContent;if(btn){btn.disabled=true;btn.textContent='Envoi…'}
+  const u=me();
+  try{
+    if(f.id==='msgForm'){const ta=document.getElementById('msgText');const t=(ta&&ta.value||'').trim();if(!t)return;
+      const c=convOf(f.dataset.c);if(!c){flash('Conversation introuvable : actualisez la page.');return}
+      await msgCall('msg_send',{p_conv:c.sid,p_body:t});if(ta)ta.value='';
+      await loadInbox();render();const th=document.getElementById('thread');if(th)th.scrollTop=th.scrollHeight;return}
+    const D=st.nm||{to:[]};const subj=String(D.subject||'').trim()||'Message',text=String(D.text||'').trim();
+    const targets=D.all?db.users.filter(x=>x.role==='client'&&x.sid&&!x.ghost).map(x=>'u:'+x.id):(D.to||[]);
+    if(!targets.length){st.nmErr='Choisissez au moins un destinataire.';render();return}
+    if(!text){st.nmErr='Écrivez votre message.';render();return}
+    const ids=[];const to=[];
+    for(const tid of targets){
+      if(tid.startsWith('g:')){const b=B(tid.slice(2));if(!b||!b.real){st.nmErr='Ce groupe n\'est pas une réservation en ligne.';render();return}
+        const r=await msgCall('msg_start',{p_coach:R.coachId,p_to:null,p_booking:b.sid,p_subject:subj,p_body:text});ids.push(...((r&&r.ids)||[]))}
+      else{const id=tid.slice(2);if(id===ADMIN_ID)continue;const x=userById(id);if(x&&x.sid)to.push(x.sid)}}
+    if(u.role==='admin'&&to.length){const r=await msgCall('msg_start',{p_coach:R.coachId,p_to:to,p_booking:null,p_subject:subj,p_body:text});ids.push(...((r&&r.ids)||[]))}
+    if(u.role!=='admin'&&targets.some(t=>t==='u:'+ADMIN_ID)){const r=await msgCall('msg_start',{p_coach:R.coachId,p_to:null,p_booking:null,p_subject:subj,p_body:text});ids.push(...((r&&r.ids)||[]))}
+    if(!ids.length){st.nmErr='Choisissez au moins un destinataire.';render();return}
+    await loadInbox();st.modal=null;st.nmErr='';
+    if(u.role==='admin'){st.view='admin';try{A.nav({s:'msg'})}catch(_){st.tab='msg'}}else{st.view='client';st.tab='msg';st.ptab=null}
+    st.conv=ids.length===1?ids[0]:null;render();flash(ids.length>1?'Message envoyé à '+ids.length+' destinataires':'Message envoyé')}
+  catch(err){console.error(err);if(f.id==='newMsgForm'){st.nmErr=errTxt(err);render()}else flash('Envoi impossible : '+errTxt(err))}
+  finally{if(btn&&btn.isConnected){btn.disabled=false;btn.textContent=lbl}}},true);
+/* important, lu, non lu : aussi en ligne */
+A.mxImp=(old=>function(d){old(d);if(!R.on)return;const c=convOf(d.c);const u=me();if(!c||!u)return;
+  msgCall('msg_star',{p_conv:c.sid,p_on:(c.imp||[]).includes(u.id)}).catch(e=>flash('Important : '+errTxt(e)))})(A.mxImp);
+A.mxBulk=(old=>function(d){const ids=d.c?[d.c]:((st.mx&&st.mx.sel)||[]).slice();old(d);if(!R.on||!['read','unread','imp','unimp'].includes(d.op))return;
+  Promise.all(ids.map(id=>{const c=convOf(id);if(!c)return null;
+    return d.op==='read'||d.op==='unread'?msgCall('msg_mark',{p_conv:c.sid,p_read:d.op==='read'}):msgCall('msg_star',{p_conv:c.sid,p_on:d.op==='imp'})}))
+  .then(()=>d.op==='read'?loadNotifs().then(()=>render()):null).catch(e=>flash(errTxt(e)))})(A.mxBulk);
+/* en direct : un nouveau message recharge la boîte (sans effacer ce qu'on écrit) */
+let mT=null;const refreshInbox=()=>{clearTimeout(mT);mT=setTimeout(async()=>{const h0=inboxH;await loadInbox();if(inboxH!==h0&&!typing()&&!st.modal)render()},350)};
+function subMsgs(){if(!R.sb||!R.uid)return;if(R.mchan){try{R.sb.removeChannel(R.mchan)}catch(e){}R.mchan=null}
+  try{R.mchan=R.sb.channel('fc-msgs-'+R.uid).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},()=>refreshInbox()).subscribe()}
+  catch(e){console.warn('Realtime messages indisponible',e.message)}}
+setInterval(()=>{if(R.on&&R.inbox&&document.visibilityState==='visible')refreshInbox()},75000);
+document.addEventListener('visibilitychange',()=>{if(R.on&&R.inbox&&document.visibilityState==='visible')refreshInbox()});
+
+/* ---------- 2. Documents ---------- */
+const docRow=d=>({id:d.local_id||d.id,sid:d.id,real:true,userId:d.client_id,title:d.title,note:d.note||'',text:d.body||'',kind:d.kind==='plan'?'plan':undefined,
+  at:atLocal(d.created_at),seen:!!d.seen_at,srvSeen:!!d.seen_at,file:d.file_path?{name:d.file_name||'fichier',type:d.file_type||'',size:d.file_size||0,path:d.file_path}:null});
+const safeName=n=>(typeof deacc==='function'?deacc(String(n||'fichier')):String(n||'fichier')).replace(/[^A-Za-z0-9._-]+/g,'-').replace(/^-+|-+$/g,'').slice(-80)||'fichier';
+const dataBlob=u=>{const m=String(u||'').match(/^data:([^;,]*)(;base64)?,(.*)$/);if(!m)return null;const raw=m[2]?atob(m[3]):decodeURIComponent(m[3]);const a=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)a[i]=raw.charCodeAt(i);return new Blob([a],{type:m[1]||'application/octet-stream'})};
+async function uploadDoc(cid,file,blob){const path=R.coachId+'/'+cid+'/'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)+'_'+safeName(file.name);
+  const {error}=await R.sb.storage.from('fc-docs').upload(path,blob,{contentType:file.type||blob.type||'application/octet-stream',upsert:false});if(error)throw error;return path}
+async function loadDocs(){if(!R.uid||!R.coachId||!R.sb)return;
+  const {data,error}=await R.sb.from('client_docs').select('*').eq('coach_id',R.coachId).order('created_at',{ascending:true});
+  if(error){console.warn('Documents en ligne indisponibles (script SQL étape 7?)',error.message);if(missing(error))R.docsOn=false;return}
+  R.docsOn=true;
+  const local=(db.docs||[]).filter(d=>!d.real);
+  /* tout premier branchement de cet appareil (entraîneur) : ses documents déjà déposés pour des clients en ligne sont publiés une fois */
+  if(R.role==='admin'){const MIG='fc-docs-migre-'+R.coachId;let migre=false;try{migre=!!localStorage.getItem(MIG)}catch(e){}
+    if(!migre){try{localStorage.setItem(MIG,'1')}catch(e){}
+      const todo=local.filter(d=>{const u=userById(d.userId);return u&&u.role==='client'&&u.sid&&!u.ghost});
+      let n=0;for(const d of todo){try{const u=userById(d.userId);let path=null;
+          if(d.file&&d.file.data){const bl=dataBlob(d.file.data);if(bl)path=await uploadDoc(u.sid,d.file,bl)}
+          const {error:e2}=await R.sb.from('client_docs').insert({coach_id:R.coachId,client_id:u.sid,kind:d.kind==='plan'?'plan':'doc',title:d.title||'Document',note:d.note||null,body:d.text||null,
+            file_path:path,file_name:d.file&&d.file.name||null,file_type:d.file&&d.file.type||null,file_size:d.file&&d.file.size||null,local_id:'mig:'+d.id,created_by:R.uid});
+          if(e2)throw e2;n++}catch(err){console.warn('Document non publié',d.title,err.message)}}
+      if(n){const r=await R.sb.from('client_docs').select('*').eq('coach_id',R.coachId).order('created_at',{ascending:true});if(!r.error){db.docs=(r.data||[]).map(docRow);setTimeout(()=>flash(n+' document'+(n>1?'s':'')+' de cet appareil mis en ligne'),600);return}}}}
+  db.docs=(data||[]).map(docRow)}
+const docExt=f=>{const n=String(f&&f.name||'');const x=n.includes('.')?n.split('.').pop():'';return (x||((f&&f.type)||'').split('/').pop()||'DOC').slice(0,4).toUpperCase()};
+const isImgF=f=>f&&/^image\//.test(f.type||'');
+docCard=(old=>function(d,admin){if(!R.on||!d||!d.real||!d.file)return old(d,admin);
+  const h=old(Object.assign({},d,{file:null}),admin);const f=d.file;
+  const blk=`<div class="fcdocf"><span class="itemmain"><span class="thumb">${esc(docExt(f))}</span><span><b>${esc(f.name)}</b><br><small class="muted">${f.size?Math.max(1,Math.round(f.size/1024))+' Ko':''}</small></span></span><button class="btn btn-sm btn-plain" data-a="fcDocOpen" data-d="${esc(d.id)}">${isImgF(f)?'Agrandir':'Ouvrir'}</button></div>${isImgF(f)?`<img class="fcdocimg" alt="${esc(f.name)}" data-fcimg="${esc(d.id)}">`:''}`;
+  const i=h.lastIndexOf('</article>');return i<0?h+blk:h.slice(0,i)+blk+h.slice(i)})(docCard);
+async function signedUrl(path){const c=R.urls[path];if(c&&c.exp>Date.now()+30000)return c.u;
+  const {data,error}=await R.sb.storage.from('fc-docs').createSignedUrl(path,3600);if(error)throw error;
+  R.urls[path]={u:data.signedUrl,exp:Date.now()+3600*1000};return data.signedUrl}
+A.fcDocOpen=async function(d){const x=(db.docs||[]).find(y=>y.id===d.d);if(!x||!x.file||!x.file.path)return;
+  let w=null;try{w=window.open('','_blank')}catch(e){}
+  try{const url=await signedUrl(x.file.path);if(w&&!w.closed)w.location.href=url;else location.href=url}
+  catch(e){if(w)try{w.close()}catch(_){}flash('Ouverture impossible : '+errTxt(e))}};
+/* aperçu des images (adresse temporaire et privée) */
+function fillImgs(){if(!R.on)return;document.querySelectorAll('img[data-fcimg]:not([src])').forEach(img=>{const x=(db.docs||[]).find(y=>y.id===img.dataset.fcimg);if(!x||!x.file)return;
+  img.setAttribute('src','data:image/gif;base64,R0lGODlhAQABAAAAACw=');signedUrl(x.file.path).then(u=>{img.src=u}).catch(()=>img.remove())})}
+/* client : documents consultés */
+function docsSeen(){if(!R.on||R.role!=='client')return;const ids=(db.docs||[]).filter(d=>d.real&&d.seen&&!d.srvSeen).map(d=>{d.srvSeen=true;return d.sid});
+  if(ids.length)R.sb.rpc('doc_seen',{p_ids:ids}).then(()=>loadNotifs()).catch(e=>console.warn('doc_seen',e))}
+/* entraîneur : déposer un document (fichier dans le stockage privé) */
+addEventListener('submit',async e=>{const f=e.target;if(!R.on||R.role!=='admin'||!f||f.id!=='docForm')return;e.preventDefault();e.stopImmediatePropagation();
+  if(R.docsOn===false){flash('Documents en ligne indisponibles : exécutez le script SQL de l\'étape 7 dans Supabase.');return}
+  const v=id=>((document.getElementById(id)||{}).value||'').trim();const title=v('docTitle'),note=v('docNote'),text=v('docText');
+  const fl=(document.getElementById('docFile')||{}).files&&document.getElementById('docFile').files[0];const plan=!!(document.getElementById('docPlan')||{}).checked;
+  if(!title){flash('Donnez un titre au document');return}if(!fl&&!text){flash('Ajoutez un fichier ou un contenu');return}
+  if(fl&&fl.size>25*1024*1024){flash('Fichier trop lourd : 25 Mo maximum');return}
+  const u=userById(f.dataset.u);if(!u||!u.sid||u.ghost){flash('Ce client n\'a pas encore de compte en ligne.');return}
+  busyOn(fl?'Envoi du fichier…':'Enregistrement du document…');let path=null;
+  try{if(fl)path=await uploadDoc(u.sid,fl,fl);
+    const {error}=await R.sb.from('client_docs').insert({coach_id:R.coachId,client_id:u.sid,kind:plan?'plan':'doc',title,note:note||null,body:text||null,
+      file_path:path,file_name:fl?fl.name:null,file_type:fl?(fl.type||null):null,file_size:fl?fl.size:null,local_id:'d'+uid(),created_by:R.uid});
+    if(error){if(path)try{await R.sb.storage.from('fc-docs').remove([path])}catch(_){}throw error}
+    await loadDocs();busyOff();render();flash('Document déposé. '+(u.fiche.prenom||name(u))+' reçoit un avis.')}
+  catch(err){console.error(err);busyOff();flash('Dépôt impossible : '+errTxt(err))}},true);
+A.docDel=(old=>async function(d){const x=(db.docs||[]).find(y=>y.id===d.d);if(!R.on||!x||!x.real)return old(d);
+  if(!confirm('Retirer « '+x.title+' »? Le client ne le verra plus.'))return;busyOn();
+  try{const {error}=await R.sb.from('client_docs').delete().eq('id',x.sid);if(error)throw error;
+    if(x.file&&x.file.path)try{await R.sb.storage.from('fc-docs').remove([x.file.path])}catch(_){}
+    await loadDocs();flash('Document retiré')}catch(e){flash('Retrait impossible : '+errTxt(e))}finally{busyOff();render()}})(A.docDel);
+adminDocsSection=(old=>function(u){let h=old(u);if(!R.on)return h;return h.replace('Fichier (PDF ou image, 2 Mo max)','Fichier (PDF, image, Word… 25 Mo max)').replace('accept="application/pdf,image/*"','accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx,.txt,.gpx,.fit"')})(adminDocsSection);
+
+/* ---------- 3. Programmes et routines des clients (et leurs séances) ---------- */
+const SD_COLS=['programs','stRoutines','progLogs','stLogs'];
+const SDK=()=>'fc-sd-meta-'+R.uid;
+const sdLoadMeta=()=>{try{const v=JSON.parse(localStorage.getItem(SDK())||'null');if(v&&typeof v==='object')R.sd.meta=v}catch(e){}};
+const sdSaveMeta=()=>{try{localStorage.setItem(SDK(),JSON.stringify(R.sd.meta))}catch(e){}};
+const hashOf=x=>fnv(JSON.stringify(x));
+function sdScope(){const out=[];const u0=me();if(!u0)return out;const isA=R.role==='admin';const selfId=window.fcSelfId?window.fcSelfId():ADMIN_ID;
+  const real=id=>{const u=userById(id);return u&&u.role==='client'&&u.sid&&!u.ghost?u.sid:null};
+  const add=(col,client,x,data)=>{if(!x||x.id==null)return;out.push({key:col+'|'+(client||'')+'|'+x.id,client:client||null,col,id:String(x.id),obj:x,data:data||x})};
+  const mine=x=>x&&(x.self||x.club||x.cprog||x.userId===ADMIN_ID||x.userId===selfId);
+  if(isA){
+    (db.programs||[]).forEach(p=>{if(mine(p))return;if(!p.userId){add('programs',null,p);return}const c=real(p.userId);if(c)add('programs',c,p)});
+    (db.stRoutines||[]).forEach(r=>{if(mine(r))return;if(r.userId){const c=real(r.userId);if(c)add('stRoutines',c,r);return}add('stRoutines',null,r)});
+    ['progLogs','stLogs'].forEach(col=>(db[col]||[]).forEach(l=>{const c=real(l.userId);if(c)add(col,c,l)}));
+    (db.users||[]).forEach(u=>{if(u.role==='client'&&u.sid&&!u.ghost&&Array.isArray(u.stAssign)&&u.stAssign.length)add('assign',u.sid,{id:'st'},{id:'st',st:u.stAssign.slice()})});
+  }else{const id=u0.id;
+    (db.programs||[]).forEach(p=>{if(p.userId===id&&!p.club&&!p.cprog)add('programs',id,p)});
+    (db.stRoutines||[]).forEach(r=>{if(r.club||r.cprog)return;if(r.userId===id)add('stRoutines',id,r);else if(!r.userId&&r.by!=='client')add('stRoutines',null,r)});
+    ['progLogs','stLogs'].forEach(col=>(db[col]||[]).forEach(l=>{if(l.userId===id)add(col,id,l)}));
+  }
+  return out}
+const canPush=m=>R.role==='admin'||!m||m.author===R.uid;
+async function pushShared(){if(!R.on||!R.coachId||R.sd.off||!R.sd.loaded||R.sd.busy)return;R.sd.busy=true;
+  try{const M=R.sd.meta;const cur=sdScope();const seen=new Set();const put=[];
+    cur.forEach(x=>{seen.add(x.key);const m=M[x.key];const h=hashOf(x.data);if(m&&m.h===h)return;
+      if(R.role!=='admin'&&(!x.client||!canPush(m)))return;put.push(Object.assign(x,{h}))});
+    const del=Object.keys(M).filter(k=>!seen.has(k)&&canPush(M[k])&&(R.role==='admin'||M[k].client)).map(k=>{const p=k.split('|');return {key:k,col:p[0],client:p[1]||null,id:p.slice(2).join('|')}});
+    for(let i=0;i<put.length;i+=30){const part=put.slice(i,i+30);
+      const {error}=await R.sb.rpc('sd_put',{p_coach:R.coachId,p_items:part.map(x=>({client:x.client,col:x.col,id:x.id,data:x.data}))});if(error)throw error;
+      part.forEach(x=>{M[x.key]={h:x.h,author:(M[x.key]&&M[x.key].author)||R.uid,client:x.client}})}
+    if(del.length){const {error}=await R.sb.rpc('sd_del',{p_coach:R.coachId,p_items:del.map(x=>({client:x.client,col:x.col,id:x.id}))});if(error)throw error;del.forEach(x=>delete M[x.key])}
+    if(put.length||del.length)sdSaveMeta()}
+  catch(e){console.error(e);if(missing(e))R.sd.off=true;else flash('Programmes et routines : enregistrement en ligne impossible : '+errTxt(e))}
+  finally{R.sd.busy=false}}
+async function loadShared(){if(!R.uid||!R.coachId||R.sd.off||!R.sb)return;
+  if(!R.sd.loaded)sdLoadMeta();
+  const {data,error}=await R.sb.rpc('sd_get',{p_coach:R.coachId});
+  if(error){console.warn('Programmes en ligne indisponibles (script SQL étape 7?)',error.message);if(missing(error))R.sd.off=true;return}
+  while(R.sd.busy)await new Promise(r=>setTimeout(r,120));
+  const rows=data||[];const M=R.sd.meta;const isA=R.role==='admin';
+  const local=sdScope();
+  /* tout premier branchement (entraîneur) : rien en ligne et des programmes sur cet appareil → on les publie */
+  const MIG='fc-sd-migre-'+R.coachId+'-'+R.uid;let migre=false;try{migre=!!localStorage.getItem(MIG)}catch(e){}
+  if(!migre){try{localStorage.setItem(MIG,'1')}catch(e){}if(isA&&!rows.length&&local.length){R.sd.meta={};R.sd.loaded=true;setTimeout(pushShared,60);return}}
+  const keep=local.filter(x=>{const m=M[x.key];return !m?x.client||isA:(canPush(m)&&m.h!==hashOf(x.data))});
+  const keepK=new Set(keep.map(x=>x.key));const drop=new Set(local.map(x=>x.obj));
+  SD_COLS.forEach(col=>{db[col]=(db[col]||[]).filter(x=>!drop.has(x))});
+  const N={};const assign={};
+  rows.forEach(r=>{const key=r.col+'|'+(r.client||'')+'|'+r.id;
+    if(r.col==='assign'){assign[r.client]=(r.data&&r.data.st)||[];N[key]={h:hashOf({id:'st',st:assign[r.client]}),author:r.author,client:r.client};return}
+    if(!SD_COLS.includes(r.col)||!r.data)return;
+    N[key]={h:hashOf(r.data),author:r.author,client:r.client};
+    if(keepK.has(key))return;(db[r.col]=db[r.col]||[]).push(r.data)});
+  keep.forEach(x=>{if(x.col!=='assign')(db[x.col]=db[x.col]||[]).push(x.obj);if(M[x.key]&&N[x.key])N[x.key]=Object.assign({},M[x.key],{author:N[x.key].author})});
+  /* routines suggérées à chaque client */
+  if(isA)(db.users||[]).forEach(u=>{if(u.role!=='client'||!u.sid||u.ghost)return;const k='assign|'+u.sid+'|st';if(keepK.has(k))return;if(assign[u.sid])u.stAssign=assign[u.sid].slice();else if(M[k])u.stAssign=[]});
+  else{const u=me();if(u)u.stAssign=(assign[R.uid]||[]).slice()}
+  R.sd.meta=N;R.sd.loaded=true;sdSaveMeta();
+  if(keep.length)setTimeout(pushShared,80)}
+/* la fiche des clients est rechargée d'un bloc : on garde leurs routines suggérées */
+loadClients=(old=>async function(){const keep={};(db.users||[]).forEach(u=>{if(u.sid&&u.stAssign)keep[u.sid]=u.stAssign});await old();(db.users||[]).forEach(u=>{if(u.sid&&keep[u.sid]&&!u.stAssign)u.stAssign=keep[u.sid]})})(loadClients);
+/* avis au client : programme envoyé, routine préparée ou suggérée */
+async function notifyContent(clientLocal,kind,title){const u=userById(clientLocal);if(!R.on||R.role!=='admin'||!u||!u.sid||u.ghost)return;
+  try{for(let t=0;t<20&&R.sd.busy;t++)await new Promise(r=>setTimeout(r,150));await pushShared();
+    const {error}=await R.sb.rpc('content_notify',{p_coach:R.coachId,p_client:u.sid,p_kind:kind,p_title:title||''});if(error)throw error}
+  catch(e){console.warn('content_notify',e.message)}}
+if(typeof A.progSend==='function')A.progSend=(old=>function(d){const r=old(d);try{const p=progById(st.progId);if(p&&p.userId&&p.sent)notifyContent(p.userId,'programme',p.name)}catch(e){}return r})(A.progSend);
+if(typeof A.stSave==='function')A.stSave=(old=>function(d){const fr0=st.stFor;const n0=(db.stRoutines||[]).length;const r=old(d);
+  try{if(fr0&&me().role==='admin'&&(db.stRoutines||[]).length>n0){const x=db.stRoutines[db.stRoutines.length-1];notifyContent(fr0,'etirements',x.n)}}catch(e){}return r})(A.stSave);
+if(typeof A.stAssign==='function')A.stAssign=(old=>function(d){const u=userById(d.u);const was=!!(u&&(u.stAssign||[]).includes(d.r));const r=old(d);
+  try{if(u&&!was&&(u.stAssign||[]).includes(d.r)){const x=(db.stRoutines||[]).find(y=>y.id===d.r);const bt=document.querySelector(`[data-a="stAssign"][data-r="${d.r}"]`);
+    const nm=x?x.n:(bt&&bt.closest('label,tr,article,div')?((bt.closest('label,tr,article,div').querySelector('b,strong,h3')||{}).textContent||''):'');notifyContent(u.id,'etirements',String(nm).trim())}}catch(e){}return r})(A.stAssign);
+/* le client voit la musculation et les étirements que son entraîneur lui a préparés (sans forfait en ligne pour l'instant) */
+{const prev=window.clubInc;window.clubInc=function(uid,k){if(prev&&prev(uid,k))return true;
+  try{if(!R.on||!['muscu','stretch'].includes(k))return false;
+    if(k==='muscu')return (db.programs||[]).some(p=>p.userId===uid&&!p.self&&(p.sent||R.role==='client'));
+    const u=userById(uid);return (db.stRoutines||[]).some(r=>r.userId===uid||(r.by!=='client'&&!r.userId&&(r.for||[]).includes(uid)))||!!(u&&(u.stAssign||[]).length)}catch(e){}return false}}
+
+/* ---------- 4. Préférences de courriel du client, gardées en ligne avec sa fiche ---------- */
+save=(old=>function(){try{const u=me();if(R.on&&R.role==='client'&&u&&u.prefs&&u.fiche){const j=JSON.stringify(u.prefs);if(JSON.stringify(u.fiche._prefs||null)!==j)u.fiche._prefs=JSON.parse(j)}}catch(e){}return old()})(save);
+loadMe=(old=>async function(){const r=await old();try{const u=me();if(u&&u.role==='client'&&u.fiche&&u.fiche._prefs)u.prefs=Object.assign(typeof defPrefs==='function'?defPrefs():{},u.fiche._prefs)}catch(e){}return r})(loadMe);
+
+/* ---------- 5. Branchements : chargement, enregistrement, accès du client ---------- */
+CLIENT_TABS.push('msg','docs','plans','muscu','stretch');
+const load7=async()=>{try{await Promise.all([loadInbox(),loadDocs(),loadShared()])}catch(e){console.warn('Étape 7',e)}};
+loadCoachSide=(old=>async function(){await old();await load7();subMsgs()})(loadCoachSide);
+loadClientSide=(old=>async function(){await old();await load7();subMsgs()})(loadClientSide);
+syncAll=(old=>async function(){await old();await load7()})(syncAll);
+pushChanges=(old=>async function(){await old();try{await pushShared()}catch(e){console.warn(e)}})(pushChanges);
+resetLocal=(old=>function(){old();db.convs=[];db.docs=[];R.coachOwner=null;R.inbox=null;R.docsOn=null;R.urls={};R.sd={meta:{},loaded:false,off:false,busy:false};
+  if(R.mchan&&R.sb){try{R.sb.removeChannel(R.mchan)}catch(e){}}R.mchan=null;
+  SD_COLS.forEach(k=>{db[k]=(db[k]||[]).filter(x=>x&&(x.self||x.userId===ADMIN_ID))});try{localStorage.setItem(RKEY,JSON.stringify(db))}catch(e){}})(resetLocal);
+decorate=(old=>function(){old();try{fillImgs();setTimeout(docsSeen,80)}catch(e){console.warn(e)}
+  if(!R.on||R.role!=='admin'||st.view!=='admin')return;const bar=document.querySelector('.fcreal');if(!bar||bar.dataset.e7)return;bar.dataset.e7='1';
+  bar.innerHTML=bar.innerHTML.replace(/Les autres sections \(messages, documents, équipement…\) arrivent aux prochaines étapes/,'Les messages, les documents, et les programmes et routines préparés pour vos clients sont aussi en ligne. Les autres sections (équipement…) arrivent aux prochaines étapes')})(decorate);
+/* liens des courriels : fidjicoach.ca/#messages et /#documents */
+R.goto=null;
+{const h=String(location.hash||'');if(/^#(messages|documents)$/.test(h)){R.goto=h.slice(1);history.replaceState(null,'',location.pathname+location.search)}}
+function gotoLink(){const g=R.goto;const u=me();if(!g||!R.on||!u)return;if(u.role==='client'&&!u.onboarded)return;R.goto=null;
+  if(u.role==='admin'){st.view='admin';try{A.nav({s:g==='messages'?'msg':'clients'})}catch(e){}}
+  else{st.view='client';if(g==='messages'){st.tab='msg';st.ptab=null}else{st.tab='profil';st.ptab='docs'}}render();window.scrollTo(0,0)}
+bootReal=(old=>async function(){await old();setTimeout(gotoLink,50)})(bootReal);
+afterLogin=(old=>function(){old();setTimeout(gotoLink,50)})(afterLogin);
+
+/* ---------- Correction 6 : menus favoris parmi TOUS les menus (les mêmes que le menu ☰) ---------- */
+clientCands=function(u){const G=window.fcCMAP?window.fcCMAP():[];const C=[];
+  G.forEach(([g,items])=>(items||[]).forEach(x=>{if(!x||!x.attrs)return;const a=x.attrs;const m=k=>(a.match(new RegExp('data-'+k+'="([^"]*)"'))||[])[1];
+    const t=m('t'),p=m('p'),xx=m('x'),v=m('v');if(xx==='logout')return;
+    const id=t?'t:'+t:p?'p:'+p:xx==='view'?'x:'+v:'x:'+xx;if(C.some(c=>c.id===id))return;
+    const on=t?(st.view==='client'&&st.tab===t&&!st.ptab):p?(st.view==='client'&&st.tab==='profil'&&st.ptab===p):xx==='view'?st.view===v:!!x.on;
+    C.push({id,l:x.l,i:x.i,on,attrs:a,g:g||'Accueil',n:x.n||0})}));
+  if(!C.some(c=>c.id==='t:profil'))C.push({id:'t:profil',l:LB('tab.profil'),i:'user',on:st.view==='client'&&st.tab==='profil'&&!st.ptab,attrs:'data-a="tab" data-t="profil"',g:'Mon compte',n:ficheOk(u)?0:1});
+  return C};
+adminCands=(old=>function(){const C=old();
+  [['x:apropos','À propos','user','apropos'],['x:meteo','Météo','snow','meteo']].forEach(([id,l,i,v])=>{if(!C.some(c=>c.id===id))C.push({id,l,i,on:st.view===v,attrs:`data-a="go" data-v="${v}"`,g:'Infos',n:0})});
+  return C})(adminCands);
+
 if(msg)setTimeout(()=>flash(msg),300);
 try{render()}catch(e){console.error(e)}
 bootReal().then(stripeReturn).catch(e=>console.error(e));
@@ -21167,6 +21457,10 @@ const css=document.createElement('style');css.textContent=`
 .f3d-tog:focus-visible{outline:2px solid var(--accent)}
 .f3d-stage{position:relative;width:100%;aspect-ratio:4/5;max-height:58vh;margin:0 auto;background:#13325b;border-radius:16px;overflow:hidden;touch-action:none;color:#fff;font-family:var(--f-body)}
 .f3d-ruf .f3d-stage{aspect-ratio:3/4;max-height:52vh;max-width:380px}
+.f3d-lie .f3d-stage{aspect-ratio:16/10;max-height:38vh;max-width:520px}
+.f3d-cap{display:none;text-align:center;margin:6px 0 4px}.f3d-host.f3d-on:not(.f3d-2d)>.f3d-cap{display:block}
+.f3d-intro .f3d-stage{max-height:42vh;max-width:300px}
+.f3d-lie.f3d-on:not(.f3d-2d),.f3d-intro.f3d-on:not(.f3d-2d){display:flex;flex-direction:column}.f3d-lie>.f3d-cap,.f3d-intro>.f3d-cap{order:2}
 .f3d-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .f3d-view{all:unset;cursor:pointer;position:absolute;left:10px;bottom:10px;z-index:2;font-size:11.5px;font-weight:600;background:rgba(14,39,71,.82);border:1px solid rgba(255,255,255,.2);padding:5px 10px;border-radius:999px;display:flex;gap:6px;align-items:center;color:#fff}
 .f3d-view svg{width:13px;height:13px;fill:#9fb9dc}
@@ -21372,7 +21666,15 @@ function groundFix(contact){const T=E.targets,y=nm=>BN(nm).getWorldPosition(V1).
 function exAnimCfg(pat,groups){const P=typeof POSES!=='undefined'?(POSES[pat]||POSES.squat):null;if(!P)return null;
   const flip=PRONE.has(pat);const A=from2D(P[0],flip),B=from2D(P[1],flip);
   return {kind:'ex',cycle:2.4,A,B,muscles:(groups||[]).filter(g=>g!=='mob'),bounds:[A.J,B.J]}}
-function rufCfg(){const A=solve(RUF.A),B=solve(RUF.B);return {kind:'ruf',muscles:['qua','fes'],bounds:[A,B]}}
+function rufCfg(){/* Corrections 2 : même mannequin et même flexion que la musculation (banque d'exercices), au rythme du test */
+  /* debout bras tendus devant → fesses vers les talons, bras tendus devant (comme les consignes du test) */
+  let c=null;try{const A=from2D('H50,13 S50,24 E64,24 W77,24 P50,52 K50,72 A50,92',false),B=from2D('H57,36 S53,45 E67,45 W80,45 P34,66 K58,67 A50,92',false);
+    c={kind:'ex',cycle:1.5,A,B,muscles:['qua','fes'],bounds:[A.J,B.J]}}catch(e){c=exAnimCfg('squat',['qua','fes'])}
+  if(!c){const A=solve(RUF.A),B=solve(RUF.B);return {kind:'ruf',muscles:['qua','fes'],bounds:[A,B]}}
+  c.clock=()=>({k:rufTick(),mir:false});c.ruf=true;return c}
+/* couché sur le dos (repos, P1, P2, P3) : le mannequin 3D allongé, immobile */
+function lieCfg(){const c=exAnimCfg('legraise',[]);if(!c)return null;c.clock=()=>({k:0,mir:false});const xs=Object.values(c.A.J).map(p=>p[0]);
+  c.bounds=[c.A.J,{a:[Math.min(...xs)-14,0],b:[Math.max(...xs)+18,0]}];c.muscles=[];return c}
 const easeC=k=>(1-Math.cos(2*Math.PI*k))/2;
 function lerpJ(A,B,k){const o={};for(const n in A.J)o[n]=[A.J[n][0]+(B.J[n][0]-A.J[n][0])*k,A.J[n][1]+(B.J[n][1]-A.J[n][1])*k];return o}
 
@@ -21418,6 +21720,7 @@ function loop(now){E.raf=0;if(!E.stage||!E.stage.isConnected||!E.cfg)return;
 /* ---------- montage dans l'écran courant ---------- */
 function cfgFor(host){const k=host.dataset.f3d;
   if(k==='ruffier')return rufCfg();
+  if(k==='ruflie')return lieCfg();
   if(k.startsWith('ex:')){const x=typeof exById==='function'?exById(k.slice(3)):null;if(!x)return null;return exAnimCfg(x.pat,x.g)}
   if(k.startsWith('rep:')){const[,pat,g]=k.split(':');const c=exAnimCfg(pat,(g||'').split(',').filter(Boolean));if(c&&window.fcRep)c.clock=()=>window.fcRep.clock();return c}
   if(k.startsWith('pose:')){const[,pat,g]=k.split(':');return exAnimCfg(pat,(g||'').split(',').filter(Boolean))}
@@ -21447,7 +21750,15 @@ if(typeof MOD3==='object'&&MOD3.exView)MOD3.exView=(old=>function(u,m){const r=o
 /* test de Ruffier, étape Effort : la figure animée devient le mannequin 3D synchronisé au compteur */
 function wrapRuffier(){const sq=document.querySelector('[data-rdclock="sq"]');if(!sq)return;const fig=document.querySelector('figure.rdfigsq');if(!fig||fig.closest('[data-f3d]'))return;
   const h=document.createElement('div');h.className='f3d-host f3d-ruf';h.dataset.f3d='ruffier';const fb=document.createElement('div');fb.className='f3d-fb';fig.parentNode.insertBefore(h,fig);fb.appendChild(fig);h.appendChild(fb)}
-render=(old=>function(){old.apply(this,arguments);try{wrapRuffier();mount()}catch(e){console.warn(e)}})(render);
+/* Corrections 2 : les figures « couché » du test (repos, pouls) deviennent aussi le mannequin 3D; la légende reste visible */
+function wrapLie(){if(document.querySelector('[data-f3d]'))return;const fig=document.querySelector('.rdflow figure.rdfig:not(.rdfigsq),.hvflow figure.rdfig:not(.rdfigsq)')||document.querySelector('figure.rdfig:not(.rdfigsq)');if(!fig||fig.closest('[data-f3d]'))return;
+  const cap=fig.querySelector('figcaption');const h=document.createElement('div');h.className='f3d-host f3d-lie';h.dataset.f3d='ruflie';const fb=document.createElement('div');fb.className='f3d-fb';
+  fig.parentNode.insertBefore(h,fig);fb.appendChild(fig);h.appendChild(fb);if(cap){const p=document.createElement('p');p.className='muted small f3d-cap';p.textContent=cap.textContent;h.appendChild(p)}}
+/* page d'instructions du test : l'aperçu du rythme des flexions avec le mannequin 3D */
+function wrapIntro(){if(document.querySelector('[data-f3d]'))return;const fig=document.querySelector('.rdintro figure.rdfigsq');if(!fig)return;
+  const cap=fig.querySelector('figcaption');const h=document.createElement('div');h.className='f3d-host f3d-ruf f3d-intro';h.dataset.f3d='ruffier';const fb=document.createElement('div');fb.className='f3d-fb';
+  fig.parentNode.insertBefore(h,fig);fb.appendChild(fig);h.appendChild(fb);if(cap){const p=document.createElement('p');p.className='muted small f3d-cap';p.textContent=cap.textContent;h.appendChild(p)}}
+render=(old=>function(){old.apply(this,arguments);try{wrapRuffier();wrapIntro();wrapLie();mount()}catch(e){console.warn(e)}})(render);
 addEventListener('resize',()=>{if(E.state==='ready')resize()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&E.state==='ready'&&!E.raf)mount()});
 })();
@@ -21459,9 +21770,76 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&E.state==
 /* l'entraîneur a accès à tous les modules pour son propre entraînement (pas d'abonnement requis) */
 const oc=window.clubInc;window.clubInc=function(uid,k){try{const u=me();if(uid&&u&&uid===u.id&&(u.role==='admin'||st.inSelf))return true}catch(e){}return oc?oc(uid,k):false};
 /* menu de l'entraîneur : « Mon entraînement » */
-AGROUPS=(old=>function(){const g=old();if(!g.some(x=>x[1].includes('moi'))){const i=g.findIndex(x=>x[0]==='Suivi des athlètes');g.splice(i>=0?i:1,0,['Pour moi',['moi']])}return g})(AGROUPS);
+AGROUPS=(old=>function(){const g=old();if(!g.some(x=>x[1].includes('moi'))){const i=g.findIndex(x=>x[0]==='Suivi des athlètes');g.splice(i>=0?i:1,0,['Entraînement personnel',['moi']])}return g})(AGROUPS);
 /* horloge des répétitions : démarre dès qu'un lecteur (musculation ou étirements) est affiché */
 render=(old=>function(){const r=old.apply(this,arguments);try{if(document.querySelector('[data-repfig]'))window.fcRep.start()}catch(e){}return r})(render);
+})();
+</script>
+<script>
+/* ================= Corrections 2 (29 oct. 2026), avec l'étape 7 =================
+   1. « Pour moi » devient « Entraînement personnel » (menu de l'entraîneur et de l'espace Club)
+   2. Test au lever : le même mannequin 3D que la musculation et les étirements (couché et flexions)
+   3. Menu ☰ visible aussi dans À propos, Centres et Météo (connecté)
+   4. Distance entre le point de départ et les centres : par la route (OpenStreetMap), plus à vol d'oiseau
+   5. « À traiter » en haut du tableau de bord (Aujourd'hui), comme dans Réservations
+   6. Menus favoris : choix parmi tous les menus (voir l'étape 7, plus haut) */
+(function(){
+/* ---------- 3. Menu ☰ dans À propos, Centres et Météo ---------- */
+const INFO=['apropos','centres','meteo'];
+const inInfo=()=>{const u=me();return !!(u&&INFO.includes(st.view)&&!st.p3on&&(u.role==='admin'||(u.role==='client'&&u.onboarded))&&window.fcSideFor)};
+function withSide(h){const u=me();const inner=String(h).replace(/^\s*<main class="wrap ?/,'<div class="').replace(/<\/main>\s*$/,'</div>');
+  return `<main class="wrap app v6 ${u.role==='admin'?'adm':'cl'} v5 fcinfo"><div class="v5grid">${window.fcSideFor(u)}<section class="v5main">${inner}</section></div></main>`}
+if(typeof meteoV==='function')meteoV=(old=>function(...a){const h=old(...a);return st.view==='meteo'&&inInfo()?withSide(h):h})(meteoV);
+if(typeof centresV==='function')centresV=(old=>function(inClient,...a){const h=old(inClient,...a);return !inClient&&st.view==='centres'&&inInfo()?withSide(h):h})(centresV);
+if(typeof aboutV==='function')aboutV=(old=>function(x,...a){const h=old(x,...a);return !x&&st.view==='apropos'&&inInfo()?withSide(h):h})(aboutV);
+/* depuis une page d'infos, un menu ramène dans l'espace du compte */
+A.v5go=(old=>function(d){if(INFO.includes(st.view)&&!(d&&d.x==='view')){const u=me();if(u)st.view=u.role==='admin'?'admin':'client'}return old(d)})(A.v5go);
+A.nav=(old=>function(d){const u=me();if(u&&u.role==='admin'&&INFO.includes(st.view))st.view='admin';return old(d)})(A.nav);
+document.head.insertAdjacentHTML('beforeend','<style>.fcinfo .v5main>div{padding-top:0}.fcinfo .v5main>div.app{padding-inline:0}</style>');
+
+/* ---------- 4. Distances par la route (OpenStreetMap, service de routage OSRM) ---------- */
+const OSRM='https://router.project-osrm.org/table/v1/driving/';
+const hk=()=>Number(HOME.lat).toFixed(4)+','+Number(HOME.lon).toFixed(4);
+const geo=c=>c&&Number(c.lat)&&Number(c.lon)&&!(typeof isVirt==='function'&&isVirt(c));
+const road=c=>c&&c.road&&c.road.from===hk()&&isFinite(c.road.km)?c.road:null;
+const est=c=>Math.round(havKm(HOME,c)*1.3);
+homeKm=function(c){if(!c)return 0;if(c.routeKm!==''&&c.routeKm!=null&&!isNaN(Number(c.routeKm)))return Number(c.routeKm);const r=road(c);return r?Math.round(r.km):est(c)};
+travelMin=function(nA,nB){if(!nA||!nB||nA===nB)return 0;const a=ctrByName(nA),b=ctrByName(nB);if(!a||!b)return 30;const mx=(db.settings||{}).roadMx;
+  if(mx&&Array.isArray(mx.names)){const i=mx.names.indexOf(a.name),j=mx.names.indexOf(b.name);const m=i>=0&&j>=0&&mx.min[i]?mx.min[i][j]:null;if(m!=null&&isFinite(m))return Math.ceil((m+5)/5)*5}
+  return Math.ceil((havKm(a,b)*1.3/70*60+5)/5)*5};
+let busy=false,failAt=0;
+async function table(points,srcs){const url=OSRM+points.map(p=>Number(p.lon).toFixed(5)+','+Number(p.lat).toFixed(5)).join(';')+'?annotations=distance,duration'+(srcs!=null?'&sources='+srcs:'');
+  const r=await fetch(url);if(!r.ok)throw new Error('service de routage : '+r.status);const j=await r.json();if(j.code!=='Ok')throw new Error(j.message||j.code);return j}
+async function fcRoutes(force){if(busy)return 0;const cs=(db.centres||[]).filter(geo);const todo=cs.filter(c=>force||!road(c));const ok=cs.filter(c=>c.ok);
+  const mx=(db.settings||{}).roadMx;const mxKey=ok.map(c=>c.name+'@'+Number(c.lat).toFixed(4)+','+Number(c.lon).toFixed(4)).join('|');
+  const needMx=ok.length>1&&ok.length<=60&&(force||!mx||mx.key!==mxKey);
+  if(!todo.length&&!needMx)return 0;busy=true;let n=0;
+  try{for(let i=0;i<todo.length;i+=80){const part=todo.slice(i,i+80);const j=await table([HOME,...part],0);
+      part.forEach((c,k)=>{const d=j.distances&&j.distances[0]&&j.distances[0][k+1],t=j.durations&&j.durations[0]&&j.durations[0][k+1];
+        if(d!=null&&isFinite(d)){c.road={km:Math.round(d/100)/10,min:Math.round((t||0)/60),from:hk(),at:today()};n++}})}
+    if(needMx){const j=await table(ok,null);db.settings=db.settings||{};db.settings.roadMx={key:mxKey,names:ok.map(c=>c.name),min:(j.durations||[]).map(r=>r.map(s=>s==null?null:Math.round(s/60))),at:today()};n++}
+    if(n){save();if(!st.modal&&!/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement||{}).tagName||''))render()}}
+  catch(e){failAt=Date.now();console.warn('Distances par la route indisponibles',e.message);if(force)flash('Distances par la route indisponibles pour le moment : '+e.message)}
+  finally{busy=false}return n}
+window.fcRoutes=fcRoutes;
+const coachSide=()=>{const u=me();return u&&u.role==='admin'&&st.view==='admin'};
+render=(old=>function(){const r=old.apply(this,arguments);try{if(coachSide()&&!busy&&Date.now()-failAt>600000&&(db.centres||[]).some(c=>geo(c)&&c.ok&&!road(c)))setTimeout(()=>fcRoutes(false),400)}catch(e){}return r})(render);
+A.fcRoutes=async function(){flash('Calcul des distances par la route…');const n=await fcRoutes(true);if(n)flash('Distances par la route mises à jour')};
+if(typeof adminCentres==='function')adminCentres=(old=>function(){let h=old();const cs=(db.centres||[]).filter(c=>geo(c)&&c.ok);const done=cs.filter(road).length;
+  const at=cs.map(c=>road(c)&&road(c).at).filter(Boolean).sort().pop();
+  const box=`<div class="panel fs" style="margin:0 0 14px"><span class="eyebrow">Distance depuis ${esc(HOME.name||'votre point de départ')}</span><p class="small" style="margin:4px 0 8px">Les distances et les frais de déplacement automatiques suivent maintenant <b>l'itinéraire par la route</b> (OpenStreetMap), et non plus une ligne droite. ${done?`${done} centre${done>1?'s':''} sur ${cs.length} calculé${done>1?'s':''}${at?' (dernier calcul : '+dfmt(at)+')':''}.`:'Calcul en cours…'} Une distance que vous entrez à la main dans la fiche d'un centre a toujours priorité.</p><button class="btn-xs" data-a="fcRoutes">Recalculer les distances</button></div>`;
+  const m=h.indexOf('<div class="list"');return m>0?h.slice(0,m)+box+h.slice(m):box+h})(adminCentres);
+if(typeof MOD3==='object'&&MOD3.centre)MOD3.centre=(old=>function(u,m){const r=old(u,m);const c=(db.centres||[]).find(x=>x.id===m.cid);if(!c||!r||!r[0])return r;const rd=road(c);
+  const ph=rd?`Par la route : ${Math.round(rd.km)} km (environ ${rd.min} min)`:`Estimé : ${est(c)} km (itinéraire en calcul)`;
+  return [r[0].replace(/placeholder="Estimé : [^"]*"/,`placeholder="${esc(ph)}"`).replace(/<span>Distance de [^<]*\(km\)<\/span>/,`<span>Distance par la route depuis ${esc(HOME.name||'le point de départ')} (km)</span>`),r[1]]})(MOD3.centre);
+
+/* ---------- 5. « À traiter » en haut du tableau de bord ---------- */
+const todoPanel=()=>{const todo=todoAdmin();return `<div class="panel fctodo" style="margin-bottom:16px"><h3 class="sech" style="margin-top:0">À traiter${todo.length?' <small class="muted">'+todo.length+'</small>':''}</h3>
+  <div class="list" style="gap:8px">${todo.map(x=>`<div class="todo ${x.k}"><span><b>${x.t}</b>${x.d?`<small>${x.d}</small>`:''}</span>${x.btn||''}</div>`).join('')||'<div class="empty">Tout est à jour.</div>'}</div></div>`};
+todayV=(old=>function(){let h=old();const s=h.indexOf('<h3 class="sech">À traiter</h3>');const a=s>=0?h.indexOf('<aside class="summary">',s):-1;if(s<0||a<0)return h;
+  const seg=h.slice(s,a);const close=seg.lastIndexOf('</div>');if(close<0)return h;
+  h=h.slice(0,s)+seg.slice(close)+h.slice(a);
+  return h.replace('<div class="book"><div>','<div class="book"><div>'+todoPanel())})(todayV);
 })();
 </script>
 </body></html>
