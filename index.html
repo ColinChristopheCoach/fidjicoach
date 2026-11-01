@@ -20168,7 +20168,28 @@ const EMPTY_ARR=['users','slots','bookings','inventory','rentals','notifs','pers
 const EMPTY_OBJ=['friends','share','devices'];
 function cleanDb(base){const d=JSON.parse(JSON.stringify(base));EMPTY_ARR.forEach(k=>{if(Array.isArray(d[k]))d[k]=[]});EMPTY_OBJ.forEach(k=>{if(d[k]&&typeof d[k]==='object')d[k]={}});d.cals=[];d.session=null;d.invSeq=0;return d}
 try{const s=localStorage.getItem(RKEY);db=s?JSON.parse(s):cleanDb(db)}catch(e){db=cleanDb(db)}
-save=function(){try{localStorage.setItem(RKEY,JSON.stringify(db))}catch(e){}if(R.on)queueSync()};
+/* Correction du 1er nov. 2026 : « The quota has been exceeded » à la connexion.
+   Le navigateur garde environ 5 Mo par site. Les sauvegardes automatiques de la démo (jusqu'à 15 copies complètes,
+   3 fois par jour) remplissaient cet espace, et la connexion plantait en enregistrant les données.
+   En mode réel, la vraie sauvegarde est la base de données en ligne : on n'en garde plus de copies dans le navigateur,
+   et l'enregistrement local ne bloque plus jamais la connexion (on libère de l'espace au besoin). */
+const DEMO_KEY='fidjicoach-v4-demo-1',DEMO_BK=DEMO_KEY+'-sauvegardes';
+function fcFree(level){const rm=k=>{try{localStorage.removeItem(k)}catch(e){}};
+  rm(DEMO_BK);try{if(typeof BK!=='undefined')BK.length=0}catch(e){}
+  try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&/^fc6-cbk-/.test(k))rm(k)}}catch(e){}
+  if(level>1)rm(DEMO_KEY)}
+const slimDb=()=>JSON.stringify(db,(k,v)=>typeof v==='string'&&v.length>60000&&/^data:/.test(v)?'':v);
+let fcPersistWarn=false;
+function fcPersist(){const data=JSON.stringify(db);
+  for(let lvl=0;lvl<=2;lvl++){try{localStorage.setItem(RKEY,data);return true}catch(e){fcFree(lvl+1)}}
+  try{localStorage.setItem(RKEY,slimDb());return true}catch(e){}
+  if(!fcPersistWarn){fcPersistWarn=true;console.warn('Mémoire du navigateur pleine : données gardées en ligne seulement');}
+  return false}
+window.fcPersist=fcPersist;
+/* en mode réel : plus de copies de sauvegarde dans le navigateur (la base en ligne fait foi) */
+try{localStorage.removeItem(DEMO_BK)}catch(e){}
+try{if(typeof BK!=='undefined')BK.length=0;if(typeof saveBK==='function')saveBK=function(){try{localStorage.removeItem(DEMO_BK)}catch(e){}}}catch(e){}
+save=function(){fcPersist();if(R.on)queueSync()};
 
 const fr=m=>{m=String(m||'');
   if(/Invalid login/i.test(m))return 'Courriel ou mot de passe incorrect.';
@@ -20202,7 +20223,7 @@ async function loadMe(){
   if(p.role==='admin')await loadClients();
   try{if(R.coachId){if(p.role==='admin')await loadCoachSide();else await loadClientSide()}}
   catch(e){console.error(e);setTimeout(()=>flash('Disponibilités et réservations en ligne indisponibles : '+fr(e.message)),500)}
-  R.on=true;localStorage.setItem(RKEY,JSON.stringify(db));return true}
+  R.on=true;fcPersist();return true}
 
 async function loadClients(){R.snap=Object.fromEntries(Object.entries(R.snap).filter(([k])=>!k.startsWith('n:')));
   const [{data:ps},{data:fs},{data:ns}]=await Promise.all([
@@ -20231,11 +20252,11 @@ async function pushChanges(){if(!R.on||R.busy)return;R.busy=true;
         for(const id of was.filter(id=>!keep.has(id)))await R.sb.from('private_notes').delete().eq('id',id);
         R.snap['n:'+c.sid]=[...keep].filter(Boolean)}
       await pushCoach()}
-    localStorage.setItem(RKEY,JSON.stringify(db));
+    fcPersist();
   }catch(e){console.error(e);flash('Enregistrement en ligne impossible : '+fr(e.message))}
   finally{R.busy=false}}
 
-function resetLocal(){db.users=[];db.session=null;db.bookings=[];db.slots=[];db.recur=[];if(R.taken)R.taken=[];R.on=false;R.uid=R.role=null;R.snap={};try{localStorage.setItem(RKEY,JSON.stringify(db))}catch(e){}}
+function resetLocal(){db.users=[];db.session=null;db.bookings=[];db.slots=[];db.recur=[];if(R.taken)R.taken=[];R.on=false;R.uid=R.role=null;R.snap={};fcPersist();}
 
 /* --- formulaire Connexion / Créer un compte de la V7, branché sur Supabase --- */
 addEventListener('submit',async e=>{const f=e.target;if(!f||f.id!=='authForm')return;
@@ -21398,7 +21419,7 @@ syncAll=(old=>async function(){await old();await load7()})(syncAll);
 pushChanges=(old=>async function(){await old();try{await pushShared()}catch(e){console.warn(e)}})(pushChanges);
 resetLocal=(old=>function(){old();db.convs=[];db.docs=[];R.coachOwner=null;R.inbox=null;R.docsOn=null;R.urls={};R.sd={meta:{},loaded:false,off:false,busy:false};
   if(R.mchan&&R.sb){try{R.sb.removeChannel(R.mchan)}catch(e){}}R.mchan=null;
-  SD_COLS.forEach(k=>{db[k]=(db[k]||[]).filter(x=>x&&(x.self||x.userId===ADMIN_ID))});try{localStorage.setItem(RKEY,JSON.stringify(db))}catch(e){}})(resetLocal);
+  SD_COLS.forEach(k=>{db[k]=(db[k]||[]).filter(x=>x&&(x.self||x.userId===ADMIN_ID))});fcPersist();})(resetLocal);
 decorate=(old=>function(){old();try{fillImgs();setTimeout(docsSeen,80)}catch(e){console.warn(e)}
   if(!R.on||R.role!=='admin'||st.view!=='admin')return;const bar=document.querySelector('.fcreal');if(!bar||bar.dataset.e7)return;bar.dataset.e7='1';
   bar.innerHTML=bar.innerHTML.replace(/Les autres sections \(messages, documents, équipement…\) arrivent aux prochaines étapes/,'Les messages, les documents, et les programmes et routines préparés pour vos clients sont aussi en ligne. Les autres sections (équipement…) arrivent aux prochaines étapes')})(decorate);
