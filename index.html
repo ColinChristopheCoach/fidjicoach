@@ -20160,7 +20160,12 @@ const SB_URL='https://cwqbhtsbewcqhxjbviog.supabase.co';
 const SB_KEY='sb_publishable_qtGHs-uOk50Lwd6zsCzZSg_qb5YtwQX';
 const COACH_SLUG='colin-christophe';
 const RKEY='fidjicoach-reel-1';
-const R={on:false,sb:null,uid:null,role:null,coachId:null,snap:{},busy:false,info:''};
+const R={on:false,sb:null,uid:null,role:null,realRole:null,coachId:null,snap:{},busy:false,info:''};
+/* étape 8 : entraîneur choisi par le client (lien fidjicoach.ca/?entraineur=slug), sinon l'entraîneur principal */
+const CKEY='fc-coach';
+try{const q0=new URLSearchParams(location.search).get('entraineur');if(q0&&/^[a-z0-9-]{2,60}$/.test(q0)){localStorage.setItem(CKEY,q0)}}catch(e){}
+function fcSlug(){try{return localStorage.getItem(CKEY)||COACH_SLUG}catch(e){return COACH_SLUG}}
+const isCoachRole=r=>r==='admin'||r==='coach';
 window.fcReal=R;
 
 /* --- espace de données local propre (aucune donnée d'exemple) --- */
@@ -20204,9 +20209,9 @@ const fr=m=>{m=String(m||'');
 /* --- conversion base <-> écrans de la V7 --- */
 function localUser(p,f){const data=(f&&f.data)||{};const fiche=Object.assign({},data);delete fiche._onb;
   if(p.prenom&&!fiche.prenom)fiche.prenom=p.prenom;if(p.nom&&!fiche.nom)fiche.nom=p.nom;if(p.tel&&!fiche.tel)fiche.tel=p.tel;
-  return {id:p.role==='admin'?ADMIN_ID:p.id,sid:p.id,email:p.email,pass:null,role:p.role==='admin'?'admin':'client',code:p.ref_code||'',refBy:p.referred_by||null,credit:false,refRewarded:false,
+  return {id:isCoachRole(p.role)?ADMIN_ID:p.id,sid:p.id,email:p.email,pass:null,role:isCoachRole(p.role)?'admin':'client',code:p.ref_code||'',refBy:p.referred_by||null,credit:false,refRewarded:false,
     created:String(p.created_at||'').slice(0,10),photo:null,fiche,notes:[],prefs:(typeof defPrefs==='function'?defPrefs():{}),newsletter:!!p.newsletter,termsAt:p.terms_at?String(p.terms_at).slice(0,10):null,
-    onboarded:p.role==='admin'?true:!!data._onb,tester:p.tester_until||null}}
+    onboarded:isCoachRole(p.role)?true:!!data._onb,tester:p.tester_until||null}}
 const snapOf=u=>JSON.stringify({f:u.fiche,o:u.onboarded,n:u.newsletter});
 
 async function loadMe(){
@@ -20214,22 +20219,24 @@ async function loadMe(){
   const {data:p,error}=await R.sb.from('profiles').select('*').eq('id',user.id).single();
   if(error||!p){flash('Profil introuvable : '+(error&&error.message||''));return false}
   const {data:f}=await R.sb.from('client_fiches').select('*').eq('client_id',user.id).maybeSingle();
-  R.uid=user.id;R.role=p.role;
+  R.uid=user.id;R.realRole=p.role;R.role=isCoachRole(p.role)?'admin':p.role;
   const me0=localUser(p,f);
-  db.users=db.users.filter(u=>u.sid&&u.sid!==user.id&&p.role==='admin');
+  db.users=db.users.filter(u=>u.sid&&u.sid!==user.id&&isCoachRole(p.role));
   db.users.unshift(me0);db.session=me0.id;R.snap[me0.id]=snapOf(me0);
-  const {data:c}=await R.sb.from('coaches').select('id,owner_id').eq('slug',COACH_SLUG).maybeSingle();R.coachId=c&&c.id;
+  const cq=R.sb.from('coaches').select('id,owner_id,slug,nom_affiche');
+  const {data:c}=await (isCoachRole(p.role)?cq.eq('owner_id',user.id):cq.eq('slug',fcSlug())).maybeSingle();R.coachId=c&&c.id;R.coachRow=c||null;
   if(p.role==='client'&&R.coachId)await R.sb.from('coach_clients').upsert({coach_id:R.coachId,client_id:user.id},{onConflict:'coach_id,client_id',ignoreDuplicates:true});
-  if(p.role==='admin')await loadClients();
-  try{if(R.coachId){if(p.role==='admin')await loadCoachSide();else await loadClientSide()}}
+  if(isCoachRole(p.role))await loadClients();
+  try{if(R.coachId){if(isCoachRole(p.role))await loadCoachSide();else await loadClientSide()}}
   catch(e){console.error(e);setTimeout(()=>flash('Disponibilités et réservations en ligne indisponibles : '+fr(e.message)),500)}
   R.on=true;fcPersist();return true}
 
 async function loadClients(){R.snap=Object.fromEntries(Object.entries(R.snap).filter(([k])=>!k.startsWith('n:')));
+  let ids=null;if(R.coachId){const {data:cc}=await R.sb.from('coach_clients').select('client_id').eq('coach_id',R.coachId);ids=(cc||[]).map(x=>x.client_id)}
   const [{data:ps},{data:fs},{data:ns}]=await Promise.all([
-    R.sb.from('profiles').select('*').neq('role','admin').order('created_at',{ascending:false}),
-    R.sb.from('client_fiches').select('*'),
-    R.sb.from('private_notes').select('*').order('created_at',{ascending:false})]);
+    (ids?R.sb.from('profiles').select('*').in('id',ids.length?ids:['00000000-0000-0000-0000-000000000000']):R.sb.from('profiles').select('*')).eq('role','client').order('created_at',{ascending:false}),
+    ids?R.sb.from('client_fiches').select('*').in('client_id',ids.length?ids:['00000000-0000-0000-0000-000000000000']):R.sb.from('client_fiches').select('*'),
+    (R.coachId?R.sb.from('private_notes').select('*').eq('coach_id',R.coachId):R.sb.from('private_notes').select('*')).order('created_at',{ascending:false})]);
   const fm={};(fs||[]).forEach(f=>fm[f.client_id]=f);
   const adm=db.users.find(u=>u.role==='admin');
   db.users=[adm,...(ps||[]).map(p=>{const u=localUser(p,fm[p.id]);u.notes=(ns||[]).filter(n=>n.client_id===p.id).map(n=>({sid:n.id,date:String(n.created_at).slice(0,10),text:n.body}));R.snap['n:'+p.id]=u.notes.map(n=>n.sid);return u})].filter(Boolean)}
@@ -20318,7 +20325,7 @@ addEventListener('click',e=>{if(!R.on)return;const av=e.target.closest&&e.target
 
 addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-a]');if(!el||!R.on||R.role!=='client')return;
   const a=el.dataset.a,d=el.dataset;
-  const book=['goRent','aboGo','p3demo','demoOther','repOpen'].includes(a)||(a==='tab'&&!CLIENT_TABS.includes(d.t))||(a==='hub'&&d.k&&!CLIENT_TABS.includes(d.k)&&d.k!=='__ctr')||(a==='ptab'&&d.p&&!CLIENT_TABS.includes(d.p));
+  const book=['aboGo','p3demo','demoOther','repOpen'].includes(a)||(a==='tab'&&!CLIENT_TABS.includes(d.t))||(a==='hub'&&d.k&&!CLIENT_TABS.includes(d.k)&&d.k!=='__ctr')||(a==='ptab'&&d.p&&!CLIENT_TABS.includes(d.p));
   if(!book)return;e.preventDefault();e.stopImmediatePropagation();reqFor()},true);
 
 /* --- ajouts après chaque affichage --- */
@@ -20456,8 +20463,9 @@ A.book=(old=>async function(){
   if(!R.on||R.role!=='client')return old();
   const Rq=st.R;if(!Rq)return old();
   if(Rq.what&&Rq.what!=='cours'){reqFor();return}
-  if(Rq.wantRent){flash('La location d\'équipement en ligne arrive bientôt : retirez-la de la réservation et écrivez-moi pour la réserver.');return}
   if(!R.coachId){flash('Réservation en ligne indisponible pour le moment.');return}
+  /* étape 8 : location d'équipement avec le cours, payée par carte seulement */
+  let rentP=null;if(Rq.wantRent){rentP=window.fcRentPayload?window.fcRentPayload(Rq,me()):null;if(!rentP)return;Rq.pay='carte'}
   const u=me();const shown=quote(Rq,u);const n0=db.bookings.length;
   old();                                   /* validations et écrans de la V7 */
   if(db.bookings.length===n0)return;       /* une étape incomplète : la V7 a déjà affiché le message */
@@ -20465,11 +20473,11 @@ A.book=(old=>async function(){
   const payload={coach_id:R.coachId,type:Rq.type,formule:Rq.formule,dur:Rq.dur,qty:Rq.qty,nb:Rq.nb,niveau:Rq.niveau,tech:Rq.tech,lieu:b.lieu,
     me:Rq.me!==false,payAll:!!Rq.payAll,pay:Rq.pay==='interac'?'interac':'carte',ref:Rq.refOk?Rq.ref:'',
     sessions:(b.sessions||[]).map(s=>({date:s.date,start:s.start})),
-    others:(Rq.others||[]).map(o=>{const x=o.sel?userById(o.sel):null;return {prenom:(x&&x.fiche&&x.fiche.prenom)||o.prenom||'',nom:(x&&x.fiche&&x.fiche.nom)||o.nom||'',lien:o.lien||'',niveau:o.niveau||'',email:o.email||''}}),
+    others:(Rq.others||[]).map(o=>{const x=o.sel?userById(o.sel):null;return {prenom:(x&&x.fiche&&x.fiche.prenom)||o.prenom||'',nom:(x&&x.fiche&&x.fiche.nom)||o.nom||'',lien:o.lien||'',niveau:o.niveau||'',email:o.email||'',tel:(x&&x.fiche&&x.fiche.tel)||o.tel||''}}),
     details:{addr:b.addr||null,parental:b.parental||null,waiverAt:b.waiverAt||null,giftMsg:(b.gift&&b.gift.msg)||null}};
   st.modal=null;busyOn('Enregistrement de votre réservation…');
   try{
-    const {data,error}=await R.sb.rpc('create_booking',{p:payload});if(error)throw error;
+    const {data,error}=await R.sb.rpc(rentP?'create_booking_rent':'create_booking',{p:rentP?Object.assign(payload,{rent:rentP,pay:'carte'}):payload});if(error)throw error;
     await syncAll();
     const nb=db.bookings.find(x=>x.id===data.id);
     if(nb&&(Rq.others||[]).length&&!payload.payAll)nb.shareCode=data.shareCode;
@@ -20686,7 +20694,7 @@ A.fcRefDone=d=>rfCall('refund_mark_done',{p_refund:d.r},'Remboursement Interac n
 A.fcRefCancel=d=>{if(!confirm('Ne pas faire ce remboursement? Le client ne sera pas remboursé de ce montant.'))return;rfCall('refund_cancel',{p_refund:d.r},'Remboursement retiré.')};
 
 /* location seule et cours publics : encore par demande, pour l'instant */
-A.rentLong=(old=>function(){if(R.on&&R.role==='client'){reqFor();return}return old()})(A.rentLong);
+A.rentLong=(old=>function(){if(R.on&&R.role==='client'){if(window.fcRentLong)return window.fcRentLong();reqFor();return}return old()})(A.rentLong);
 if(typeof A.pubBook==='function')A.pubBook=(old=>function(d){if(R.on&&R.role==='client'){reqFor();return}return old(d)})(A.pubBook);
 
 /* --- démarrage --- */
@@ -20697,7 +20705,7 @@ async function bootReal(){
     if(ev==='SIGNED_OUT'&&R.on){resetLocal();st.view='home';render()}});
   const {data:{session}}=await R.sb.auth.getSession();
   if(session){if(await loadMe()){stampTerms();if(st.view==='home'||st.view==='auth'){st.view=R.role==='admin'?'admin':'client';st.tab=R.role==='admin'?'today':(me().onboarded?'accueil':null)}render()}}
-  else{resetLocal();try{const {data:c}=await R.sb.from('coaches').select('id').eq('slug',COACH_SLUG).maybeSingle();R.coachId=c&&c.id;if(R.coachId&&await loadPub())render()}catch(e){}render()}}
+  else{resetLocal();try{const {data:c}=await R.sb.from('coaches').select('id').eq('slug',fcSlug()).maybeSingle();R.coachId=c&&c.id;if(R.coachId&&await loadPub())render()}catch(e){}render()}}
 
 
 /* ================= Étape 6 : notifications en ligne, comptabilité nette, mode Stripe =================
@@ -21445,6 +21453,388 @@ adminCands=(old=>function(){const C=old();
   [['x:apropos','À propos','user','apropos'],['x:meteo','Météo','snow','meteo']].forEach(([id,l,i,v])=>{if(!C.some(c=>c.id===id))C.push({id,l,i,on:st.view===v,attrs:`data-a="go" data-v="${v}"`,g:'Infos',n:0})});
   return C})(adminCands);
 
+/* ================= Étape 8 (30 oct. 2026) : Stripe Connect, abonnements mensuels, location en ligne, pièces jointes =================
+   Stripe Connect : les autres entraîneurs (invités par l'administrateur) connectent leur compte Stripe Express;
+                    l'argent de leurs clients va dans leur compte, la plateforme garde ses frais (réglables).
+   Abonnements    : forfaits mensuels publiés par l'entraîneur, payés par carte (Stripe Billing); ils débloquent
+                    musculation, étirements et les autres modules choisis dans chaque forfait.
+   Location       : en ligne, avec un cours ou seule, payée PAR CARTE SEULEMENT (carte gardée chez Stripe pour les
+                    frais de bris, de perte ou de non-retour, que l'entraîneur peut facturer ensuite).
+   Messages       : pièces jointes (photos, PDF…) dans le compartiment privé « fc-msg ».
+   Corrections 3  : ☰ centré dans son rond; téléphone et courriel des participants dans le courriel de réservation;
+                    pieds du mannequin 3D couché (test au lever). */
+const ETAPE8_VER='Étape 8 · 30 oct. 2026';
+document.head.insertAdjacentHTML('beforeend',`<style>
+.fc8p{margin:0 0 16px}
+.fc8p .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
+.fc8p .row:first-of-type{border-top:0}
+.fc8p .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.fc8tag{display:inline-block;font-size:.78rem;font-weight:700;border-radius:999px;padding:2px 10px;background:var(--surface-2);color:var(--muted)}
+.fc8tag.ok{background:var(--ok-soft);color:var(--ok)}.fc8tag.warn{background:var(--warn-soft);color:var(--warn)}
+.fc8link{font-family:ui-monospace,Menlo,monospace;font-size:.82rem;overflow-wrap:anywhere;background:var(--surface-2);border-radius:8px;padding:6px 10px}
+.fc8fee{background:var(--warn-soft);border-radius:12px;padding:12px 14px;margin:0 0 14px}
+.fcatt{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.fcatt a,.fcatt button{display:inline-flex;gap:6px;align-items:center;max-width:100%;border:1px solid var(--line);border-radius:10px;padding:6px 10px;background:var(--surface);color:var(--ink);font-size:.85rem;text-decoration:none;cursor:pointer}
+.fcatt img{display:block;max-width:220px;max-height:180px;border-radius:8px}
+.fcatt a.img{padding:0;border:0;background:none}
+.fcpick{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0 0;font-size:.85rem}
+.fcpick .chip{display:inline-flex;gap:6px;align-items:center;background:var(--surface-2);border-radius:999px;padding:3px 4px 3px 10px}
+.fcpick .chip button{border:0;background:none;font-size:1rem;line-height:1;padding:2px 6px;color:var(--muted)}
+.fcclip{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 10px;font-size:.9rem}
+.fc8note{font-size:.82rem;color:var(--muted);margin:4px 0 0}
+</style>`);
+const fcInvoke=async(fn,body)=>{const {data,error}=await R.sb.functions.invoke(fn,{body});if(error)throw error;if(data&&data.error)throw new Error(data.error);return data};
+const ymd=ts=>!ts?null:/^\d{4}-\d{2}-\d{2}$/.test(String(ts))?String(ts):tzParts(ts).date;
+const pct=n=>(Math.round(Number(n||0)*100)/100).toString().replace('.',',')+' %';
+
+/* ---------- 1. Location d'équipement en ligne (carte seulement) ---------- */
+/* l'inventaire de location (prix, quantités) est publié avec les tarifs : le serveur calcule le prix et vérifie le stock */
+const rentItemsPub=()=>(db.inventory||[]).filter(i=>i&&i.actif!==false).map(i=>({id:i.id,cat:i.cat,tech:i.tech,taille:i.taille,marque:i.marque||'',modele:i.modele||'',qty:Number(i.qty)||0,actif:true,prix:i.prix||{}}));
+const plansPub=()=>(db.subPlans||[]).map(p=>({id:p.id,name:p.name,price:Number(p.price)||0,desc:p.desc||'',feats:p.feats||[],inc:p.inc||[],kind:p.kind||null,actif:p.actif!==false}));
+pubData=(old=>function(){const d=old();try{d.rent={items:rentItemsPub()};d.subPlans=plansPub()}catch(e){console.warn(e)}return d})(pubData);
+applyPub=(old=>function(d){old(d);if(!d)return;try{
+  if(R.role!=='admin'){if(d.rent&&Array.isArray(d.rent.items))db.inventory=d.rent.items.map(i=>Object.assign({units:[],photo:null,cat:'Autre',tech:'Les deux',marque:'',modele:'',taille:'',qty:0,prix:{}},i,{tech:i.tech||'Les deux'}));if(Array.isArray(d.subPlans))db.subPlans=d.subPlans}
+  else if(Array.isArray(d.subPlans)&&!(db.subPlans||[]).length)db.subPlans=d.subPlans}catch(e){console.warn(e)}})(applyPub);
+
+/* ce que le client a choisi -> location envoyée au serveur (qui recalcule tout) */
+window.fcRentPayload=function(Rq,u){try{
+  const lines=rentLinesR(Rq);if(!lines.length){flash('Choisissez l\'équipement à louer, ou indiquez que vous n\'en avez pas besoin.');return null}
+  const dates=rentDatesR(Rq);if(!dates.length){flash('Choisissez les dates de la location.');return null}
+  const ppl=peopleOf(Rq,u);const nm=w=>w?String(w.name||'').replace(' (vous)',''):'';
+  return {kind:(Rq.rent&&Rq.rent.kind)||'jour',dates,
+    lines:lines.map(l=>{const w=ppl.find(p=>p.pid===l.pid);const wu=w&&w.uid?userById(w.uid):null;return {id:uid()+uid(),itemId:l.itemId,whoName:nm(w),who:wu&&wu.sid?wu.sid:(w&&w.pid==='me'?R.uid:null)}}),
+    sizes:Object.fromEntries(Object.entries((Rq.rent&&Rq.rent.ppl)||{}).filter(([,p])=>p&&p.on).map(([pid,p])=>[nm(ppl.find(x=>x.pid===pid))||pid,{taille:p.taille||'',poids:p.poids||'',pointure:p.pointure||''}])),
+    contract:{name:Rq.sigName||st.sigNameTmp||(((u.fiche||{}).prenom||'')+' '+((u.fiche||{}).nom||'')).trim()}}}
+  catch(e){console.error(e);flash('Location : '+e.message);return null}};
+/* location seule : créée par le serveur, puis page de paiement Stripe */
+window.fcRentLong=async function(){const u=me(),Rq=st.R;if(!u||!Rq)return;
+  for(let n=1;n<=3;n++){const e=stepErr(Rq,n);if(e){Rq.step=n;render();flash(e);return}}
+  const rp=window.fcRentPayload(Rq,u);if(!rp)return;
+  busyOn('Enregistrement de votre location…');
+  try{const {data,error}=await R.sb.rpc('create_rental',{p:{coach_id:R.coachId,lieu:Rq.lieu||(Rq.rent&&Rq.rent.lieu)||'',rent:rp}});if(error)throw error;
+    st.R=newR();st.sigTmp=null;st.sigNameTmp='';await syncAll();await goCheckout(data.payment_id)}
+  catch(e){console.error(e);busyOff();flash(missing(e)?'Location en ligne indisponible : exécutez le script SQL de l\'étape 8.':errTxt(e));render()}};
+/* carte seulement pour la location */
+const rentNow=()=>{const Rq=st.R;return !!(R.on&&R.role==='client'&&Rq&&(Rq.wantRent||Rq.what==='location'))};
+render=(old=>function(){try{if(rentNow()&&st.R.pay==='interac')st.R.pay='carte'}catch(e){}return old.apply(this,arguments)})(render);
+addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-a="setR"][data-k="pay"][data-v="interac"]');if(!el||!rentNow())return;
+  e.preventDefault();e.stopImmediatePropagation();st.R.pay='carte';render();
+  flash('La location d\'équipement se paie par carte seulement : la carte est gardée par Stripe pour les frais de bris ou de non-retour prévus au contrat.')},true);
+
+/* réservations du serveur : parts (sans les frais), frais de location, location */
+toLocal=(old=>function(row){const pays=row.payments||[];
+  const b=old(Object.assign({},row,{payments:pays.filter(p=>(p.kind||'part')==='part')}));
+  b.kindSrv=row.type;b.rentSrv=(row.details||{}).rent||null;
+  b.feesSrv=pays.filter(p=>p.kind==='frais').map(p=>({pid:p.id,amount:p.amount_cents/100,status:p.status,paidAt:p.paid_at?String(p.paid_at).slice(0,10):null,
+    reason:p.note||(((p.lines||[])[0]||[])[0]||'').replace(/^Frais de location : /,''),payer:lid(p.payer_id),at:String(p.created_at||'').slice(0,10)}));
+  if(row.type==='location')b.type='location';return b})(toLocal);
+R.fees=[];
+function buildRentals(){const prev={};(db.rentals||[]).forEach(r=>{if(r&&r.real)prev[r.id]=r});
+  const out=[];R.fees=[];
+  (db.bookings||[]).forEach(b=>{if(!b.real)return;(b.feesSrv||[]).forEach(f=>R.fees.push(Object.assign({bid:b.id,ref:b.ref,owner:b.owner},f)));
+    const rt=b.rentSrv;if(!rt||!Array.isArray(rt.lines))return;const id='r'+b.sid;const o=prev[id]||{};const ds=rt.dates||[];const p0=(b.parts||[])[0];
+    const lines=rt.lines.map(l=>{const ol=(o.lines||[]).find(x=>x.id===l.id)||{};return {id:l.id,itemId:l.itemId,unit:ol.unit||null,who:l.who?lid(l.who):b.owner,whoName:l.whoName||'',label:l.label||'',dist:ol.dist||null,ret:ol.ret||null}});
+    const r={id,real:true,sid:b.sid,ref:b.ref,userId:b.owner,bookingId:b.kindSrv==='location'?null:b.id,inBooking:b.kindSrv!=='location',kind:rt.kind,lines,
+      from:ds[0],to:ds[ds.length-1],sizes:rt.sizes||{},contract:{name:(rt.contract||{}).name||'',at:String((rt.contract||{}).at||'').slice(0,16).replace('T',' ')},
+      amount:Number(rt.total)||0,method:'carte',paid:!!(p0&&p0.paid),paidAt:p0&&p0.paidAt,created:String(b.created||'').slice(0,10),cancelled:!!b.cancelled,cardOnly:true,lieu:b.lieu,
+      fees:b.feesSrv||[],partPid:p0&&p0.pid};
+    if(rt.kind==='jour')r.days=ds;
+    try{syncRental(r)}catch(e){}
+    if(R.role==='admin'){try{const taken=[];r.lines.forEach(l=>{if(l.unit)taken.push(l.unit)});r.lines.forEach(l=>{if(l.unit)return;const it=(db.inventory||[]).find(x=>x.id===l.itemId);const un=it&&allocUnit(it,ds,r.id,taken);if(un){l.unit=un.key;taken.push(un.key)}})}catch(e){}}
+    out.push(r)});
+  const keep=R.role==='admin'?(db.rentals||[]).filter(r=>r&&!r.real&&!(r.bookingId&&!(db.bookings||[]).some(b=>b.id===r.bookingId))):[];
+  db.rentals=keep.concat(out);
+  db.bookings=(db.bookings||[]).filter(b=>b.kindSrv!=='location');
+  db.bookings.forEach(b=>{if(b.rentSrv)b.rentalId='r'+b.sid})}
+loadBookings=(old=>async function(){await old();try{buildRentals()}catch(e){console.warn('Locations',e)}})(loadBookings);
+
+/* entraîneur : locations payées en ligne, et « Facturer des frais » (bris, perte, non-retour) */
+const fz=document.createElement('div');fz.className='fcq';fz.hidden=true;
+fz.innerHTML=`<form novalidate><div><span class="eyebrow">Location d'équipement</span><h2>Facturer des frais</h2></div><p class="small" data-who></p>
+<label class="field"><span>Montant ($, taxes comprises)</span><input name="amt" type="number" min="1" step="0.01" inputmode="decimal" required></label>
+<label class="field"><span>Raison (le client la verra sur sa facture)</span><input name="why" maxlength="200" placeholder="Ex. : bâton cassé, bottes non remises"></label>
+<p class="small muted">La carte utilisée pour payer la location est prélevée tout de suite, selon le contrat de location signé. Si la banque refuse, le client reçoit un avis pour payer lui-même dans FidjiCoach.</p>
+<p class="small" data-err style="color:var(--bad)" hidden></p><div class="actions"><button type="submit" class="btn btn-accent">Facturer</button><button type="button" class="btn btn-plain" data-x>Annuler</button></div></form>`;
+document.body.appendChild(fz);
+const fzClose=()=>{fz.hidden=true;document.body.style.overflow=''};
+fz.querySelector('[data-x]').onclick=fzClose;
+A.fcFee=function(d){const r=(db.rentals||[]).find(x=>x.id===d.r);if(!r)return;const u=userById(r.userId);
+  fz.dataset.b=r.sid;fz.querySelector('[data-who]').textContent=(u?name(u):'Client')+' · location '+r.ref+' ('+(r.from===r.to?r.from:r.from+' au '+r.to)+')';
+  const F=fz.querySelector('form');F.amt.value='';F.why.value='';fz.querySelector('[data-err]').hidden=true;fz.hidden=false;document.body.style.overflow='hidden';setTimeout(()=>F.amt.focus(),50)};
+fz.querySelector('form').addEventListener('submit',async e=>{e.preventDefault();const F=e.target,er=F.querySelector('[data-err]');
+  const amt=Number(String(F.amt.value).replace(',','.')),why=F.why.value.trim();
+  if(!(amt>=1)||why.length<3){er.textContent='Indiquez le montant (1 $ ou plus) et la raison.';er.hidden=false;return}
+  if(!confirm('Facturer '+money(amt)+' au client pour : '+why+'?'))return;
+  const btn=F.querySelector('[type=submit]');btn.disabled=true;
+  try{const r=await fcInvoke('charge-fee',{booking_id:fz.dataset.b,amount:amt,reason:why});fzClose();await syncAll();render();
+    flash(r.charged?'Frais de '+money(amt)+' prélevés sur la carte du client. Il reçoit son reçu par courriel.':(r.message||'Le client paiera les frais dans FidjiCoach.'))}
+  catch(err){er.textContent=await errMsg(err);er.hidden=false}finally{btn.disabled=false}});
+function rentPanel(){const rs=(db.rentals||[]).filter(r=>r.real&&!r.cancelled).sort((a,b)=>String(b.from).localeCompare(String(a.from)));if(!R.on||!rs.length)return '';
+  const st_=f=>f.status==='payee'?'<span class="fc8tag ok">payés</span>':f.status==='remboursee'?'<span class="fc8tag">remboursés</span>':'<span class="fc8tag warn">à payer par le client</span>';
+  return `<section class="panel fc8p"><span class="eyebrow">Payées en ligne par carte</span><h3>Locations des clients</h3>
+  ${rs.slice(0,40).map(r=>{const u=userById(r.userId);return `<div class="row"><span><b>${esc(u?name(u):'Client')}</b> · ${esc(r.ref)} · ${esc(KLBL[r.kind]||r.kind)} ${esc(r.from===r.to?'le '+dfmt(r.from):'du '+dfmt(r.from)+' au '+dfmt(r.to))}<br>
+    <small class="muted">${r.lines.map(l=>esc((l.label||'Article')+(l.whoName?' ('+l.whoName+')':''))).join(' · ')} · ${money(r.amount)} ${r.paid?'payée':'<b>pas encore payée</b>'}</small>
+    ${(r.fees||[]).map(f=>`<br><small>Frais ${money(f.amount)} : ${esc(f.reason)} ${st_(f)}</small>`).join('')}</span>
+    ${r.paid?`<button class="btn btn-sm btn-plain" data-a="fcFee" data-r="${esc(r.id)}">Facturer des frais</button>`:''}</div>`}).join('')}
+  <p class="fc8note">Bris, perte ou équipement non remis : « Facturer des frais » prélève la carte gardée par Stripe lors du paiement de la location (contrat signé par le client).</p></section>`}
+adminInv=(old=>function(){const h=old();return ['loc','inv'].includes(st.invTab||'inv')?rentPanel()+h:h})(adminInv);
+
+/* client : frais à payer (prélèvement refusé) */
+A.fcPayFee=d=>goCheckout(d.p);
+function feesBanner(){const u=me();if(!u||R.role!=='client')return '';const due=(R.fees||[]).filter(f=>f.payer===u.id&&['a_payer','echouee','en_cours'].includes(f.status));if(!due.length)return '';
+  return `<div class="fc8fee fc8due"><b>Frais de location à payer</b>${due.map(f=>`<div class="row" style="display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-top:6px"><span>${esc(f.ref)} · ${esc(f.reason)} · <b>${money(f.amount)}</b></span><button class="btn btn-sm btn-accent" data-a="fcPayFee" data-p="${esc(f.pid)}">Payer par carte</button></div>`).join('')}</div>`}
+
+/* ---------- 2. Abonnements mensuels (Stripe Billing) ---------- */
+R.subsOn=null;
+async function loadSubs(){if(!R.coachId||!R.uid)return;
+  try{const {data,error}=await R.sb.from('subscriptions').select('*').eq('coach_id',R.coachId).order('created_at');if(error)throw error;R.subsOn=true;
+    db.subs=(data||[]).map(s=>({id:'s'+s.id.slice(0,8),sid:s.id,real:true,userId:lid(s.client_id),planId:s.plan_id,planName:s.plan_name,
+      start:ymd(s.started_at||s.created_at),next:ymd(s.current_period_end)||today(),status:['active','trialing','past_due'].includes(s.status)?'actif':'annulé',
+      srv:s.status,cancelAt:!!s.cancel_at_period_end,end:s.cancel_at_period_end?ymd(s.current_period_end):undefined,amount:(s.amount_cents||0)/100,pay:'carte',
+      payments:(s.payments||[]).map(x=>({date:x.date,amount:Number(x.amount)||0}))}))}
+  catch(e){if(missing(e))R.subsOn=false;console.warn('Abonnements',e.message)}}
+const realSubs=()=>R.on&&R.subsOn!==false;
+const subErr=async e=>{flash(missing(e)?'Abonnements en ligne indisponibles : exécutez le script SQL de l\'étape 8 et créez la fonction « subscriptions ».':'Abonnement : '+await errMsg(e))};
+async function subCheckout(planId){busyOn('Ouverture de la page d\'abonnement sécurisée…');
+  try{const r=await fcInvoke('subscriptions',{action:'checkout',coach_id:R.coachId,plan_id:planId});if(!r||!r.url)throw new Error('Réponse inattendue.');location.href=r.url}
+  catch(e){busyOff();await subErr(e)}}
+async function subCall(action,sid,ok){busyOn();try{await fcInvoke('subscriptions',{action,id:sid});await loadSubs();flash(ok)}catch(e){await subErr(e)}finally{busyOff();render()}}
+A.subGo=(old=>function(){if(!(realSubs()&&R.role==='client'))return old();if(!st.subOk){flash('Acceptez le renouvellement automatique pour continuer');return}if(st.subPick)subCheckout(st.subPick)})(A.subGo);
+A.subAdd=(old=>function(d){if(!(realSubs()&&R.role==='client'))return old(d);subCheckout(d.p)})(A.subAdd);
+A.subCancelYes=(old=>function(){if(!realSubs())return old();const s=(db.subs||[]).find(x=>x.real&&x.userId===(me()||{}).id&&x.status==='actif'&&!x.cancelAt);st.subCancel=false;
+  if(!s){render();return}subCall('cancel',s.sid,'Abonnement annulé : il reste actif jusqu\'au '+dfmt(s.next)+'.')})(A.subCancelYes);
+A.subStop2=(old=>function(d){if(!realSubs())return old(d);const s=(db.subs||[]).find(x=>x.id===d.s);if(s&&s.sid)subCall('cancel',s.sid,'Forfait annulé à la fin du mois payé.')})(A.subStop2);
+A.subStop=(old=>function(d){if(!realSubs())return old(d);const s=(db.subs||[]).find(x=>x.id===d.s);if(!s||!s.sid)return;if(!confirm('Annuler cet abonnement à la fin du mois payé?'))return;subCall('cancel',s.sid,'Abonnement annulé à la fin du mois payé.')})(A.subStop);
+A.fcSubResume=d=>subCall('resume',d.s,'Abonnement gardé : il se renouvelle chaque mois.');
+A.fcPortal=async function(){busyOn('Ouverture du portail Stripe…');try{const r=await fcInvoke('subscriptions',{action:'portal'});location.href=r.url}catch(e){busyOff();await subErr(e)}};
+aboClient=(old=>function(u){if(realSubs()&&R.role==='client')st.subPay='carte';let h=old(u);if(!(realSubs()&&R.role==='client'))return h;
+  h=h.replace(/<button class="[^"]*" data-a="subPay" data-v="interac">[\s\S]*?<\/button>/,'');
+  const s=(db.subs||[]).find(x=>x.real&&x.userId===u.id&&x.status==='actif');
+  if(s&&s.cancelAt)h=h.replace(/<button class="btn btn-sm btn-plain" data-a="subCancel">[^<]*<\/button>/,`<span class="small">Annulé : actif jusqu'au ${dfmt(s.end||s.next)}</span><button class="btn btn-sm btn-plain" data-a="fcSubResume" data-s="${s.sid}">Garder mon abonnement</button>`);
+  if(s&&s.srv==='past_due')h=`<div class="fc8fee"><b>Paiement mensuel refusé.</b> Mettez votre carte à jour pour garder vos modules. <button class="btn btn-sm btn-accent" data-a="fcPortal">Mettre ma carte à jour</button></div>`+h;
+  if((db.subs||[]).some(x=>x.real&&x.userId===u.id))h+=`<p class="fc8note" style="margin-top:14px">Paiements par carte avec Stripe. <button class="linkbtn" data-a="fcPortal">Changer de carte ou voir mes reçus</button></p>`;
+  else h+=`<p class="fc8note" style="margin-top:14px">Paiement mensuel par carte avec Stripe, annulable en tout temps.</p>`;
+  return h})(aboClient);
+abosAdmin=(old=>function(){let h=old();if(!R.on)return h;
+  return `<p class="fc8note" style="margin:0 0 12px">Vos forfaits sont publiés en ligne avec vos tarifs : vos clients s'abonnent par carte (Stripe), chaque mois. Les cases « Débloque dans l'app » décident des modules ouverts par chaque forfait.${R.subsOn===false?' <b>Exécutez le script SQL de l\'étape 8 pour activer les abonnements en ligne.</b>':''}</p>`+h})(abosAdmin);
+
+/* ---------- 3. Paiements en ligne : Stripe Connect (entraîneurs) et frais de la plateforme (administrateur) ---------- */
+R.pay={at:0,loading:false,err:'',info:null,plat:null,link:null};
+async function loadPay(){if(R.pay.loading||!R.on)return;R.pay.loading=true;
+  try{if(R.realRole==='admin'){const {data,error}=await R.sb.rpc('admin_platform');if(error)throw error;R.pay.plat=data}
+    if(R.coachId){const {data,error}=await R.sb.rpc('coach_pay_info',{p_coach:R.coachId});if(error)throw error;R.pay.info=data}R.pay.err=''}
+  catch(e){R.pay.err=missing(e)?'Exécutez d\'abord le script SQL de l\'étape 8 dans Supabase.':errTxt(e)}
+  finally{R.pay.loading=false;R.pay.at=Date.now()}}
+const stTag=c=>c.charges?'<span class="fc8tag ok">Prêt à recevoir des paiements</span>':c.account?'<span class="fc8tag warn">Configuration Stripe à terminer</span>':'<span class="fc8tag">Compte Stripe pas encore connecté</span>';
+function fcPayPage(){if(!R.on)return '<div class="empty">Connectez-vous.</div>';
+  if(!R.pay.at&&!R.pay.loading)loadPay().then(()=>render());
+  if(!R.pay.at)return '<div class="empty">Chargement…</div>';
+  if(R.pay.err)return `<p class="fcmsgoff">${esc(R.pay.err)}</p>`;
+  const I=R.pay.info||{};let h='';
+  if(R.realRole==='admin'){const P=R.pay.plat||{};const S=P.settings||{};
+    h+=`<section class="panel fc8p"><span class="eyebrow">Vous êtes la plateforme</span><h3>Vos propres paiements</h3>
+      <p class="small">Les paiements de vos clients arrivent directement dans votre compte Stripe, sans frais de plateforme. Les autres entraîneurs connectent leur propre compte Stripe : l'argent de leurs clients va chez eux, et FidjiCoach garde les frais ci-dessous.</p></section>
+    <section class="panel fc8p"><span class="eyebrow">Frais de la plateforme</span><h3>Ce que FidjiCoach garde</h3>
+      <form id="fc8fees" class="grid" novalidate>
+        <label class="field"><span>Sur chaque paiement par carte (%)</span><input name="fee_pct" type="number" min="0" max="50" step="0.1" value="${esc(S.fee_pct??10)}"></label>
+        <label class="field"><span>Montant fixe par paiement ($)</span><input name="fee_fixed" type="number" min="0" max="20" step="0.01" value="${esc(((S.fee_fixed_cents||0)/100).toFixed(2))}"></label>
+        <label class="field"><span>Sur chaque mois d'abonnement (%)</span><input name="sub_fee_pct" type="number" min="0" max="50" step="0.1" value="${esc(S.sub_fee_pct??10)}"></label>
+        <label class="field"><span>Frais de location : maximum par facture ($)</span><input name="rent_fee_max" type="number" min="10" max="5000" step="1" value="${esc((S.rent_fee_max_cents||150000)/100)}"></label>
+        <div class="actions" style="grid-column:1/-1"><button class="btn btn-accent" type="submit">Enregistrer les frais</button></div></form>
+      <p class="fc8note">Les frais de Stripe (environ 2,9 % + 0,30 $ au Canada) sont payés par le compte qui reçoit l'argent. Les autres entraîneurs et clubs n'ont pas accès à Interac : leurs clients paient par carte seulement, ce qui garantit les frais de FidjiCoach. Interac reste offert à vos propres clients.</p></section>
+    <section class="panel fc8p"><span class="eyebrow">Sur invitation seulement</span><h3>Inviter un entraîneur</h3>
+      <form id="fc8inv" class="grid" novalidate><label class="field"><span>Courriel de l'entraîneur</span><input name="email" type="email" required></label>
+        <label class="field"><span>Nom (facultatif)</span><input name="nom" maxlength="80"></label>
+        <label class="field"><span>Frais propres (%, facultatif)</span><input name="fee" type="number" min="0" max="50" step="0.1" placeholder="${esc(S.fee_pct??10)}"></label>
+        <div class="actions" style="grid-column:1/-1"><button class="btn btn-accent" type="submit">Créer l'invitation</button></div></form>
+      ${R.pay.link?`<p class="small" style="margin-top:10px">Envoyez ce lien à l'entraîneur (valide 30 jours) :</p><p class="fc8link">${esc(R.pay.link)}</p><div class="actions"><button class="btn btn-sm btn-plain" data-a="fcCopy" data-v="${esc(R.pay.link)}">Copier le lien</button></div>`:''}
+      ${(P.invites||[]).filter(x=>!x.used).map(x=>`<div class="row"><span><b>${esc(x.email)}</b>${x.nom?' · '+esc(x.nom):''}<br><small class="muted">Créée le ${esc(String(x.created).slice(0,10))} · expire le ${esc(String(x.expires).slice(0,10))}${x.fee_pct!=null?' · frais '+pct(x.fee_pct):''}</small><br><small class="fc8link">${esc(location.origin+'/?invitation='+x.code)}</small></span>
+        <span><button class="btn-xs" data-a="fcCopy" data-v="${esc(location.origin+'/?invitation='+x.code)}">Copier</button> <button class="btn-xs" data-a="fcInvDel" data-c="${esc(x.code)}">Retirer</button></span></div>`).join('')}</section>
+    <section class="panel fc8p"><span class="eyebrow">${(P.coaches||[]).length} entraîneur${(P.coaches||[]).length>1?'s':''}</span><h3>Entraîneurs de la plateforme</h3>
+      ${(P.coaches||[]).map(c=>`<div class="row"><span><b>${esc(c.nom)}</b> · ${esc(c.email)}${c.role==='admin'?' <span class="fc8tag">vous</span>':''}<br>
+        <small class="muted">fidjicoach.ca/?entraineur=${esc(c.slug)} · ${c.clients} client${c.clients>1?'s':''} · ${c.subs} abonné${c.subs>1?'s':''}${c.contrat?' · contrat accepté le '+esc(String(c.contrat).slice(0,10)):''}</small><br>
+        ${c.role==='admin'?'':stTag(c)}</span>
+        ${c.role==='admin'?'':`<span style="display:flex;gap:6px;align-items:end;flex-wrap:wrap"><label class="field" style="margin:0;width:110px"><span class="small">Frais (%)</span><input type="number" min="0" max="50" step="0.1" data-fc8c="${c.id}:fee" value="${c.fee_pct??''}" placeholder="${esc(S.fee_pct??10)}"></label>
+          <label class="field" style="margin:0;width:120px"><span class="small">Abonnements (%)</span><input type="number" min="0" max="50" step="0.1" data-fc8c="${c.id}:sub" value="${c.sub_fee_pct??''}" placeholder="${esc(S.sub_fee_pct??10)}"></label>
+          <button class="btn btn-sm btn-plain" data-a="fcCoachSave" data-c="${c.id}">Enregistrer</button></span>`}</div>`).join('')||'<p class="muted small">Aucun autre entraîneur pour l\'instant.</p>'}</section>`}
+  else{h+=`<section class="panel fc8p"><span class="eyebrow">Stripe Connect</span><h3>Recevoir les paiements par carte</h3>
+      <p>${stTag(I)}</p>
+      <p class="small" style="margin-top:8px">Vos clients paient par carte sur FidjiCoach; l'argent arrive dans <b>votre</b> compte Stripe, puis dans votre compte bancaire (versements automatiques). FidjiCoach garde <b>${pct(I.fee_pct)}</b>${Number(I.fee_fixed_cents)>0?' + '+money(I.fee_fixed_cents/100):''} par paiement et <b>${pct(I.sub_fee_pct)}</b> par mois d'abonnement. Les frais de Stripe sont à votre charge.</p>
+      <div class="actions" style="margin-top:12px">${I.charges?`<button class="btn btn-accent" data-a="fcStripe" data-x="dashboard">Ouvrir mon tableau de bord Stripe</button>`:`<button class="btn btn-accent" data-a="fcStripe" data-x="onboard">${I.account?'Terminer la configuration Stripe':'Connecter mon compte Stripe'}</button>`}
+        <button class="btn btn-plain" data-a="fcStripe" data-x="status">Actualiser</button></div>
+      ${I.account&&!I.payouts&&I.charges?'<p class="fc8note">Paiements acceptés; les versements à votre banque commencent dès que Stripe a vérifié votre identité.</p>':''}
+      <p class="fc8note">Sur FidjiCoach, vos clients paient par carte seulement : tant que votre compte Stripe n'est pas prêt, ils ne peuvent pas payer en ligne.</p></section>`}
+  return h}
+ASEC.fcpay={l:'Paiements en ligne',i:'money',f:()=>fcPayPage()};
+REL.fcpay=['compta','factu','abos'];
+AGROUPS=(old=>function(){return old().map(([g,ks])=>g==='Finances'&&!ks.includes('fcpay')?[g,[...ks,'fcpay']]:[g,ks])})(AGROUPS);
+A.fcCopy=async d=>{try{await navigator.clipboard.writeText(d.v);flash('Lien copié')}catch(e){prompt('Copiez ce lien :',d.v)}};
+async function rpcDo(fn,args,ok){busyOn();try{const {data,error}=await R.sb.rpc(fn,args);if(error)throw error;await loadPay();if(ok)flash(ok);return data}
+  catch(e){flash(errTxt(e))}finally{busyOff();render()}}
+A.fcInvDel=d=>{if(confirm('Retirer cette invitation? Le lien ne fonctionnera plus.'))rpcDo('admin_invite_delete',{p_code:d.c},'Invitation retirée.')};
+A.fcCoachSave=d=>{const v=k=>{const el=document.querySelector(`[data-fc8c="${d.c}:${k}"]`);const x=el&&el.value.trim();return x===''||x==null?null:Number(x.replace(',','.'))};
+  rpcDo('admin_set_coach',{p_coach:d.c,p_fee:v('fee'),p_sub_fee:v('sub'),p_actif:true},'Frais de l\'entraîneur enregistrés.')};
+A.fcStripe=async d=>{busyOn(d.x==='status'?'Vérification chez Stripe…':'Ouverture de Stripe…');
+  try{const r=await fcInvoke('stripe-connect',{action:d.x,coach_id:R.coachId});if(r&&r.url){location.href=r.url;return}
+    await loadPay();busyOff();render();flash(r&&r.charges?'Votre compte Stripe est prêt à recevoir des paiements.':'Statut Stripe mis à jour.')}
+  catch(e){busyOff();flash(missing(e)?'Créez la fonction « stripe-connect » dans Supabase (étape 8).':'Stripe : '+await errMsg(e))}};
+addEventListener('submit',async e=>{const f=e.target;if(!f||!['fc8fees','fc8inv'].includes(f.id))return;e.preventDefault();e.stopImmediatePropagation();
+  if(f.id==='fc8fees'){await rpcDo('admin_set_fees',{p:{fee_pct:f.fee_pct.value,fee_fixed:f.fee_fixed.value,sub_fee_pct:f.sub_fee_pct.value,rent_fee_max:f.rent_fee_max.value}},'Frais de la plateforme enregistrés.');return}
+  const em=f.email.value.trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){flash('Entrez le courriel de l\'entraîneur.');return}
+  const r=await rpcDo('admin_invite_coach',{p_email:em,p_nom:f.nom.value.trim()||null,p_fee:f.fee.value===''?null:Number(f.fee.value),p_sub_fee:null},'Invitation créée : copiez le lien et envoyez-le à l\'entraîneur.');
+  if(r&&r.code){R.pay.link=location.origin+'/?invitation='+r.code;render()}},true);
+
+/* invitation d'un entraîneur : fidjicoach.ca/?invitation=CODE */
+const IKEY='fc-invite';
+{const q=new URLSearchParams(location.search);const c=q.get('invitation');if(c){try{localStorage.setItem(IKEY,c.toUpperCase())}catch(e){}q.delete('invitation');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash)}}
+const iv=document.createElement('div');iv.className='fcq';iv.hidden=true;
+iv.innerHTML=`<form novalidate><div><span class="eyebrow">Invitation FidjiCoach</span><h2>Créer votre espace entraîneur</h2></div>
+<p class="small" data-i></p>
+<label class="field"><span>Nom affiché à vos clients</span><input name="nom" maxlength="80" required></label>
+<label class="field"><span>Ville de départ (frais de déplacement)</span><input name="ville" maxlength="80"></label>
+<label class="field"><span>Sport</span><input name="sport" maxlength="60" value="Ski de fond"></label>
+<label class="check2"><input type="checkbox" name="ok"> <span>J'ai lu et j'accepte le contrat d'utilisation de FidjiCoach pour les entraîneurs (frais de la plateforme, paiements par Stripe Connect, confidentialité des clients).</span></label>
+<p class="small" data-err style="color:var(--bad)" hidden></p>
+<div class="actions"><button type="submit" class="btn btn-accent">Créer mon espace</button><button type="button" class="btn btn-plain" data-x>Plus tard</button></div></form>`;
+document.body.appendChild(iv);
+iv.querySelector('[data-x]').onclick=()=>{iv.hidden=true;document.body.style.overflow=''};
+iv.querySelector('form').addEventListener('submit',async e=>{e.preventDefault();const F=e.target,er=F.querySelector('[data-err]');er.hidden=true;
+  if(!F.ok.checked){er.textContent='Acceptez le contrat d\'utilisation pour continuer.';er.hidden=false;return}
+  const btn=F.querySelector('[type=submit]');btn.disabled=true;
+  try{const {error}=await R.sb.rpc('accept_coach_invite',{p_code:iv.dataset.c,p_nom:F.nom.value.trim(),p_ville:F.ville.value.trim()||null,p_sport:F.sport.value.trim()||'Ski de fond'});if(error)throw error;
+    try{localStorage.removeItem(IKEY);localStorage.removeItem(RKEY)}catch(_){}
+    location.replace(location.pathname+'?stripe=bienvenue')}
+  catch(err){er.textContent=errTxt(err);er.hidden=false;btn.disabled=false}});
+async function inviteFlow(){let c=null;try{c=localStorage.getItem(IKEY)}catch(e){}if(!c||!R.sb)return;
+  const {data:info}=await R.sb.rpc('invite_info',{p_code:c});
+  if(!info||!info.valid){try{localStorage.removeItem(IKEY)}catch(e){}flash(info&&info.used?'Cette invitation a déjà été utilisée.':'Ce lien d\'invitation n\'est plus valide.');return}
+  if(!R.on){R.info='Invitation de FidjiCoach pour '+info.email+' : créez votre compte avec ce courriel (ou connectez-vous). Votre espace entraîneur sera créé ensuite.';
+    st.view='auth';st.authMode='signup';st.authErr='';render();setTimeout(()=>{const el=document.getElementById('aEmail');if(el&&!el.value)el.value=info.email},60);return}
+  if(R.realRole!=='client'){try{localStorage.removeItem(IKEY)}catch(e){}flash('Vous avez déjà un espace entraîneur.');return}
+  iv.dataset.c=c;iv.querySelector('[data-i]').textContent='Invitation pour '+info.email+'. Votre espace entraîneur sera relié à ce compte.';
+  const F=iv.querySelector('form');if(!F.nom.value)F.nom.value=info.nom||((me()||{}).fiche?((me().fiche.prenom||'')+' '+(me().fiche.nom||'')).trim():'');
+  iv.hidden=false;document.body.style.overflow='hidden'}
+
+/* ---------- 4. Pièces jointes dans les messages ---------- */
+R.att={reply:[],nw:[]};R.murl={};
+const attKey=f=>f.id==='newMsgForm'?'nw':'reply';
+async function sendFiles(conv,files){const up=[];
+  for(const f of files){const path=conv+'/'+uid()+uid()+'-'+safeName(f.name);
+    const {error}=await R.sb.storage.from('fc-msg').upload(path,f,{contentType:f.type||'application/octet-stream',upsert:false});if(error)throw error;
+    up.push({path,name:f.name,type:f.type||'',size:f.size})}
+  const {error}=await R.sb.rpc('msg_attach',{p_conv:conv,p_files:up});if(error)throw error}
+msgCall=(old=>async function(fn,args){const r=await old(fn,args);
+  try{if(fn==='msg_send'&&R.att.reply.length){const fs=R.att.reply;R.att.reply=[];busyOn('Envoi des pièces jointes…');await sendFiles(args.p_conv,fs)}
+    else if(fn==='msg_start'&&R.att.nw.length&&r&&Array.isArray(r.ids)){const fs=R.att.nw;R.att.nw=[];busyOn('Envoi des pièces jointes…');for(const cid of r.ids)await sendFiles(cid,fs)}}
+  catch(e){console.error(e);flash('Pièce jointe non envoyée : '+(missing(e)?'exécutez le script SQL de l\'étape 8.':errTxt(e)))}
+  finally{busyOff()}
+  return r})(msgCall);
+/* les pièces jointes de chaque message, lues avec la boîte de réception */
+loadInbox=(old=>async function(){if(!R.sb)return old();const orig=R.sb.rpc;let cap=null;
+  R.sb.rpc=function(fn,args){const q=orig.call(this,fn,args);return fn==='msg_inbox'?Promise.resolve(q).then(x=>{cap=x;return x}):q};
+  try{await old()}finally{R.sb.rpc=orig}
+  if(cap&&Array.isArray(cap.data)){const fm={};cap.data.forEach(c=>(c.msgs||[]).forEach(m=>{if(m.files&&m.files.length)fm[m.id]=m.files}));
+    (db.convs||[]).forEach(c=>(c.msgs||[]).forEach(m=>{if(fm[m.id])m.files=fm[m.id]}));inboxH+='|'+Object.values(fm).reduce((n,x)=>n+x.length,0)}})(loadInbox);
+const fsize=n=>n>1048576?(n/1048576).toFixed(1).replace('.',',')+' Mo':Math.max(1,Math.round(n/1024))+' Ko';
+async function murl(path){if(R.murl[path]&&R.murl[path].t>Date.now()-50*60000)return R.murl[path].u;
+  const {data,error}=await R.sb.storage.from('fc-msg').createSignedUrl(path,3600);if(error)throw error;R.murl[path]={u:data.signedUrl,t:Date.now()};return data.signedUrl}
+A.fcAtt=async d=>{try{const w=window.open('','_blank');const u=await murl(d.p);if(w)w.location.href=u;else location.href=u}catch(e){flash('Pièce jointe : '+errTxt(e))}};
+function decoAtt(){if(!R.on)return;
+  /* fils de messages : pièces jointes sous chaque message */
+  const th=document.getElementById('thread');const c=th&&st.conv&&(db.convs||[]).find(x=>x.id===st.conv);
+  if(th&&c){const arts=th.querySelectorAll(':scope > article, :scope > .msg, :scope > div');
+    c.msgs.forEach((m,i)=>{const a=arts[i];if(!a||!m.files||!m.files.length||a.querySelector('.fcatt'))return;
+      const box=document.createElement('div');box.className='fcatt';
+      m.files.forEach(f=>{const img=/^image\//.test(f.type||'');
+        if(img){const el=document.createElement('a');el.className='img';el.href='#';el.title=f.name;el.dataset.a='fcAtt';el.dataset.p=f.path;el.innerHTML=`<span class="small">🖼 ${esc(f.name)}</span>`;box.appendChild(el);
+          murl(f.path).then(u=>{el.innerHTML=`<img src="${esc(u)}" alt="${esc(f.name)}" loading="lazy">`}).catch(()=>{})}
+        else{const el=document.createElement('button');el.type='button';el.dataset.a='fcAtt';el.dataset.p=f.path;el.innerHTML=`📎 <span>${esc(f.name)}</span> <small class="muted">${fsize(Number(f.size)||0)}</small>`;box.appendChild(el)}});
+      const body=a.querySelector('.mxbody,.bubble,p');(body||a).insertAdjacentElement(body?'afterend':'beforeend',box)})}
+  /* zones d'écriture : bouton 📎 et fichiers choisis */
+  ['msgForm','newMsgForm'].forEach(id=>{const f=document.getElementById(id);if(!f||R.inbox===false)return;const k=attKey(f);
+    if(!f.querySelector('.fcpick')){const box=document.createElement('div');box.className='fcpick';
+      box.innerHTML=`<label class="fcclip"><input type="file" multiple hidden data-fcatt="${k}"> 📎 Joindre</label><span data-l></span>`;
+      const sub=f.querySelector('[type=submit]');(sub&&sub.parentNode===f?sub:f.lastElementChild||f).insertAdjacentElement('beforebegin',box)}
+    const L=f.querySelector('.fcpick [data-l]');if(L)L.innerHTML=R.att[k].map((x,i)=>`<span class="chip">${esc(x.name)} <small class="muted">${fsize(x.size)}</small><button type="button" data-a="fcAttDel" data-k="${k}" data-i="${i}" aria-label="Retirer">×</button></span>`).join('')})}
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.fcatt)return;const k=t.dataset.fcatt;
+  for(const f of [...(t.files||[])]){if(f.size>25*1048576){flash(f.name+' : 25 Mo au plus.');continue}if(R.att[k].length>=6){flash('Six pièces jointes au plus.');break}R.att[k].push(f)}
+  t.value='';decoAtt()});
+A.fcAttDel=d=>{R.att[d.k].splice(Number(d.i),1);decoAtt()};
+/* message vide avec pièce jointe : on écrit le nom du fichier comme message */
+addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('#msgForm [type=submit]');if(!b||!R.att.reply.length)return;const ta=document.getElementById('msgText');
+  if(ta&&!ta.value.trim())ta.value='📎 '+R.att.reply.map(f=>f.name).join(', ')},true);
+document.addEventListener('input',e=>{if(e.target&&e.target.closest&&e.target.closest('#newMsgForm')&&R.att.nw.length&&st.nm&&!String(st.nm.text||'').trim())st.nm.text=''},true);
+addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('#newMsgForm [type=submit]');if(!b||!R.att.nw.length||!st.nm)return;
+  if(!String(st.nm.text||'').trim())st.nm.text='📎 '+R.att.nw.map(f=>f.name).join(', ')},true);
+/* Realtime : un message modifié (pièce jointe ajoutée) recharge aussi la boîte */
+subMsgs=(old=>function(){old();if(!R.sb||!R.uid)return;if(R.mchan8){try{R.sb.removeChannel(R.mchan8)}catch(e){}}
+  try{R.mchan8=R.sb.channel('fc-msgs8-'+R.uid).on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages'},()=>refreshInbox()).subscribe()}catch(e){}})(subMsgs);
+
+/* ---------- 5. Branchements ---------- */
+CLIENT_TABS.push('abo','forme','nutri','louer');
+loadCoachSide=(old=>async function(){await old();await loadSubs();
+  /* première fois avec l'étape 8 : on publie l'inventaire de location et les forfaits mensuels */
+  try{const {data}=await R.sb.from('coach_public').select('data').eq('coach_id',R.coachId).maybeSingle();const d=data&&data.data;
+    if(!d||!d.rent||!Array.isArray(d.subPlans)){R.snap.pub=null;setTimeout(queueSync,80)}}catch(e){}})(loadCoachSide);
+loadClientSide=(old=>async function(){await old();await loadSubs()})(loadClientSide);
+syncAll=(old=>async function(){await old();await loadSubs()})(syncAll);
+resetLocal=(old=>function(){old();R.fees=[];R.subsOn=null;R.realRole=null;R.pay={at:0,loading:false,err:'',info:null,plat:null,link:null};R.att={reply:[],nw:[]};if(R.mchan8&&R.sb){try{R.sb.removeChannel(R.mchan8)}catch(e){}}R.mchan8=null})(resetLocal);
+decorate=(old=>function(){old();try{decoAtt()}catch(e){console.warn(e)}
+  if(!R.on)return;const app=document.getElementById('app');
+  try{/* client : frais à payer en haut de ses pages */
+    if(R.role==='client'&&st.view==='client'&&['accueil','resa','resa5','cal'].includes(st.tab||'accueil')&&!st.ptab){const m=app&&(app.querySelector('.v5main')||app.querySelector('main'));const fb=feesBanner();
+      if(m&&fb&&!m.querySelector('.fc8due'))m.insertAdjacentHTML('afterbegin',fb)}
+    /* réservation avec location : Interac grisé */
+    if(rentNow()){const b=app&&app.querySelector('[data-a="setR"][data-k="pay"][data-v="interac"]');if(b&&!b.dataset.fc8){b.dataset.fc8='1';b.style.opacity='.45';b.title='Location : carte seulement';
+      const p=b.closest('.step,.seg');if(p&&!p.parentNode.querySelector('.fc8card'))p.insertAdjacentHTML('afterend','<p class="fc8note fc8card">Location d\'équipement : paiement <b>par carte seulement</b>. La carte est gardée de façon sécurisée par Stripe; selon le contrat de location, des frais de bris, de perte ou de non-retour pourront y être facturés.</p>')}}
+    if(R.role==='admin'&&st.view==='admin'){const bar=document.querySelector('.fcreal');if(bar&&!bar.dataset.e8){bar.dataset.e8='1';
+      bar.innerHTML=bar.innerHTML.replace(/Les autres sections \(équipement…\) arrivent aux prochaines étapes : ce que vous y entrez reste sur cet appareil\.\s*/,'');bar.insertAdjacentHTML('beforeend',' <b>Étape 8 :</b> location d\'équipement en ligne (carte seulement), abonnements mensuels par carte'+(R.realRole==='admin'?' et entraîneurs invités avec Stripe Connect (Finances › Paiements en ligne).':' et vos paiements par Stripe Connect (Finances › Paiements en ligne).'))}}}
+  catch(e){console.warn(e)}})(decorate);
+/* retours : Stripe Connect, abonnement, invitation */
+async function returns8(){const q=new URLSearchParams(location.search);const sx=q.get('stripe'),ab=q.get('abo');
+  if(sx||ab){q.delete('stripe');q.delete('abo');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash)}
+  if(R.on&&sx&&R.role==='admin'){st.view='admin';try{A.nav({s:'fcpay'})}catch(e){}
+    if(sx==='bienvenue'){render();flash('Bienvenue sur FidjiCoach! Connectez maintenant votre compte Stripe pour recevoir les paiements par carte.')}
+    else if(sx==='reprendre'){await A.fcStripe({x:'onboard'});return}
+    else{try{await fcInvoke('stripe-connect',{action:'status',coach_id:R.coachId})}catch(e){}R.pay.at=0;await loadPay();render();
+      flash(R.pay.info&&R.pay.info.charges?'Votre compte Stripe est prêt : vos clients peuvent payer par carte.':'Stripe a enregistré vos informations. Il reste peut-être des étapes : voyez « Paiements en ligne ».')}}
+  if(R.on&&ab&&R.role==='client'){st.view='client';st.tab='profil';st.ptab='abo';
+    if(ab==='ok'){busyOn('Activation de votre abonnement…');try{await fcInvoke('subscriptions',{action:'sync'})}catch(e){console.warn(e)}
+      try{for(let t=0;t<6;t++){await loadSubs();if((db.subs||[]).some(s=>s.real&&s.userId===(me()||{}).id&&s.status==='actif'&&(s.payments||[]).length))break;await new Promise(r=>setTimeout(r,1500))}}finally{busyOff()}
+      flash('Abonnement activé. Merci! Les modules inclus sont débloqués.')}
+    else if(ab==='annule')flash('Abonnement non complété : rien n\'a été facturé.');
+    render()}
+  await inviteFlow()}
+bootReal=(old=>async function(){await old();try{await returns8()}catch(e){console.warn(e)}})(bootReal);
+afterLogin=(old=>function(){old();setTimeout(()=>{inviteFlow().catch(e=>console.warn(e))},120)})(afterLogin);
+
+/* ================= Interac réservé à la plateforme (31 oct. 2026) =================
+   Seul l'entraîneur administrateur de FidjiCoach accepte Interac. Chez les autres entraîneurs et clubs :
+   carte seulement (Stripe Connect), pour que la plateforme prélève ses frais sur chaque paiement.
+   Le serveur le fait respecter (déclencheur fc_pay_guard); ici, on retire simplement les choix Interac. */
+R.interacOk=null;
+async function loadPayRules(){if(!R.sb||!R.coachId){R.interacOk=null;return}
+  if(R.realRole==='admin'){R.interacOk=true;return}
+  if(R.realRole==='coach'){R.interacOk=false;return}
+  try{const {data,error}=await R.sb.rpc('coach_pay_rules',{p_coach:R.coachId});if(error)throw error;R.interacOk=!(data&&data.interac===false)}
+  catch(e){R.interacOk=null;console.warn('Règles de paiement',e.message)}}
+loadMe=(old=>async function(){const r=await old();try{await loadPayRules()}catch(e){}return r})(loadMe);
+resetLocal=(old=>function(){old();R.interacOk=null})(resetLocal);
+const noInt=()=>R.on&&R.interacOk===false;
+const INT_SEL='[data-a="setR"][data-k="pay"][data-v="interac"],[data-a="setL"][data-k="pay"][data-v="interac"],[data-a="joinPay"][data-m="interac"],[data-a="fcJoinPay"][data-m="interac"],[data-a="fcToInterac"],[data-a="subPay"][data-v="interac"],[data-a="svcPay"][data-v="interac"],[data-a="otPay"][data-v="interac"]';
+document.head.insertAdjacentHTML('beforeend',`<style>body.fc-noint :is(${INT_SEL}){display:none!important}body.fc-noint .fcintset{display:none!important}</style>`);
+render=(old=>function(){try{const on=noInt();document.body.classList.toggle('fc-noint',on);
+    if(on){if(st.R&&st.R.pay==='interac')st.R.pay='carte';if(st.subPay==='interac')st.subPay='carte';if(st.svcPay==='interac')st.svcPay='carte';if(st.ot&&st.ot.pay==='interac')st.ot.pay='carte'}}catch(e){}
+  return old.apply(this,arguments)})(render);
+addEventListener('click',e=>{if(!noInt())return;const el=e.target.closest&&e.target.closest(INT_SEL);if(!el)return;
+  e.preventDefault();e.stopImmediatePropagation();flash('Paiement par carte seulement chez cet entraîneur.')},true);
+decorate=(old=>function(){old();if(!noInt())return;
+  try{/* entraîneur invité : pas de rabais Interac dans ses réglages */
+    document.querySelectorAll('[data-fin="interacPct"],[data-fin="interacFix"]').forEach(i=>{const l=i.closest('label');if(l)l.classList.add('fcintset')});
+    /* textes de choix de paiement devenus inutiles */
+    const sb=document.querySelector('[data-a="stripeOk"]');if(sb){const nx=sb.parentElement&&sb.parentElement.querySelector('[data-a="fcToInterac"]');if(nx)nx.remove()}}
+  catch(e){console.warn(e)}})(decorate);
+
 if(msg)setTimeout(()=>flash(msg),300);
 try{render()}catch(e){console.error(e)}
 bootReal().then(stripeReturn).catch(e=>console.error(e));
@@ -21694,7 +22084,10 @@ function rufCfg(){/* Corrections 2 : même mannequin et même flexion que la mus
   if(!c){const A=solve(RUF.A),B=solve(RUF.B);return {kind:'ruf',muscles:['qua','fes'],bounds:[A,B]}}
   c.clock=()=>({k:rufTick(),mir:false});c.ruf=true;return c}
 /* couché sur le dos (repos, P1, P2, P3) : le mannequin 3D allongé, immobile */
-function lieCfg(){const c=exAnimCfg('legraise',[]);if(!c)return null;c.clock=()=>({k:0,mir:false});const xs=Object.values(c.A.J).map(p=>p[0]);
+function lieCfg(){const c=exAnimCfg('legraise',[]);if(!c)return null;c.clock=()=>({k:0,mir:false});
+  /* Corrections 3 : couché sur le dos, les pieds sont relâchés (pointe vers l'avant, légèrement relevée), pas dressés vers le ciel */
+  for(const P of [c.A,c.B])for(const k of['N','F']){const J=P.J,kn=J['knee'+k],an=J['ankle'+k];let sx=an[0]-kn[0],sy=an[1]-kn[1];const l=Math.hypot(sx,sy)||1;sx/=l;sy/=l;
+    const ta=-30*Math.PI/180,ux=-sy,uy=sx,up=uy>=0?1:-1;const dx=sx*Math.cos(ta)+ux*up*Math.sin(ta),dy=sy*Math.cos(ta)+uy*up*Math.sin(ta);J['toe'+k]=[an[0]+dx*L.foot,an[1]+dy*L.foot]}const xs=Object.values(c.A.J).map(p=>p[0]);
   c.bounds=[c.A.J,{a:[Math.min(...xs)-14,0],b:[Math.max(...xs)+18,0]}];c.muscles=[];return c}
 const easeC=k=>(1-Math.cos(2*Math.PI*k))/2;
 function lerpJ(A,B,k){const o={};for(const n in A.J)o[n]=[A.J[n][0]+(B.J[n][0]-A.J[n][0])*k,A.J[n][1]+(B.J[n][1]-A.J[n][1])*k];return o}
@@ -21804,6 +22197,8 @@ render=(old=>function(){const r=old.apply(this,arguments);try{if(document.queryS
    4. Distance entre le point de départ et les centres : par la route (OpenStreetMap), plus à vol d'oiseau
    5. « À traiter » en haut du tableau de bord (Aujourd'hui), comme dans Réservations
    6. Menus favoris : choix parmi tous les menus (voir l'étape 7, plus haut) */
+/* Corrections 3 (30 oct. 2026) : les 3 lignes du menu ☰ centrées dans leur rond (le bouton était en flex sans centrage) */
+document.head.insertAdjacentHTML('beforeend','<style>.hicon.v5burger{justify-content:center;align-items:center;padding:0;line-height:0}.hicon.v5burger svg{display:block;margin:0 auto;flex:none}</style>');
 (function(){
 /* ---------- 3. Menu ☰ dans À propos, Centres et Météo ---------- */
 const INFO=['apropos','centres','meteo'];
