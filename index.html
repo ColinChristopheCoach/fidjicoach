@@ -20214,7 +20214,9 @@ function localUser(p,f){const data=(f&&f.data)||{};const fiche=Object.assign({},
     onboarded:isCoachRole(p.role)?true:!!data._onb,tester:p.tester_until||null}}
 const snapOf=u=>JSON.stringify({f:u.fiche,o:u.onboarded,n:u.newsletter});
 
-async function loadMe(){
+async function loadMe(){R.booting=true;try{return await loadMe0()}finally{R.booting=false}}
+/* Correction du 2 nov. 2026 : pendant le chargement de la connexion, un rafraîchissement d'écran ne doit pas effacer la session (erreur « reading 'role' » à la première connexion) */
+async function loadMe0(){
   const {data:{user}}=await R.sb.auth.getUser();if(!user)return false;
   const {data:p,error}=await R.sb.from('profiles').select('*').eq('id',user.id).single();
   if(error||!p){flash('Profil introuvable : '+(error&&error.message||''));return false}
@@ -21094,7 +21096,7 @@ decorate=(old=>function(){old();if(!R.on||R.role!=='admin'||st.view!=='admin')re
 
 /* garde-fou : sans compte réel, seulement la vitrine et l'écran de connexion */
 render=(old=>function(){
-  if(!R.on){try{if(db.session){db.session=null;save()}}catch(e){}if(!OK_VIEWS.includes(st.view)&&st.view!=='auth'&&st.view!=='join')st.view='home'}
+  if(!R.on&&!R.booting){try{if(db.session){db.session=null;save()}}catch(e){}if(!OK_VIEWS.includes(st.view)&&st.view!=='auth'&&st.view!=='join')st.view='home'}
   else{joinResume();const okV=[...OK_VIEWS,'auth','join',R.role==='admin'?'admin':'client'];if(!okV.includes(st.view))st.view=R.role==='admin'?'admin':'client';
     if(R.role==='client'&&st.view==='client'&&st.tab&&!CLIENT_TABS.includes(st.tab)&&!PTABS.includes(st.tab))st.tab='accueil';
     if(R.role==='client'&&st.ptab&&!CLIENT_TABS.includes(st.ptab))st.ptab=null}
@@ -21463,7 +21465,7 @@ adminCands=(old=>function(){const C=old();
    Messages       : pièces jointes (photos, PDF…) dans le compartiment privé « fc-msg ».
    Corrections 3  : ☰ centré dans son rond; téléphone et courriel des participants dans le courriel de réservation;
                     pieds du mannequin 3D couché (test au lever). */
-const ETAPE8_VER='Étape 8 · version 2 · 2 nov. 2026';
+const ETAPE8_VER='Étape 8 · version 3 · 2 nov. 2026';
 document.head.insertAdjacentHTML('beforeend',`<style>
 .fc8p{margin:0 0 16px}
 .fc8p .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
