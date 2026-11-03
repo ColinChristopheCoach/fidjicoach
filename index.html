@@ -5607,7 +5607,7 @@ function exFilterV(F,ctx){return `<div class="exfilters"><label class="field"><s
   <label class="field"><span>Équipement</span><select data-exf="eq" data-ctx="${ctx}"><option value="">Tout l'équipement</option>${Object.entries(MEQ).map(([k,l])=>`<option value="${k}" ${F.eq===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
   <label class="check2 bwtoggle"><input type="checkbox" data-exbw="1" data-ctx="${ctx}" ${F.bw?'checked':''}> <span><b>Poids du corps seulement</b> · sans machine, sans poids ni autre équipement</span></label>
   <div class="chips grpchips"><button class="chip ${!F.g?'on':''}" data-a="exG" data-g="" data-ctx="${ctx}">Tous les groupes</button>${Object.entries(MGRP).map(([k,l])=>`<button class="chip ${F.g===k?'on':''}" data-a="exG" data-g="${k}" data-ctx="${ctx}">${l}</button>`).join('')}</div>`}
-const exMatch=(x,F)=>(!F.g||x.g.includes(F.g))&&(!F.eq||x.eq===F.eq)&&(!F.bw||x.eq==='pdc')&&(!F.q||deacc((x.n+' '+x.g.map(g=>MGRP[g]).join(' ')).toLowerCase()).includes(deacc(F.q.toLowerCase())));
+const exMatch=(x,F)=>(!F.g||x.g.includes(F.g))&&(!F.eq||x.eq===F.eq)&&(!F.bw||x.eq==='pdc')&&(!F.q||deacc((x.n+' '+(x.nFr||'')+' '+x.g.map(g=>MGRP[g]).join(' ')).toLowerCase()).includes(deacc(F.q.toLowerCase())));
 const exCard=(x,act)=>`<article class="excard ${act&&act.on?'on':''}">${exAnim(x.pat,x.eq)}<div class="exmeta"><b>${esc(x.n)}</b><small>${x.g.map(g=>MGRP[g]).join(' · ')}</small><small class="muted">${MEQ[x.eq]||''}${x.custom?' · personnalisé':''}</small></div><div class="exact"><button class="btn-xs" data-a="exView" data-x="${x.id}">Détails</button>${act?act.btn:''}</div></article>`;
 
 /* ---------- Administrateur ---------- */
@@ -5703,7 +5703,7 @@ document.addEventListener('input',e=>{const t=e.target;if(t.dataset&&t.dataset.l
 document.addEventListener('change',e=>{const t=e.target;if(t.dataset&&t.dataset.cprog){st.cProg=t.value;st.cSess=0;render()}});
 
 /* ---------- Données d'exemple ---------- */
-function seedMuscu(force){if(!force&&db.programs)return;const cl=db.users.filter(u=>u.role==='client'&&u.fiche&&!u.pending);const u1=cl[0];const id=n=>(EXOS.find(x=>x.n===n)||{}).id;
+function seedMuscu(force){if(!force&&db.programs)return;const cl=db.users.filter(u=>u.role==='client'&&u.fiche&&!u.pending);const u1=cl[0];const id=n=>(EXOS.find(x=>(x.nFr||x.n)===n)||{}).id;
   const mk=(n,o)=>({...newItem(id(n)),...o});
   db.programs=[];db.progLogs=[];
   if(u1)db.programs.push({id:'pg1',name:'Préparation physique de saison',userId:u1.id,goal:'Force des jambes et du tronc pour la saison de '+sport().name.toLowerCase(),weeks:6,notes:'2 séances par semaine, avec au moins une journée de repos entre les deux. Échauffement de 10 minutes avant chaque séance.',created:'2026-10-05',sent:'2026-10-05',
@@ -5742,7 +5742,14 @@ const wkDur=()=>{const w=st.wk,it=wkCur();return w.phase==='rest'?Math.max(0,Num
 function wkLeft(){const w=st.wk;if(!wkTimed())return 0;return Math.max(0,w.running?(w.end-Date.now())/1000:w.remain)}
 function wkElapsed(){const w=st.wk;return w.running?(Date.now()-w.t0)/1000+w.acc:w.acc}
 function beep(f,d){if(!st.wk||st.wk.mute)return;try{WKAC=WKAC||new (window.AudioContext||window.webkitAudioContext)();const o=WKAC.createOscillator(),g=WKAC.createGain();o.frequency.value=f;o.connect(g);g.connect(WKAC.destination);g.gain.setValueAtTime(.25,WKAC.currentTime);g.gain.exponentialRampToValueAtTime(.001,WKAC.currentTime+d);o.start();o.stop(WKAC.currentTime+d)}catch(e){}try{navigator.vibrate&&navigator.vibrate(d>.3?300:80)}catch(e){}}
-function wkPhase(ph){const w=st.wk;w.phase=ph;w.acc=0;w.t0=Date.now();w.beeped=-1;const d=wkDur();w.dur=d;w.remain=d;w.end=Date.now()+d*1000;if(ph==='done'){w.running=false;w.finished=Date.now();stopTick();beep(880,.6)}else beep(ph==='rest'?520:760,.35)}
+function wkPhase(ph){const w=st.wk;w.phase=ph;w.acc=0;w.t0=Date.now();w.beeped=-1;const d=wkDur();w.dur=d;w.remain=d;w.end=Date.now()+d*1000;if(ph==='done'){w.running=false;w.finished=Date.now();stopTick();beep(880,.6)}else beep(ph==='rest'?520:760,.35);
+  if(!w.mute&&w.started2)setTimeout(()=>wkSay(ph),380)}
+/* Corrections 3 : guidage vocal de la musculation. Nom de l'exercice en anglais, le reste en français. */
+function wkSay(ph){const w=st.wk;const sayMix=window.fcSayMix;if(!w||w.mute||typeof sayMix!=='function')return;const it=wkCur(),x=it&&exById(it.ex);
+  if(ph==='done'){sayMix([['Séance terminée. Bravo!','fr']]);return}
+  if(ph==='rest'){sayMix([[`Repos ${Math.round(w.restLen||0)} secondes`,'fr']]);return}
+  if(!x)return;const t=wkStep();const n=t&&t.set?`série ${t.set}`:'';
+  sayMix([[x.n,'en'],[[n,it.mode==='time'?`${it.time||30} secondes`:repTxt(it.reps).replace(' rép.',' répétitions')].filter(Boolean).join(', '),'fr']])}
 function wkNextWork(){const w=st.wk;w.i++;if(w.i>=wkSteps().length){wkPhase('done');return}wkPhase('work')}
 function wkAdvance(){const w=st.wk,t=wkStep();if(w.phase==='work'){w.done++;if(t&&t.rest>0){w.restLen=t.rest;w.roundRest=!!t.roundRest;w.groupRest=!!t.groupRest;wkPhase('rest')}else wkNextWork()}else if(w.phase==='rest')wkNextWork();render()}
 function wkTick(){const w=st.wk;if(!w||!w.running||st.modal?.kind!=='wk')return;const tEl=document.getElementById('wkT');
@@ -5775,7 +5782,7 @@ MOD3.wk=function(){const w=st.wk;if(!w)return ['',false];const its=wkItems();con
 Object.assign(A,{
   wkOpen(d){st.wk={pid:d.p,sid:d.s,i:0,set:1,phase:'work',running:false,started:Date.now(),pausedMs:0,pauseAt:Date.now(),acc:0,t0:Date.now(),done:0,loads:{...(st.ldraft||{})},mute:false,started2:false};const dd=wkDur();st.wk.dur=dd;st.wk.remain=dd;st.modal={kind:'wk'};render()},
   wkGo(){const w=st.wk;try{WKAC=WKAC||new (window.AudioContext||window.webkitAudioContext)();WKAC.resume&&WKAC.resume()}catch(e){}
-    if(!w.started2){w.started2=true;w.started=Date.now();w.pausedMs=0;w.pauseAt=null;w.t0=Date.now();w.end=Date.now()+w.remain*1000;beep(760,.35)}
+    if(!w.started2){w.started2=true;w.started=Date.now();w.pausedMs=0;w.pauseAt=null;w.t0=Date.now();w.end=Date.now()+w.remain*1000;beep(760,.35);setTimeout(()=>wkSay('work'),380)}
     else{if(w.pauseAt){w.pausedMs+=Date.now()-w.pauseAt;w.pauseAt=null}w.t0=Date.now();w.end=Date.now()+w.remain*1000}
     w.running=true;startTick();wakeOn();render()},
   wkPause(){const w=st.wk;w.remain=wkLeft();w.acc=wkElapsed();w.running=false;w.pauseAt=Date.now();stopTick();render()},
@@ -8322,6 +8329,7 @@ const PINC={plan:['plan','ia'],muscu:['muscu'],stretch:['stretch']};
 const INCL={ia:'Plan d\'entraînement créé avec l\'IA',stretch:'Module d\'étirements',muscu:'Programme de musculation'};
 const incOf=p=>p?(p.inc||PINC[p.kind]||[]):[];
 const paidSubs=uid=>(db.subs||[]).filter(s=>s.userId===uid&&s.status==='actif'&&s.next>=today()&&((s.payments||[]).length||(s.trialEnd&&s.trialEnd>=today())));
+window.fcHasInc=(uid,k)=>hasInc(uid,k);window.fcIncOf=p=>incOf(p);
 const hasInc=(uid,k)=>paidSubs(uid).some(s=>incOf(planOf(s.planId)).includes(k))||(((userById(uid)||{}).credits||{})[k]>0)||!!(window.clubInc&&window.clubInc(uid,k));
 (function migrInc(){if(!db.subPlans)return;db.subPlans.forEach(p=>{if(!p.inc)p.inc=PINC[p.kind]||[]});db.settings=db.settings||{};
   if(!db.settings.dfaInc){db.subPlans.forEach(p=>{if((p.inc||[]).includes('ia')&&!p.inc.includes('dfa')){p.inc.push('dfa');p.feats=p.feats||[];p.feats.push('Test de seuils sans piqûre, ceinture cardio prêtée')}});db.settings.dfaInc=1}
@@ -8591,6 +8599,9 @@ dogpedal|Pédalage en chien tête en bas|mollets,ischios,dynamique|st_dogpedal|3
 ankle|Cercles de cheville|chevilles,pieds|st_ankle|30|1|Assis, jambe allongée, faites de grands cercles avec le pied dans les deux sens.|Chevilles
 bridge2|Pont (activation des fessiers)|fessiers,dynamique|bridge|40|0|Couché, pieds au sol, levez les hanches en serrant les fessiers, redescendez lentement.|Fessiers et arrière des cuisses`;
 const STRETCH=STX.split('\n').map(l=>{const [id,n,z,pose,sec,two,ins,feel]=l.split('|');return {id,n,z:z.split(','),pose,sec:+sec,two:two==='1',ins,feel}});
+/* Corrections 3 : noms des étirements en anglais (consignes en français; x.nFr garde le nom français) */
+const STN={fold:'Standing Forward Fold',quad:'Standing Quad Stretch',calf:'Wall Calf Stretch',soleus:'Wall Soleus Stretch',hip:'Kneeling Hip Flexor Stretch',pigeon:'Pigeon Pose',child:"Child's Pose",catcow:'Cat-Cow',butter:'Butterfly Stretch',side:'Standing Side Bend',shoulder:'Cross-Body Shoulder Stretch',chest:'Clasped-Hands Chest Opener',tri:'Overhead Triceps Stretch',lat:'Standing Lat Stretch',twist:'Supine Spinal Twist',dog:'Downward Dog',cobra:'Cobra Pose',sidelunge:'Side Lunge Stretch',neck:'Neck Side Stretch',knees:'Knees-to-Chest',ham:'Supine Hamstring Strap Stretch',fig4:'Seated Figure-4 Stretch',seated:'Seated Forward Fold',wrist:'Wrist Flexor Stretch',swing:'Leg Swing',armcircle:'Arm Circles',walklunge:'Walking Lunge',birddog:'Bird Dog',hamstand:'Elevated-Heel Hamstring Stretch',itb:'Crossed-Leg IT Band Stretch',deepsquat:'Deep Squat Hold',frog:'Frog Stretch',lizard:'Lizard Pose',wgs:"World's Greatest Stretch",baby:'Happy Baby',sphinx:'Sphinx Pose',thread:'Thread the Needle',puppy:'Puppy Pose',toes:'Kneeling Toe Stretch',shin:'Kneeling Shin Stretch',hipup:'Overhead Hip Flexor Stretch',wallpec:'Wall Pec Stretch',reach:'Standing Overhead Reach',book:'Open Book',rock:'Adductor Rock-back',calfstep:'Step Calf Drop',seattwist:'Seated Spinal Twist',straddle:'Seated Straddle Stretch',couch:'Couch Stretch',dogpedal:'Downward Dog Pedal',ankle:'Ankle Circles',bridge2:'Glute Bridge Activation'};
+STRETCH.forEach(s=>{s.nFr=s.n;s.n=STN[s.id]||s.n});
 const stById=id=>STRETCH.find(x=>x.id===id);
 const ZONES_ST={ischios:'Ischios',quadriceps:'Quadriceps',mollets:'Mollets',hanches:'Hanches',fessiers:'Fessiers',adducteurs:'Adducteurs',dos:'Dos',epaules:'Épaules',bras:'Bras',cou:'Cou',tronc:'Tronc',poitrine:'Poitrine',abdos:'Abdos',jambes:'Jambes',chevilles:'Chevilles',pieds:'Pieds',dynamique:'Échauffement'};
 const STR0=[['apres','Après le ski de fond','Récupération complète des jambes et du haut du corps','#2f6fc0',['fold','quad','calf','soleus','hip','fig4','butter','tri','lat','child']],
@@ -8624,6 +8635,11 @@ function stPreview(u){const r=routById(u.id,'apres');return `<h3 class="sech">Ap
 /* ---- lecteur guidé ---- */
 let STT=null;
 function say(t){if(st.stVoice===false)return;try{const s=window.speechSynthesis;if(!s)return;s.cancel();const m=new SpeechSynthesisUtterance(t);m.lang='fr-CA';m.rate=1;s.speak(m)}catch(e){}}
+/* Corrections 3 : le nom de l'exercice est dit en anglais (voix anglaise), le reste des consignes en français.
+   parts = [[texte, 'fr'|'en'], …], enchaînés dans l'ordre */
+function sayMix(parts){if(st.stVoice===false)return;try{const s=window.speechSynthesis;if(!s)return;s.cancel();
+  parts.filter(p=>p&&String(p[0]).trim()).forEach(([t,l])=>{const m=new SpeechSynthesisUtterance(String(t));m.lang=l==='en'?'en-US':'fr-CA';m.rate=1;s.speak(m)})}catch(e){}}
+window.fcSayMix=sayMix;
 function stPlayer(u){const P=st.stp;const r=routById(u.id,P.rid);const S=stSteps(r);const s=S[P.i];const x=stById(s.sid);const nx=S[P.i+1];const prep=P.phase==='prep';
   return `<section class="panel stplay" style="--rc:${r.c||'var(--navy)'}"><div class="stph"><button class="btn-xs" data-a="stQuit">✕ Quitter</button><span class="small muted">${esc(r.n)} · ${P.i+1} / ${S.length}</span></div>
    <div class="stprog"><i style="width:${P.i/S.length*100}%"></i></div>
@@ -8632,7 +8648,7 @@ function stPlayer(u){const P=st.stp;const r=routById(u.id,P.rid);const S=stSteps
    <div class="actions stctl"><button class="btn-xs" data-a="stPrev" aria-label="Précédent" ${P.i?'':'disabled'}>⏮</button><button class="btn btn-accent" data-a="stPause">${P.paused?'▶ Reprendre':'⏸ Pause'}</button><button class="btn-xs" data-a="stNext" aria-label="Suivant">⏭</button></div>
    <p class="stnext small muted">${nx?'Ensuite : '+esc(stById(nx.sid).n)+(nx.side?' (côté '+nx.side+')':''):'Dernier étirement'}</p>
    <details class="stins" ${P.i===0||prep?'open':''}><summary>Comment faire</summary><p>${esc(x.ins)}</p><p class="small muted">À sentir : ${esc(x.feel)}. Une tension confortable, jamais de douleur ni de rebond.</p></details></section>`}
-function stBegin(i){const P=st.stp;P.i=i;P.phase='prep';P.end=Date.now()+4000;P.paused=false;const u=me();const r=routById(st.stpU||u.id,P.rid);const s=stSteps(r)[i];const x=stById(s.sid);say((i===0?'':'Ensuite : ')+x.n+(s.side?', côté '+s.side:''));render()}
+function stBegin(i){const P=st.stp;P.i=i;P.phase='prep';P.end=Date.now()+4000;P.paused=false;const u=me();const r=routById(st.stpU||u.id,P.rid);const s=stSteps(r)[i];const x=stById(s.sid);sayMix([[i===0?'':'Ensuite :','fr'],[x.n,'en'],[s.side?'côté '+s.side:'','fr']]);render()}
 setInterval(()=>{const P=st.stp;if(!P||P.paused)return;const u=me();if(!u)return;const r=routById(u.id,P.rid);if(!r)return;const S=stSteps(r);const s=S[P.i];const left=(P.end-Date.now())/1000;
   const tot=P.phase==='prep'?4:s.sec;const ring=document.getElementById('stRing'),sec=document.getElementById('stSec');if(ring)ring.style.strokeDashoffset=String(326.7*(1-Math.max(0,left)/tot));if(sec)sec.textContent=String(Math.max(0,Math.ceil(left)));
   if(left<=3&&left>2.75&&P.phase==='hold')beep(660,.08);
@@ -9856,6 +9872,27 @@ Glissement au mur (wall slide)|mob,epa|pdc|ohpress|Dos au mur, avant-bras collé
 {const have=new Set(EXOS.map(x=>x.id));EXRAW2.split('\n').forEach(l=>{const [n,g,eq,pat,ins,cue]=l.split('|');const id='x_'+deacc(n).toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,40);if(!have.has(id)&&n){have.add(id);EXOS.push({id,n,g:g.split(','),eq,pat,ins,cue})}})}
 /* corrections : les exercices existants qui avaient déjà une pose plus juste */
 [['Planche latérale','sideplank'],['Dead bug','deadbug'],['Pallof press','pallof'],['Face pull à la poulie','facepull'],['Nordic curl','nordic'],['Soulevé de terre sur une jambe','sldl'],['Hip thrust à la barre','hipthrust'],['Burpees','burpee'],['Squat sur une jambe','pistol'],['Bûcheron à la poulie','chop'],['Marche latérale avec bande','walk']].forEach(([n,p])=>{const x=EXOS.find(e=>e.n===n);if(x)x.pat=p});
+/* ================= Corrections 3 (2 nov. 2026) : noms des exercices en anglais, consignes en français =================
+   Les identifiants (x.id) restent les mêmes : les programmes déjà enregistrés continuent de fonctionner.
+   Le nom français reste dans x.nFr (recherche, guidage vocal, modèles de la démo). */
+const EXN={"Pompes":"Push-up","Pompes sur les genoux":"Knee Push-up","Pompes inclinées":"Incline Push-up","Pompes déclinées":"Decline Push-up","Pompes diamant":"Diamond Push-up","Pompes avec bande élastique":"Banded Push-up",
+"Développé couché à la barre":"Barbell Bench Press","Développé couché aux haltères":"Dumbbell Bench Press","Développé incliné aux haltères":"Incline Dumbbell Press","Écarté couché aux haltères":"Dumbbell Fly","Écarté à la poulie":"Cable Fly","Développé à la machine":"Machine Chest Press","Dips aux barres parallèles":"Parallel Bar Dip",
+"Tractions":"Pull-up","Tractions assistées avec bande":"Band-Assisted Pull-up","Tractions en supination":"Chin-up","Rowing barre penché":"Barbell Bent-Over Row","Rowing à un bras avec haltère":"One-Arm Dumbbell Row","Rowing inversé":"Inverted Row","Tirage vertical à la poulie":"Lat Pulldown","Tirage horizontal à la poulie":"Seated Cable Row","Rowing avec bande élastique":"Banded Row",
+"Soulevé de terre":"Deadlift","Superman":"Superman","Pull-over à l'haltère":"Dumbbell Pullover","Face pull à la poulie":"Cable Face Pull","Kettlebell swing":"Kettlebell Swing","Développé militaire à la barre":"Barbell Overhead Press","Développé épaules aux haltères":"Dumbbell Shoulder Press","Développé Arnold":"Arnold Press","Élévations latérales":"Lateral Raise","Élévations frontales":"Front Raise","Élévations latérales à la bande":"Banded Lateral Raise","Oiseau aux haltères":"Dumbbell Rear Delt Fly","Pike push-up":"Pike Push-up","Rotation externe à la bande":"Banded External Rotation","Haussements d'épaules":"Shoulder Shrug",
+"Flexion des bras à la barre":"Barbell Curl","Flexion des bras aux haltères":"Dumbbell Curl","Curl marteau":"Hammer Curl","Curl concentré":"Concentration Curl","Curl à la poulie":"Cable Curl","Curl avec bande élastique":"Banded Curl","Extension à la poulie haute":"Triceps Pushdown","Extension au-dessus de la tête":"Overhead Triceps Extension","Barre au front":"Skull Crusher","Dips sur un banc":"Bench Dip","Kickback aux haltères":"Dumbbell Triceps Kickback","Extension avec bande élastique":"Banded Triceps Extension","Flexion des poignets":"Wrist Curl","Marche du fermier":"Farmer's Carry","Suspension à la barre":"Dead Hang",
+"Planche":"Plank","Planche latérale":"Side Plank","Crunch":"Crunch","Relevé de jambes couché":"Lying Leg Raise","Relevé de genoux suspendu":"Hanging Knee Raise","Rotation russe":"Russian Twist","Grimpeur":"Mountain Climber","Dead bug":"Dead Bug","Bird dog":"Bird Dog","Pallof press":"Pallof Press","Roue abdominale":"Ab Wheel Rollout","Bûcheron à la poulie":"Cable Woodchop",
+"Pont fessier":"Glute Bridge","Pont sur une jambe":"Single-Leg Glute Bridge","Hip thrust à la barre":"Barbell Hip Thrust","Squat sumo":"Sumo Squat","Kickback fessier avec bande":"Banded Glute Kickback","Marche latérale avec bande":"Banded Lateral Walk","Fentes arrière":"Reverse Lunge","Montée sur banc":"Step-up","Squat au poids du corps":"Bodyweight Squat","Squat arrière à la barre":"Barbell Back Squat","Squat gobelet":"Goblet Squat","Squat avant à la barre":"Barbell Front Squat","Fentes avant":"Forward Lunge","Fentes marchées":"Walking Lunge","Squat bulgare":"Bulgarian Split Squat","Presse à cuisses":"Leg Press","Extension des jambes à la machine":"Machine Leg Extension","Chaise au mur":"Wall Sit","Squat sauté":"Jump Squat","Squat sur une jambe":"Pistol Squat",
+"Soulevé de terre roumain":"Romanian Deadlift","Soulevé de terre jambes tendues aux haltères":"Dumbbell Stiff-Leg Deadlift","Good morning":"Good Morning","Soulevé de terre sur une jambe":"Single-Leg Deadlift","Flexion des jambes à la machine":"Machine Leg Curl","Nordic curl":"Nordic Curl","Extension des mollets debout":"Standing Calf Raise","Extension des mollets aux haltères":"Dumbbell Calf Raise","Extension des mollets assis":"Seated Calf Raise","Sauts à la corde":"Jump Rope","Burpees":"Burpee","Jumping jacks":"Jumping Jack","Épaulé à la barre":"Barbell Power Clean","Arraché à l'haltère":"Dumbbell Snatch","Thruster":"Thruster","Rameur":"Rowing Machine","Vélo stationnaire":"Stationary Bike","Cordes ondulatoires":"Battle Ropes","Turkish get-up":"Turkish Get-up",
+"Étirement des ischio-jambiers":"Hamstring Stretch","Étirement des fléchisseurs de la hanche":"Hip Flexor Stretch","Chat-vache":"Cat-Cow","Rotation thoracique":"Thoracic Rotation","Posture du pigeon":"Pigeon Pose","Cercles de bras":"Arm Circles","Squat profond tenu":"Deep Squat Hold","Étirement des mollets au mur":"Wall Calf Stretch",
+"Double poussée à l'élastique":"Banded Double Pole","Double poussée à la poulie haute":"High Cable Double Pole","Double poussée assise au ski-erg":"Seated SkiErg Double Pole","Double poussée explosive à l'élastique":"Explosive Banded Double Pole","Tirage triceps « bâton » à un bras":"Single-Arm Pole Pushdown","Pas alternatif à l'élastique":"Banded Diagonal Stride","Bonds latéraux du patineur":"Skater Bound","Bonds latéraux avec tenue":"Skater Bound and Stick","Glissade latérale (slide board)":"Slide Board Lateral Glide","Bonds en montée (imitation)":"Uphill Ski Bounding","Marche en montée avec bâtons":"Uphill Pole Walking","Fentes sautées alternées":"Alternating Jump Lunge","Squat sauté sur une jambe":"Single-Leg Jump Squat","Saut sur boîte":"Box Jump","Saut en longueur sans élan":"Standing Long Jump","Squat sauté avec pause":"Pause Jump Squat",
+"Planche Copenhague":"Copenhagen Plank","Planche Copenhague genou fléchi":"Bent-Knee Copenhagen Plank","Planche latérale avec levée de jambe":"Side Plank Leg Lift","Planche latérale dynamique":"Side Plank Hip Dip","Planche avec toucher d'épaule":"Plank Shoulder Tap","Planche avec tirage (renegade row)":"Renegade Row","Dead bug avec élastique":"Banded Dead Bug","Dead bug lent":"Slow Dead Bug","Position creuse (hollow hold)":"Hollow Hold","Bascule en position creuse":"Hollow Rock","Pallof press à l'élastique":"Banded Pallof Press","Pallof press à genoux":"Kneeling Pallof Press","Bûcheron à l'élastique (haut-bas)":"Banded High-to-Low Woodchop","Bûcheron bas-haut":"Low-to-High Woodchop","Rotation russe avec ballon lesté":"Medicine Ball Russian Twist","Lancer de ballon contre le mur en rotation":"Rotational Medicine Ball Throw","Lancer de ballon au sol (slam)":"Medicine Ball Slam","Relevé de jambes à la barre":"Hanging Leg Raise","Crunch inversé":"Reverse Crunch","Ciseaux couchés":"Scissor Kicks","Superman avec rotation des bras (Y-T-W)":"Y-T-W Raise","Extension lombaire au ballon":"Stability Ball Back Extension","Marche de l'ours":"Bear Crawl","Bird dog avec élastique":"Banded Bird Dog",
+"Squat pistol assisté":"Assisted Pistol Squat","Squat pistol sur boîte":"Box Pistol Squat","Fente latérale":"Lateral Lunge","Fente latérale avec haltère":"Dumbbell Lateral Lunge","Fente croisée (révérence)":"Curtsy Lunge","Squat bulgare à la barre":"Barbell Bulgarian Split Squat","Squat bulgare au poids du corps":"Bodyweight Bulgarian Split Squat","Step-up latéral":"Lateral Step-up","Step-down (descente contrôlée)":"Controlled Step-down","Squat à la barre avec pause":"Pause Barbell Squat","Squat avec élastique":"Banded Squat","Squat gobelet avec pause":"Pause Goblet Squat","Hack squat à la machine":"Machine Hack Squat","Chaise au mur sur une jambe":"Single-Leg Wall Sit","Chaise au mur avec élastique aux genoux":"Banded Wall Sit",
+"Hip thrust aux haltères":"Dumbbell Hip Thrust","Hip thrust sur une jambe":"Single-Leg Hip Thrust","Hip thrust avec élastique":"Banded Hip Thrust","Pont fessier avec pieds sur ballon":"Stability Ball Glute Bridge","Flexion des jambes au ballon":"Stability Ball Leg Curl","Nordic curl assisté à l'élastique":"Band-Assisted Nordic Curl","Nordic curl (descente seulement)":"Eccentric Nordic Curl","Soulevé sur une jambe au poids du corps":"Bodyweight Single-Leg Deadlift","Soulevé sur une jambe au kettlebell":"Kettlebell Single-Leg Deadlift","Soulevé de terre au kettlebell":"Kettlebell Deadlift","Soulevé de terre à la barre hexagonale":"Trap Bar Deadlift","Soulevé de terre roumain aux haltères":"Dumbbell Romanian Deadlift","Soulevé roumain avec élastique":"Banded Romanian Deadlift","Kettlebell swing à une main":"One-Arm Kettlebell Swing","Swing américain":"American Kettlebell Swing",
+"Coquillage avec élastique":"Banded Clamshell","Abduction couché sur le côté":"Side-Lying Hip Abduction","Abduction de hanche à la poulie":"Cable Hip Abduction","Marche du monstre avec élastique":"Banded Monster Walk","Équilibre sur une jambe yeux fermés":"Eyes-Closed Single-Leg Balance","Équilibre sur coussin instable":"Balance Pad Single-Leg Stand","Équilibre avec mouvements de bras":"Single-Leg Balance with Arm Reach","Extension des mollets sur une jambe":"Single-Leg Calf Raise","Extension des mollets genoux fléchis":"Bent-Knee Calf Raise","Sautillements pieds joints":"Pogo Hops",
+"Tractions lestées":"Weighted Pull-up","Tractions lentes (négatives)":"Negative Pull-up","Tractions prise neutre":"Neutral-Grip Pull-up","Rowing inversé pieds surélevés":"Feet-Elevated Inverted Row","Rowing au kettlebell":"Kettlebell Row","Rowing poitrine appuyée":"Chest-Supported Row","Rowing à la machine":"Machine Row","Tirage bras tendus à la poulie":"Cable Straight-Arm Pulldown","Tirage bras tendus à l'élastique":"Banded Straight-Arm Pulldown","Face pull à l'élastique":"Banded Face Pull","Face pull (poulie, corde)":"Rope Face Pull","Écartement de bande élastique":"Band Pull-Apart","Écartement de bande au-dessus de la tête":"Overhead Band Pull-Apart","Développé épaules à un bras":"Single-Arm Shoulder Press","Développé épaules à l'élastique":"Banded Shoulder Press","Développé landmine":"Landmine Press","Élévations en Y incliné":"Incline Y Raise","Rotation externe couché sur le côté":"Side-Lying External Rotation",
+"Pompes pieds surélevés":"Feet-Elevated Push-up","Pompes explosives":"Plyometric Push-up","Pompes avec rotation (T)":"T Push-up","Pompes larges":"Wide Push-up","Pompes archer":"Archer Push-up","Développé couché prise serrée":"Close-Grip Bench Press","Développé au sol aux haltères":"Dumbbell Floor Press","Dips assistés à l'élastique":"Band-Assisted Dip","Extension triceps couché aux haltères":"Dumbbell Lying Triceps Extension","Extension triceps à la poulie basse":"Low Cable Triceps Extension","Curl incliné aux haltères":"Incline Dumbbell Curl","Curl en supination à l'élastique":"Banded Supinated Curl","Préhension avec serviette":"Towel Grip Hang","Enroulement du poignet (corde)":"Wrist Roller","Pince avec disques":"Plate Pinch","Marche du fermier sur une main":"Suitcase Carry","Marche en serveur":"Waiter Carry",
+"Burpee complet":"Full Burpee","Burpee sans saut":"No-Jump Burpee","Montées de genoux rapides":"High Knees","Grimpeur croisé":"Cross-Body Mountain Climber","Corde à sauter double":"Double Under","Rameur en intervalles":"Rowing Machine Intervals","Vélo assault en intervalles":"Assault Bike Intervals","Ski-erg continu":"Steady SkiErg","Thruster au kettlebell":"Kettlebell Thruster","Épaulé au kettlebell":"Kettlebell Clean","Turkish get-up partiel":"Partial Turkish Get-up","Rouleau de massage, mollets":"Foam Roll: Calves","Rouleau de massage, quadriceps":"Foam Roll: Quads","Rouleau de massage, bandelette et fessiers":"Foam Roll: IT Band and Glutes","Rouleau de massage, haut du dos":"Foam Roll: Upper Back","Mobilité de cheville au mur":"Wall Ankle Mobilization","Ouverture de hanche 90/90":"90/90 Hip Switch","Cossack squat":"Cossack Squat","Rotation du tronc avec bâton":"Standing Pole Trunk Rotation","Glissement au mur (wall slide)":"Wall Slide"};
+EXOS.forEach(x=>{x.nFr=x.n;x.n=EXN[x.n]||x.n});
 
 /* ---------- 2. Bonshommes plus précis : articulations, angle principal, flèche de mouvement ---------- */
 const FANG=[['K','P','K','A','genou'],['P','S','P','K','hanche'],['E','S','E','W','coude'],['S','P','S','E','épaule']];
@@ -10832,7 +10869,7 @@ const CMAP=()=>{const u=me();const t=st.tab||'accueil';const p=st.ptab;const tra
      ...(feat('location')?[X('rent','Location d\'équipement','ski',false)]:[]),...(feat('public')&&pubSessions().length?[X('pub','Cours de groupe publics','users',false)]:[])]],
    ['Calendrier et messages',[...(feat('cal')?[T('cal',LB('tab.cal'),'cal')]:[]),...(shown('tab.msg')?[T('msg',LB('tab.msg'),'msg',unreadMsgClient(u))]:[]),PP('notifs'),X('find','Trouver mon entraîneur','pin',false)]],
    ['Mon entraînement',[...(mod('entrain')?[X('train','Enregistrer un entraînement','run',train)]:[]),PP('forme'),PP('charge'),PP('plans'),PP('compet'),PP('progres'),PP('video'),PP('appareils')]],
-   ['Programmes et conseils',[PP('muscu'),PP('stretch'),PP('tech'),PP('nutri'),PP('res'),PP('music')]],
+   ['Programmes et conseils',[PP('muscu'),PP('stretch'),PP('exos'),PP('tech'),PP('nutri'),PP('res'),PP('music')]],
    ['Mon club',[PP('club')]],
    ['Mon compte',[PP('fiche'),PP('famille'),PP('docs'),PP('reglages'),PP('parrain'),PP('vie'),PP('guide')]],
    ['Infos',[...(shown('nav.apropos')?[X('view','À propos','user',false,'data-v="apropos"')]:[]),...(shown('nav.centres')?[X('view','Centres','map',false,'data-v="centres"')]:[]),...(shown('nav.meteo')?[X('view','Météo','snow',false,'data-v="meteo"')]:[])]]];
@@ -11787,7 +11824,7 @@ function p3seed(){const c=cb('club1');if(!c)return;p3fix(c);if(c.p3seed)return;c
   /* plans, musculation et étirements du club */
   c.plans=[{id:'pl1',name:'Préparation hors neige : semaine type',groups:['g2'],start:monOf(T),weeks:6,pub:1,days:[{wd:1,t:'Course en sentier vallonné',int:'z2',dur:50,type:'course'},{wd:3,t:'Bonds en montée avec bâtons 6 × 2 min',int:'z4',dur:55,type:'course'}]},
     {id:'pl2',name:'Volume des Maîtres',groups:['g3'],start:monOf(T),weeks:4,pub:1,days:[{wd:2,t:'Endurance en vélo ou en course',int:'z2',dur:75,type:'course'}]}];
-  const ex=k=>(allEx().find(x=>x.n.toLowerCase().startsWith(k))||{}).id;
+  const ex=k=>(allEx().find(x=>(x.nFr||x.n).toLowerCase().startsWith(k))||{}).id;
   c.progs=[{id:'pg1',kind:'muscu',name:'Renforcement jeunesse au chalet',groups:['g1','g2'],freq:'2 fois par semaine, 20 min',items:[{ex:ex('pompes sur les genoux'),s:3,r:'10'},{ex:ex('squat'),s:3,r:'12'},{ex:ex('fentes'),s:2,r:'8 par jambe'},{ex:ex('planche'),s:3,r:'30 s'}].filter(x=>x.ex)},
     {id:'pg2',kind:'muscu',name:'Gainage et poussée des Maîtres',groups:['g3'],freq:'2 fois par semaine, 30 min',items:[{ex:ex('pompes'),s:3,r:'12'},{ex:ex('planche'),s:3,r:'45 s'},{ex:ex('fentes'),s:3,r:'10 par jambe'}].filter(x=>x.ex)},
     {id:'pg3',kind:'stretch',name:'Retour au calme après l\'entraînement',groups:['g1','g2','g3'],freq:'Après chaque séance, 10 min',items:[{n:'Mollets contre un mur',r:'30 s par côté'},{n:'Quadriceps debout',r:'30 s par côté'},{n:'Ischio-jambiers assis',r:'45 s'},{n:'Fléchisseurs de la hanche en fente',r:'30 s par côté'},{n:'Dorsaux et triceps (bras au-dessus de la tête)',r:'30 s par côté'}]}];
@@ -12558,8 +12595,8 @@ VIEWS.a_test=(c,u)=>`<p class="p3note" style="margin-bottom:12px">Le même test 
 /* ---------- programmes du club : copiés dans l'espace de l'athlète pour profiter du lecteur animé ---------- */
 const nrm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 const STKW=[['mollet','calf'],['soleaire','soleus'],['quadri','quad'],['ischio','ham'],['flechisseur','hip'],['hanche','hip'],['fessier','fig4'],['dorsa','lat'],['tricep','tri'],['pector','chest'],['epaule','shoulder'],['cou','neck'],['adducteur','butter'],['cheville','ankle'],['tibia','shin'],['dos','child'],['psoas','hip'],['bandelette','itb']];
-function stMatch(n){const S=(window.ST5&&window.ST5.STRETCH)||[];const q=nrm(n);const ex=S.find(s=>nrm(s.n)===q);if(ex)return ex.id;
-  const tk=q.split(/[^a-z]+/).filter(w=>w.length>3).map(w=>w.slice(0,5));let best=null,bs=0;S.forEach(s=>{const t=nrm(s.n).split(/[^a-z]+/).filter(w=>w.length>3).map(w=>w.slice(0,5));const sc=tk.filter(w=>t.includes(w)).length;if(sc>bs){bs=sc;best=s.id}});if(best)return best;
+function stMatch(n){const S=(window.ST5&&window.ST5.STRETCH)||[];const q=nrm(n);const ex=S.find(s=>nrm(s.nFr||s.n)===q);if(ex)return ex.id;
+  const tk=q.split(/[^a-z]+/).filter(w=>w.length>3).map(w=>w.slice(0,5));let best=null,bs=0;S.forEach(s=>{const t=nrm(s.nFr||s.n).split(/[^a-z]+/).filter(w=>w.length>3).map(w=>w.slice(0,5));const sc=tk.filter(w=>t.includes(w)).length;if(sc>bs){bs=sc;best=s.id}});if(best)return best;
   const k=STKW.find(([w])=>q.includes(w));return k?k[1]:null}
 const secOf=r=>{const m=String(r||'').match(/(\d+)\s*(s|sec|min)/i);if(!m)return 30;return m[2].toLowerCase()==='min'?+m[1]*60:+m[1]};
 function repOf(r){const t=String(r||'');const m=t.match(/^(\d+)\s*s\b/i)||t.match(/^(\d+)\s*sec/i);return m?{mode:'time',time:+m[1]}:{reps:t||'10'}}
@@ -20225,9 +20262,16 @@ async function loadMe0(){
   const me0=localUser(p,f);
   db.users=db.users.filter(u=>u.sid&&u.sid!==user.id&&isCoachRole(p.role));
   db.users.unshift(me0);db.session=me0.id;R.snap[me0.id]=snapOf(me0);
-  const cq=R.sb.from('coaches').select('id,owner_id,slug,nom_affiche');
-  const {data:c}=await (isCoachRole(p.role)?cq.eq('owner_id',user.id):cq.eq('slug',fcSlug())).maybeSingle();R.coachId=c&&c.id;R.coachRow=c||null;
-  if(p.role==='client'&&R.coachId)await R.sb.from('coach_clients').upsert({coach_id:R.coachId,client_id:user.id},{onConflict:'coach_id,client_id',ignoreDuplicates:true});
+  const cq=()=>R.sb.from('coaches').select('id,owner_id,slug,nom_affiche,sport,ville_depart');
+  /* Corrections 3 : un client peut être lié à plusieurs entraîneurs. Sans choix enregistré sur cet appareil, on reprend le sien
+     (plutôt que de le lier à l'entraîneur principal par défaut). */
+  let pick=fcSlug();
+  if(p.role==='client'){try{const {data:L}=await R.sb.rpc('my_coaches');R.myCoaches=Array.isArray(L)?L:[];let saved=null;try{saved=localStorage.getItem(CKEY)}catch(e){}if(!saved&&R.myCoaches.length)pick=R.myCoaches[0].slug}catch(e){R.myCoaches=[]}}
+  let {data:c}=await (isCoachRole(p.role)?cq().eq('owner_id',user.id):cq().eq('slug',pick)).maybeSingle();
+  if(!c&&!isCoachRole(p.role)&&pick!==COACH_SLUG){({data:c}=await cq().eq('slug',COACH_SLUG).maybeSingle())}
+  R.coachId=c&&c.id;R.coachRow=c||null;
+  if(p.role==='client'&&R.coachId){await R.sb.from('coach_clients').upsert({coach_id:R.coachId,client_id:user.id},{onConflict:'coach_id,client_id',ignoreDuplicates:true});
+    if(!R.myCoaches.some(x=>x.id===R.coachId))R.myCoaches.push({id:R.coachId,slug:c.slug,nom:c.nom_affiche,sport:c.sport})}
   if(isCoachRole(p.role))await loadClients();
   try{if(R.coachId){if(isCoachRole(p.role))await loadCoachSide();else await loadClientSide()}}
   catch(e){console.error(e);setTimeout(()=>flash('Disponibilités et réservations en ligne indisponibles : '+fr(e.message)),500)}
@@ -20707,7 +20751,7 @@ async function bootReal(){
     if(ev==='SIGNED_OUT'&&R.on){resetLocal();st.view='home';render()}});
   const {data:{session}}=await R.sb.auth.getSession();
   if(session){if(await loadMe()){stampTerms();if(st.view==='home'||st.view==='auth'){st.view=R.role==='admin'?'admin':'client';st.tab=R.role==='admin'?'today':(me().onboarded?'accueil':null)}render()}}
-  else{resetLocal();try{const {data:c}=await R.sb.from('coaches').select('id').eq('slug',fcSlug()).maybeSingle();R.coachId=c&&c.id;if(R.coachId&&await loadPub())render()}catch(e){}render()}}
+  else{resetLocal();try{const {data:c}=await R.sb.from('coaches').select('id,owner_id,slug,nom_affiche,sport,ville_depart').eq('slug',fcSlug()).maybeSingle();R.coachId=c&&c.id;R.coachRow=c||null;if(R.coachId){await loadPub();fcIdent();render()}}catch(e){console.warn(e)}render()}}
 
 
 /* ================= Étape 6 : notifications en ligne, comptabilité nette, mode Stripe =================
@@ -20720,7 +20764,7 @@ async function bootReal(){
 
 /* --- la cloche --- */
 R.chan=null;R.ledger=[];R.nbUnread=0;
-const nRow=n=>{const t=tzParts(n.created_at);return {id:n.id,sid:n.id,at:t.date+' '+t.start,kind:n.kind||'Avis',text:n.text||'',read:!!n.read_at,ch:['app'],userId:lid(n.user_id),booking:n.booking_id||null}};
+const nRow=n=>{const t=tzParts(n.created_at);return {id:n.id,sid:n.id,at:t.date+' '+t.start,kind:n.kind||'Avis',text:n.text||'',read:!!n.read_at,ch:['app'],userId:lid(n.user_id),booking:n.booking_id||null,conv:n.conversation_id||null,coach:n.coach_id||null}};
 async function loadNotifs(){if(!R.on&&!R.uid)return;
   const {data,error}=await R.sb.from('notifications').select('*').eq('user_id',R.uid).order('created_at',{ascending:false}).limit(200);
   if(error){console.warn('Notifications en ligne indisponibles (script SQL étape 6?)',error.message);return}
@@ -21648,10 +21692,11 @@ function fcPayPage(){if(!R.on)return '<div class="empty">Connectez-vous.</div>';
       <form id="fc8inv" class="grid" novalidate><label class="field"><span>Courriel de l'entraîneur</span><input name="email" type="email" required></label>
         <label class="field"><span>Nom (facultatif)</span><input name="nom" maxlength="80"></label>
         <label class="field"><span>Frais propres (%, facultatif)</span><input name="fee" type="number" min="0" max="50" step="0.1" placeholder="${esc(S.fee_pct??10)}"></label>
-        <div class="actions" style="grid-column:1/-1"><button class="btn btn-accent" type="submit">Créer l'invitation</button></div></form>
-      ${R.pay.link?`<p class="small" style="margin-top:10px">Envoyez ce lien à l'entraîneur (valide 30 jours) :</p><p class="fc8link">${esc(R.pay.link)}</p><div class="actions"><button class="btn btn-sm btn-plain" data-a="fcCopy" data-v="${esc(R.pay.link)}">Copier le lien</button></div>`:''}
+        <div class="actions" style="grid-column:1/-1"><button class="btn btn-accent" type="submit">Envoyer l'invitation</button></div></form>
+      <p class="fc8note">FidjiCoach lui envoie le courriel d'invitation automatiquement, avec son lien personnel (valide 30 jours).</p>
+      ${R.pay.link?`<p class="small" style="margin-top:10px">Courriel envoyé. Au besoin, voici aussi le lien :</p><p class="fc8link">${esc(R.pay.link)}</p><div class="actions"><button class="btn btn-sm btn-plain" data-a="fcCopy" data-v="${esc(R.pay.link)}">Copier le lien</button></div>`:''}
       ${(P.invites||[]).filter(x=>!x.used).map(x=>`<div class="row"><span><b>${esc(x.email)}</b>${x.nom?' · '+esc(x.nom):''}<br><small class="muted">Créée le ${esc(String(x.created).slice(0,10))} · expire le ${esc(String(x.expires).slice(0,10))}${x.fee_pct!=null?' · frais '+pct(x.fee_pct):''}</small><br><small class="fc8link">${esc(location.origin+'/?invitation='+x.code)}</small></span>
-        <span><button class="btn-xs" data-a="fcCopy" data-v="${esc(location.origin+'/?invitation='+x.code)}">Copier</button> <button class="btn-xs" data-a="fcInvDel" data-c="${esc(x.code)}">Retirer</button></span></div>`).join('')}</section>
+        <span><button class="btn-xs" data-a="fcInvSend" data-c="${esc(x.code)}">Renvoyer le courriel</button> <button class="btn-xs" data-a="fcCopy" data-v="${esc(location.origin+'/?invitation='+x.code)}">Copier</button> <button class="btn-xs" data-a="fcInvDel" data-c="${esc(x.code)}">Retirer</button></span></div>`).join('')}</section>
     <section class="panel fc8p"><span class="eyebrow">${(P.coaches||[]).length} entraîneur${(P.coaches||[]).length>1?'s':''}</span><h3>Entraîneurs de la plateforme</h3>
       ${(P.coaches||[]).map(c=>`<div class="row"><span><b>${esc(c.nom)}</b> · ${esc(c.email)}${c.role==='admin'?' <span class="fc8tag">vous</span>':''}<br>
         <small class="muted">fidjicoach.ca/?entraineur=${esc(c.slug)} · ${c.clients} client${c.clients>1?'s':''} · ${c.subs} abonné${c.subs>1?'s':''}${c.contrat?' · contrat accepté le '+esc(String(c.contrat).slice(0,10)):''}</small><br>
@@ -21683,7 +21728,7 @@ A.fcStripe=async d=>{busyOn(d.x==='status'?'Vérification chez Stripe…':'Ouver
 addEventListener('submit',async e=>{const f=e.target;if(!f||!['fc8fees','fc8inv'].includes(f.id))return;e.preventDefault();e.stopImmediatePropagation();
   if(f.id==='fc8fees'){await rpcDo('admin_set_fees',{p:{fee_pct:f.fee_pct.value,fee_fixed:f.fee_fixed.value,sub_fee_pct:f.sub_fee_pct.value,rent_fee_max:f.rent_fee_max.value}},'Frais de la plateforme enregistrés.');return}
   const em=f.email.value.trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){flash('Entrez le courriel de l\'entraîneur.');return}
-  const r=await rpcDo('admin_invite_coach',{p_email:em,p_nom:f.nom.value.trim()||null,p_fee:f.fee.value===''?null:Number(f.fee.value),p_sub_fee:null},'Invitation créée : copiez le lien et envoyez-le à l\'entraîneur.');
+  const r=await rpcDo('admin_invite_coach',{p_email:em,p_nom:f.nom.value.trim()||null,p_fee:f.fee.value===''?null:Number(f.fee.value),p_sub_fee:null},'Invitation envoyée par courriel à '+em+'.');
   if(r&&r.code){R.pay.link=location.origin+'/?invitation='+r.code;render()}},true);
 
 /* invitation d'un entraîneur : fidjicoach.ca/?invitation=CODE */
@@ -21720,10 +21765,17 @@ async function inviteFlow(){let c=null;try{c=localStorage.getItem(IKEY)}catch(e)
 /* ---------- 4. Pièces jointes dans les messages ---------- */
 R.att={reply:[],nw:[]};R.murl={};
 const attKey=f=>f.id==='newMsgForm'?'nw':'reply';
+/* Corrections 3 : miniature d'une photo (480 px), pour le courriel */
+async function fcThumb(f){if(!/^image\/(jpeg|png|webp|gif)$/i.test(f.type||''))return null;
+  try{const bmp=await createImageBitmap(f);const k=Math.min(1,480/Math.max(bmp.width,bmp.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(bmp.width*k));c.height=Math.max(1,Math.round(bmp.height*k));
+    const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(bmp,0,0,c.width,c.height);if(bmp.close)bmp.close();
+    return await new Promise(r=>c.toBlob(r,'image/jpeg',.78))}catch(e){return null}}
 async function sendFiles(conv,files){const up=[];
   for(const f of files){const path=conv+'/'+uid()+uid()+'-'+safeName(f.name);
     const {error}=await R.sb.storage.from('fc-msg').upload(path,f,{contentType:f.type||'application/octet-stream',upsert:false});if(error)throw error;
-    up.push({path,name:f.name,type:f.type||'',size:f.size})}
+    const it={path,name:f.name,type:f.type||'',size:f.size};
+    const th=await fcThumb(f);if(th){const tp=path+'.thumb.jpg';const {error:e2}=await R.sb.storage.from('fc-msg').upload(tp,th,{contentType:'image/jpeg',upsert:false});if(!e2)it.thumb=tp}
+    up.push(it)}
   const {error}=await R.sb.rpc('msg_attach',{p_conv:conv,p_files:up});if(error)throw error}
 msgCall=(old=>async function(fn,args){const r=await old(fn,args);
   try{if(fn==='msg_send'&&R.att.reply.length){const fs=R.att.reply;R.att.reply=[];busyOn('Envoi des pièces jointes…');await sendFiles(args.p_conv,fs)}
@@ -21844,6 +21896,173 @@ decorate=(old=>function(){old();if(!noInt())return;
     const sb=document.querySelector('[data-a="stripeOk"]');if(sb){const nx=sb.parentElement&&sb.parentElement.querySelector('[data-a="fcToInterac"]');if(nx)nx.remove()}}
   catch(e){console.warn(e)}})(decorate);
 
+/* ================= Corrections 3 (2 nov. 2026) =================
+   3. « Mon entraîneur » : un client lié à plusieurs entraîneurs bascule de l'un à l'autre; en-tête au nom de l'entraîneur courant
+   4. Notifications cliquables : chaque avis mène au bon endroit (message, réservation, Interac, frais, abonnement…)
+   5. Pièces jointes dans le courriel : miniature de chaque photo (voir sendFiles et notify-messages)
+   6. Courriel automatique quand l'administrateur invite un entraîneur
+   7. Un client invite un ami par courriel, avec son code de parrainage (courriel envoyé par la plateforme)
+   9. Liste de tous les exercices de la plateforme, avec filtres par groupe musculaire */
+const CORR3_VER='Corrections 3 · 2 nov. 2026';
+document.head.insertAdjacentHTML('beforeend',`<style>
+.fcmc{display:block;margin:0 10px 10px;padding:8px 10px;background:var(--surface-2);border-radius:10px}
+.fcmc span{display:block;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.fcmc select{width:100%;font:inherit;font-weight:600;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.notif.fcgo,.push.fcgo{cursor:pointer}
+.notif.fcgo:hover{border-color:var(--navy-soft,var(--navy))}
+.notif.fcgo:focus-visible,.push.fcgo:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.fcgol{display:inline-block;font-size:.8rem;font-weight:700;color:var(--accent);margin-top:2px}
+.xlgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.xlcard{all:unset;box-sizing:border-box;cursor:pointer;display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:0}
+.xlcard:hover{border-color:var(--navy-soft,var(--navy))}.xlcard:focus-visible{outline:2px solid var(--accent)}
+.xlfig{flex:0 0 64px;width:64px;height:64px;overflow:hidden;border-radius:8px;background:var(--surface-2);display:flex;align-items:center;justify-content:center}
+.xlfig svg{width:100%;height:100%}
+.xlcard b{display:block;line-height:1.2;overflow-wrap:anywhere}.xlcard small{display:block;color:var(--muted);font-size:.78rem;line-height:1.25;margin-top:3px}
+.xltools{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:10px;margin-bottom:10px}
+@media (max-width:560px){.xltools{grid-template-columns:1fr}.xlgrid{grid-template-columns:1fr}}
+.fcami .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.fcami .row{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line);font-size:.88rem}
+</style>`);
+
+/* ---------- 3. Mon entraîneur ---------- */
+R.myCoaches=[];R.coachInfo=null;
+const fcOther=()=>!!(R.coachRow&&R.coachRow.slug&&R.coachRow.slug!==COACH_SLUG);
+function fcSwitch(slug){if(!slug)return;try{localStorage.setItem(CKEY,slug)}catch(e){}busyOn('Changement d\'entraîneur…');location.replace(location.pathname)}
+A.fcCoachPick=d=>fcSwitch(d.s);
+function fcIdent(){const c=R.coachRow;if(!c||!db.settings)return;const U=ui();
+  if(R.realRole==='admin')return;
+  if(R.realRole==='coach'){if(U.coach.name===UI0.coach.name&&c.nom_affiche)U.coach.name=c.nom_affiche;if(c.ville_depart&&U.coach.region===UI0.coach.region)U.coach.region=c.ville_depart;return}
+  const I=R.coachInfo||{},O=fcOther();
+  U.coach.name=c.nom_affiche||I.name||UI0.coach.name;U.coach.tel=I.tel||(O?'':UI0.coach.tel);U.coach.email=I.email||(O?'':UI0.coach.email);U.coach.region=I.region||(O&&c.ville_depart)||UI0.coach.region;U.home.name=I.home||(O?(c.ville_depart||''):UI0.home.name)}
+/* l'identité de l'entraîneur (téléphone, courriel, région) est publiée avec ses tarifs */
+pubData=(old=>function(){const d=old();try{const U=ui();d.coachInfo={name:U.coach.name,tel:U.coach.tel,email:U.coach.email,region:U.coach.region,home:U.home.name}}catch(e){}return d})(pubData);
+applyPub=(old=>function(d){old(d);if(d&&d.coachInfo&&R.role!=='admin')R.coachInfo=d.coachInfo})(applyPub);
+loadCoachSide=(old=>async function(){await old();try{const {data}=await R.sb.from('coach_public').select('data').eq('coach_id',R.coachId).maybeSingle();if(data&&data.data&&!data.data.coachInfo){R.snap.pub=null;setTimeout(queueSync,80)}}catch(e){}})(loadCoachSide);
+loadMe=(old=>async function(){const r=await old();try{fcIdent()}catch(e){console.warn(e)}return r})(loadMe);
+resetLocal=(old=>function(){old();R.myCoaches=[];R.coachInfo=null})(resetLocal);
+coachify=(old=>function(h){let o=old(h);if(!fcOther())return o;const c=ui().coach,d=UI0.coach;if(!c.tel)o=o.split(d.tel).join('');if(!c.email)o=o.split(d.email).join('');return o})(coachify);
+header=(old=>function(u){let h=old(u);if(!fcOther())return h;const c=R.coachRow;
+  return h.replace(/<img class="brandmark"[^>]*>/,'').replace(/(<button class="brand"[\s\S]*?<span>)[^<]*(<\/span>)/,(m,a,b)=>a+esc([c.sport,ui().coach.region].filter(Boolean).join(' · '))+b)})(header);
+function fcPicker(){if(!R.on||R.role!=='client')return;const L=R.myCoaches||[];if(L.length<2)return;const side=document.querySelector('.v5side');if(!side||side.querySelector('.fcmc'))return;
+  const top=side.querySelector('.v5sidetop');const cur=(R.coachRow||{}).slug;if(!top)return;
+  top.insertAdjacentHTML('afterend',`<label class="fcmc"><span>Mon entraîneur</span><select data-fcmc aria-label="Choisir mon entraîneur">${L.map(c=>`<option value="${esc(c.slug)}" ${c.slug===cur?'selected':''}>${esc(c.nom)}${c.sport?' · '+esc(c.sport):''}</option>`).join('')}</select></label>`)}
+document.addEventListener('change',e=>{const t=e.target;if(t&&t.dataset&&'fcmc' in t.dataset)fcSwitch(t.value)});
+
+/* ---------- 4. Notifications cliquables ---------- */
+const nAny=id=>(db.notifs||[]).find(x=>x.id===id)||(db.cnotifs||[]).find(x=>x.id===id)||(st.pushes||[]).find(x=>x.id===id);
+function nTarget(n){if(!n||!R.on)return null;const k=String(n.kind||''),t=String(n.text||'');
+  const b=n.booking?db.bookings.find(x=>x.real&&x.sid===n.booking):null;const ref=(b&&b.ref)||(t.match(/\bCC-[A-Z0-9]{3,}\b/)||[])[0]||null;
+  if(n.conv||k==='Message')return {t:'msg',c:n.conv||null};
+  if(R.role==='admin'){if(k==='Abonnement')return {t:'nav',s:'abos'};if(k==='Plateforme')return {t:'nav',s:'fcpay'};return n.booking||ref?{t:'book',ref}:null}
+  if(k==='Document'||k==='Plan d\'entraînement')return {t:'p',p:'docs'};if(k==='Programme')return {t:'p',p:'muscu'};if(k==='Étirements')return {t:'p',p:'stretch'};if(k==='Abonnement')return {t:'p',p:'abo'};
+  return n.booking||ref||/frais de location/i.test(t)?{t:'book',ref:/frais de location/i.test(t)?null:ref}:null}
+const NLBL={msg:'Lire le message',nav:'Ouvrir',p:'Ouvrir'};
+const nLabel=(n,T)=>T.t==='book'?(/Interac/i.test(n.kind||'')&&R.role==='admin'?'Voir le virement à confirmer':/frais de location/i.test(n.text||'')?'Voir les frais':'Voir la réservation'):NLBL[T.t];
+function bookFilter(k,ref){const F=st[k]||(st[k]={w:{jour:1,sem:1,mois:1,plus:1},q:'',d:'',club:k==='v5ra'?0:1});if(ref){if(!F._w)F._w=F.w;F.w={jour:1,sem:1,mois:1,plus:1,past:1};F.q=ref;F.d=''}else if(F._w){F.w=F._w;delete F._w;F.q=''}}
+A.v5fclear=(old=>function(d){const F=st[d.k];if(F&&F._w){F.w=F._w;delete F._w}old(d)})(A.v5fclear);
+function fcGo(T){if(!T)return;st.modal=null;st.v5open=false;const adm=R.role==='admin';
+  if(adm)st.view='admin';else st.view='client';
+  if(T.t==='msg'){if(adm)A.nav({s:'msg'});else{st.ptab=null;A.v5go({t:'msg'})}if(T.c)A.convOpen({c:T.c});return}
+  if(T.t==='nav'){A.nav({s:T.s});return}
+  if(T.t==='p'){A.v5go({p:T.p});return}
+  if(adm){bookFilter('v5ra',T.ref);A.nav({s:'resa',keep:1})}else{bookFilter('v5rc',T.ref);A.v5go({t:'resa5',keep:1})}}
+/* revenir aux réservations par le menu : la liste complète (le filtre de la notification ne reste pas) */
+A.v5go=(old=>function(d){if(d&&d.t==='resa5'&&!d.keep)bookFilter('v5rc',null);return old(d)})(A.v5go);
+A.nav=(old=>function(d){if(d&&d.s==='resa'&&!d.keep)bookFilter('v5ra',null);return old(d)})(A.nav);
+A.fcN=d=>{const n=nAny(d.n);if(!n)return;const T=nTarget(n);n.read=true;st.pushes=(st.pushes||[]).filter(x=>x.id!==n.id);nRead([n.id]);save();
+  if(!T){render();return}
+  /* avis d'un autre entraîneur du client : on bascule d'abord vers lui */
+  if(R.role==='client'&&n.coach&&R.coachId&&n.coach!==R.coachId){const c=(R.myCoaches||[]).find(x=>x.id===n.coach);if(c){try{sessionStorage.setItem('fc-go',JSON.stringify(T))}catch(e){}fcSwitch(c.slug);return}}
+  fcGo(T)};
+/* chaque rangée reçoit son action et, dans la liste, le libellé « Voir… » */
+const clickable=(h,list,tag,label)=>{let i=0;return h.replace(new RegExp(`<div class="${tag}( [^"]*)?">([\\s\\S]*?)(?=<div class="${tag}[ "]|$)`,'g'),(m,c,rest)=>{const n=list[i++];const T=nTarget(n);if(!T)return m;
+  return `<div class="${tag}${c||''} fcgo" data-a="fcN" data-n="${esc(n.id)}" role="button" tabindex="0">`+(label?rest.replace('<small>',`<span class="fcgol">${esc(nLabel(n,T))} ›</span><small>`):rest)})};
+notifList=(old=>function(list,ackAct,allAct){const h=old(list,ackAct,allAct);return R.on?clickable(h,list||[],'notif',true):h})(notifList);
+pushesV=(old=>function(){const h=old();return R.on&&h?clickable(h,(st.pushes||[]).slice(0,3),'push',false):h})(pushesV);
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target&&e.target.classList&&e.target.classList.contains('fcgo')){e.preventDefault();e.target.click()}});
+
+/* ---------- 6. Invitation d'un entraîneur : renvoi du courriel ---------- */
+A.fcInvSend=d=>rpcDo('admin_invite_resend',{p_code:d.c},'Courriel d\'invitation renvoyé.');
+
+/* ---------- 7. Inviter un ami par courriel ---------- */
+const RFKEY='fc-ref';R.amis=null;
+{const q=new URLSearchParams(location.search);const c=q.get('ref'),x=q.get('retrait');
+  if(c&&/^[A-Za-z0-9-]{3,20}$/.test(c)){try{localStorage.setItem(RFKEY,c.toUpperCase())}catch(e){}R.refArrive=c.toUpperCase()}
+  if(x&&/^[0-9a-f-]{36}$/i.test(x))R.retrait=x;
+  if(c||x){q.delete('ref');q.delete('retrait');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash)}}
+newR=(old=>function(){const r=old();try{const c=localStorage.getItem(RFKEY);if(c&&!r.ref)r.ref=c}catch(e){}return r})(newR);
+async function loadAmis(){if(!R.on||R.role!=='client'||!R.coachId)return;try{const {data,error}=await R.sb.rpc('friend_invites_mine');if(error)throw error;R.amis=data||[]}catch(e){R.amis=missing(e)?false:[]}}
+function amiBox(u){if(R.amis===false)return '<p class="fcmsgoff" style="margin-top:14px">Exécutez d\'abord le script SQL des Corrections 3 dans Supabase.</p>';
+  if(R.amis===null){loadAmis().then(()=>{if(st.ptab==='parrain')render()})}
+  return `<section class="panel fcami" style="margin-top:14px"><span class="eyebrow">Inviter un ami</span><h3>Envoyer une invitation par courriel</h3>
+   <p class="small">FidjiCoach envoie le courriel pour vous, avec votre code <b>${esc(u.code||'')}</b> et un lien pour réserver. Votre nom y apparaît; votre ami peut refuser les prochaines invitations en un clic.</p>
+   <form id="fc3ami" class="grid" novalidate style="margin-top:10px"><label class="field"><span>Prénom de votre ami (facultatif)</span><input name="prenom" maxlength="40" autocomplete="off"></label>
+   <label class="field"><span>Courriel de votre ami</span><input name="email" type="email" required autocomplete="off"></label>
+   <div class="actions" style="grid-column:1/-1"><button class="btn btn-accent" type="submit">Envoyer l'invitation</button></div></form>
+   ${(R.amis||[]).length?`<div style="margin-top:12px">${R.amis.map(x=>`<div class="row"><span>${esc(x.email)}${x.prenom?' · '+esc(x.prenom):''}</span><span class="muted">Envoyée le ${esc(String(x.at).slice(0,10))}</span></div>`).join('')}</div>`:''}</section>`}
+/* page Parrainage du client : son code de 5 % et l'invitation par courriel (avant : page réservée aux entraîneurs, inaccessible au client en ligne) */
+function refClientV(u){return `<div class="two"><div class="panel"><span class="eyebrow">Votre code</span><h3 style="font-size:2.2rem;letter-spacing:.04em;overflow-wrap:anywhere">${esc(u.code||'')}</h3>
+   <p class="muted">Votre ami obtient 5 % de rabais sur sa première réservation. Dès que son cours est payé, vous recevez un crédit de 5 % sur votre prochain achat.</p>
+   <div class="copy" style="margin-top:12px"><input id="refCode" type="text" readonly value="${esc(u.code||'')}" aria-label="Votre code de parrainage"><button class="btn btn-sm btn-plain" data-a="copy" data-src="refCode">Copier</button></div></div>
+   <div class="panel"><span class="eyebrow">Votre crédit</span><h3>${u.credit?'5 % sur votre prochain achat':'Aucun crédit pour le moment'}</h3>
+   <p class="muted small">Un rabais à la fois, non cumulable. Le crédit s'applique automatiquement à votre prochaine réservation.</p></div></div>${amiBox(u)}`}
+parrainV=(old=>function(u){return R.on&&R.role==='client'&&u?refClientV(u):old(u)})(parrainV);
+addEventListener('submit',async e=>{const f=e.target;if(!f||f.id!=='fc3ami')return;e.preventDefault();e.stopImmediatePropagation();
+  const em=f.email.value.trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){flash('Entrez le courriel de votre ami.');return}
+  busyOn('Envoi de l\'invitation…');try{const {error}=await R.sb.rpc('friend_invite',{p_coach:R.coachId,p_email:em,p_prenom:f.prenom.value.trim()||null});if(error)throw error;await loadAmis();flash('Invitation envoyée à '+em+'.')}
+  catch(err){flash(missing(err)?'Exécutez d\'abord le script SQL des Corrections 3.':errTxt(err))}finally{busyOff();render()}},true);
+async function returnsC3(){if(R.retrait&&R.sb){const t=R.retrait;R.retrait=null;try{const {error}=await R.sb.rpc('friend_optout',{p_token:t});if(error)throw error;flash('C\'est noté : vous ne recevrez plus d\'invitations de FidjiCoach.')}catch(e){flash('Lien de retrait non valide.')}}
+  if(R.refArrive&&!R.on){flash('Code de parrainage '+R.refArrive+' enregistré : il sera proposé à votre première réservation.');R.refArrive=null}
+  let T=null;try{T=JSON.parse(sessionStorage.getItem('fc-go')||'null');sessionStorage.removeItem('fc-go')}catch(e){}if(T&&R.on)fcGo(T)}
+
+/* ---------- 9. Liste de tous les exercices ---------- */
+const XG=[['pec','Pectoraux'],['dos','Dos'],['epa','Épaules'],['bic','Biceps'],['tri','Triceps'],['avb','Avant-bras'],['abs','Abdominaux et tronc'],['fes','Fessiers'],['hip','Hanches'],['add','Adducteurs'],['qua','Quadriceps'],['isc','Ischio-jambiers'],['mol','Mollets'],['che','Chevilles et pieds'],['cou','Cou'],['cor','Corps entier et cardio'],['ski','Spécifique ski de fond']];
+const XGL=Object.fromEntries(XG);
+const ZG={ischios:['isc'],quadriceps:['qua'],mollets:['mol'],hanches:['hip'],fessiers:['fes'],adducteurs:['add'],dos:['dos'],epaules:['epa'],cou:['cou'],tronc:['abs'],poitrine:['pec'],abdos:['abs'],jambes:['qua','isc'],chevilles:['che'],pieds:['che']};
+const xlSt=s=>{const g=[...new Set(s.z.flatMap(z=>z==='bras'?(s.id==='wrist'?['avb']:['tri']):(ZG[z]||[])))];return {key:'s:'+s.id,id:s.id,k:'st',n:s.n,nFr:s.nFr,g,eq:'pdc',pat:s.pose,hold:`${s.sec} s${s.two?' par côté':''}`}};
+const xlAll=()=>allEx().map(x=>({key:'x:'+x.id,id:x.id,k:x.g.includes('mob')?'st':'mu',n:x.n,nFr:x.nFr||'',g:x.g.filter(g=>g!=='mob'),eq:x.eq,pat:x.pat,custom:x.custom})).concat(window.ST5.STRETCH.map(xlSt)).sort((a,b)=>a.n.localeCompare(b.n,'en'));
+function exosV(){const F=st.xl||(st.xl={g:'',t:'',eq:'',q:'',n:48});const q=deacc(String(F.q||'').toLowerCase());
+  const all=xlAll();const hit=all.filter(x=>(!F.g||x.g.includes(F.g))&&(!F.t||x.k===F.t)&&(!F.eq||x.eq===F.eq)&&(!q||deacc((x.n+' '+x.nFr+' '+x.g.map(g=>XGL[g]||'').join(' ')).toLowerCase()).includes(q)));
+  const show=hit.slice(0,F.n);
+  return `<p class="muted small">Tous les exercices de la plateforme : musculation, mobilité et étirements. Touchez un exercice pour voir le mannequin et les consignes.</p>
+   <div class="xltools"><label class="field"><span>Recherche (anglais ou français)</span><input type="search" id="xlQ" value="${esc(F.q||'')}" placeholder="Ex. : squat, plank, fentes…"></label>
+   <label class="field"><span>Équipement</span><select id="xlEq"><option value="">Tout l'équipement</option>${Object.entries(MEQ).map(([k,l])=>`<option value="${k}" ${F.eq===k?'selected':''}>${esc(l)}</option>`).join('')}</select></label></div>
+   <div class="chips" style="margin-bottom:8px" role="group" aria-label="Type">${[['','Tous les types'],['mu','Musculation'],['st','Étirements et mobilité']].map(([k,l])=>`<button class="chip ${F.t===k?'on':''}" data-a="xlT" data-v="${k}" aria-pressed="${F.t===k}">${l}</button>`).join('')}</div>
+   <div class="chips grpchips" role="group" aria-label="Groupe musculaire"><button class="chip ${!F.g?'on':''}" data-a="xlG" data-v="" aria-pressed="${!F.g}">Tous les groupes</button>${XG.map(([k,l])=>`<button class="chip ${F.g===k?'on':''}" data-a="xlG" data-v="${k}" aria-pressed="${F.g===k}">${esc(l)}</button>`).join('')}</div>
+   <p class="muted small" style="margin:10px 0" aria-live="polite">${hit.length} exercice${hit.length>1?'s':''}</p>
+   <div class="xlgrid">${show.map(x=>`<button class="xlcard" data-a="xlOpen" data-k="${esc(x.key)}"><span class="xlfig">${exAnim(x.pat,x.k==='st'&&x.key[0]==='s'?'':x.eq,'sm')}</span><span style="min-width:0"><b>${esc(x.n)}</b><small>${x.g.map(g=>esc(XGL[g]||MGRP[g]||'')).filter(Boolean).join(' · ')||'Échauffement'}</small><small>${x.key[0]==='s'?'Étirement · '+esc(x.hold):esc(MEQ[x.eq]||'')+(x.custom?' · personnalisé':'')}</small></span></button>`).join('')||'<div class="empty">Aucun exercice pour ces filtres.</div>'}</div>
+   ${hit.length>show.length?`<div class="actions" style="justify-content:center;margin-top:14px"><button class="btn btn-plain" data-a="xlMore">Afficher plus (${hit.length-show.length})</button></div>`:''}`}
+const xlSet=(k,v)=>{const F=st.xl||(st.xl={g:'',t:'',eq:'',q:'',n:48});F[k]=v;F.n=48;render()};
+Object.assign(A,{xlG(d){xlSet('g',d.v||'')},xlT(d){xlSet('t',d.v||'')},xlMore(){st.xl.n+=48;render()},
+  xlOpen(d){const[t,id]=[d.k.slice(0,1),d.k.slice(2)];if(t==='x'){A.exView({x:id});return}st.modal={kind:'xlStv',id};render()}});
+let xlT0=null;document.addEventListener('input',e=>{const t=e.target;if(!t||t.id!=='xlQ')return;(st.xl=st.xl||{g:'',t:'',eq:'',q:'',n:48}).q=t.value;st.xl.n=48;clearTimeout(xlT0);xlT0=setTimeout(()=>{const pos=t.selectionStart;render();const n=document.getElementById('xlQ');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}},300)});
+document.addEventListener('change',e=>{const t=e.target;if(t&&t.id==='xlEq')xlSet('eq',t.value)});
+MOD3.xlStv=function(u,m){const s=window.ST5.stById(m.id);if(!s)return ['',false];const x=xlSt(s);const lb=x.g.map(g=>XGL[g]).filter(Boolean).join(' · ')||'Échauffement';
+  return [`<span class="eyebrow">${esc(lb)}</span><h3>${esc(s.n)}</h3><div class="exbig f3d-host" data-f3d="pose:${esc(s.pose)}:${esc(x.g.join(','))}"><div class="f3d-fb">${exAnim(s.pose,'','lg')}</div></div>
+   <dl class="kv"><dt>Durée</dt><dd>${esc(x.hold)}</dd><dt>Comment faire</dt><dd>${esc(s.ins||'')}</dd>${s.feel?`<dt>À sentir</dt><dd>${esc(s.feel)}</dd>`:''}</dl>
+   <div class="actions" style="margin-top:14px"><button class="btn btn-plain" data-a="close">Fermer</button></div>`,false]};
+ASEC.exos={l:'Liste des exercices',i:'dumb',f:()=>exosV()};REL.exos=['muscu'];
+AGROUPS=(old=>function(){return old().map(([g,ks])=>g==='Clients'&&!ks.includes('exos')?[g,[...ks,'exos']]:[g,ks])})(AGROUPS);
+MENU.push(['p.exos','Liste des exercices','Exercise list','Sous-menu Mon profil',true]);
+PSUB.exos=['p.exos','dumb','Tous les exercices, par groupe musculaire'];
+pOk=(old=>function(p){return p==='exos'?true:old(p)})(pOk);
+/* client : la liste s'ouvre avec un forfait qui inclut la musculation ou les étirements; sinon, aperçu verrouillé */
+const exosOk=u=>!u||u.role==='admin'||(window.fcHasInc&&(fcHasInc(u.id,'muscu')||fcHasInc(u.id,'stretch')));
+function exosLocked(u){const P=(db.subPlans||[]).filter(p=>p.actif&&window.fcIncOf&&(fcIncOf(p).includes('muscu')||fcIncOf(p).includes('stretch')));
+  return `<section class="panel lockp"><span class="lockico" aria-hidden="true">🔒</span><div><b>Liste des exercices</b><p class="muted small">Les ${xlAll().length} exercices de la plateforme, avec le mannequin 3D et les consignes. Inclus dans ${P.length?P.map(p=>'« '+esc(p.name)+' » ('+money(p.price)+' par mois)').join(' ou '):'un forfait mensuel de musculation ou d\'étirements'}. Se débloque dès le paiement.</p>${mod('abos')?`<button class="btn btn-sm btn-accent" data-a="ptab" data-p="abo">Voir les forfaits</button>`:''}</div></section>
+  <h3 class="sech">Aperçu</h3><div class="xlgrid">${xlAll().filter(x=>['x_squat_au_poids_du_corps','x_pompes','x_planche','s:child','s:dog','x_fentes_avant'].includes(x.key.replace(/^x:/,''))).map(x=>`<div class="xlcard" style="cursor:default;opacity:.7"><span class="xlfig">${exAnim(x.pat,x.key[0]==='s'?'':x.eq,'sm')}</span><span><b>${esc(x.n)}</b><small>${x.g.map(g=>esc(XGL[g]||'')).filter(Boolean).join(' · ')}</small></span></div>`).join('')}</div>`}
+profileSub=(old=>function(u){if(st.ptab!=='exos')return old(u);return `<div class="subhead"><button class="backbtn" data-a="pHub">‹ ${esc(LB('tab.profil'))}</button><h2>Liste des exercices</h2></div>${exosOk(u)?exosV():exosLocked(u)}`})(profileSub);
+pBadge=(old=>function(u,p){if(p!=='exos')return old(u,p);return exosOk(u)?'':'<span class="pill neutral">🔒 Forfait</span>'})(pBadge);
+CLIENT_TABS.push('exos','parrain');
+
+/* ---------- Branchements ---------- */
+decorate=(old=>function(){old();try{fcPicker();
+    /* code de parrainage reçu dans une invitation : vérifié automatiquement à la réservation */
+    const Rq=st.R;if(R.on&&R.role==='client'&&Rq&&Rq.ref&&!Rq.refOk&&!Rq.refMsg&&!Rq.refTry&&document.getElementById('rRef')){Rq.refTry=1;A.applyRef()}
+    if(R.role==='admin'&&st.view==='admin'){const bar=document.querySelector('.fcreal');if(bar&&!bar.dataset.c3){bar.dataset.c3='1';bar.insertAdjacentHTML('beforeend',' <b>Corrections 3 :</b> notifications cliquables, pièces jointes dans les courriels et liste des exercices.')}}}
+  catch(e){console.warn(e)}})(decorate);
+bootReal=(old=>async function(){await old();try{await returnsC3()}catch(e){console.warn(e)}})(bootReal);
+
 if(msg)setTimeout(()=>flash(msg),300);
 try{render()}catch(e){console.error(e)}
 bootReal().then(stripeReturn).catch(e=>console.error(e));
@@ -21880,6 +22099,7 @@ const css=document.createElement('style');css.textContent=`
 .f3d-lie .f3d-stage{aspect-ratio:16/10;max-height:38vh;max-width:520px}
 .f3d-cap{display:none;text-align:center;margin:6px 0 4px}.f3d-host.f3d-on:not(.f3d-2d)>.f3d-cap{display:block}
 .f3d-intro .f3d-stage{max-height:42vh;max-width:300px}
+.f3d-lieimg{display:block;width:100%;height:auto;border-radius:16px}
 .f3d-lie.f3d-on:not(.f3d-2d),.f3d-intro.f3d-on:not(.f3d-2d){display:flex;flex-direction:column}.f3d-lie>.f3d-cap,.f3d-intro>.f3d-cap{order:2}
 .f3d-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .f3d-view{all:unset;cursor:pointer;position:absolute;left:10px;bottom:10px;z-index:2;font-size:11.5px;font-weight:600;background:rgba(14,39,71,.82);border:1px solid rgba(255,255,255,.2);padding:5px 10px;border-radius:999px;display:flex;gap:6px;align-items:center;color:#fff}
@@ -21908,15 +22128,31 @@ const S2=(L.th+L.sh)/40;
 const PRONE=new Set(['pushup','plank','climber','superman','birddog','catcow','legcurl','bear','burpee','roll','sideplank','copen',
  'st_pigeon','st_child','st_dog','st_cobra','st_frog','st_lizard','st_sphinx','st_thread','st_puppy','st_rock','st_dogpedal']);
 const PPx=s=>{const o={};String(s).trim().split(/\s+/).forEach(t=>{const m=t.match(/^([A-Za-z])(-?[\d.]+),(-?[\d.]+)$/);if(m){const k=m[1]===m[1].toLowerCase()?m[1].toUpperCase()+'2':m[1];o[k]=[Number(m[2]),Number(m[3])]}});return o};
+/* Direction du pied, en 3 temps :
+   1. le « devant » de la jambe : on part du devant du bassin, on suit la flexion de la hanche, puis celle du genou;
+   2. pied posé au sol → semelle à plat (si la cheville peut le permettre); sinon, cheville détendue;
+   3. jamais d'orteils sous le sol (couché sur le ventre : le pied s'allonge dans le prolongement du tibia).
+   J.toe = pointe du pied; J.sole = normale de la semelle (vers l'extérieur du pied). */
+const nrm2=v=>{const l=Math.hypot(v[0],v[1])||1;return [v[0]/l,v[1]/l]},dot2=(a,b)=>a[0]*b[0]+a[1]*b[1];
+const FOOT={dorsi:48,plantar:62,relax:24,max:86,lift:2};
+function footOf(J,k,tv,fw){const an=J['ankle'+k],kn=J['knee'+k],hip=J.hip;
+  const u=nrm2(tv),f0=nrm2(fw),t=nrm2([kn[0]-hip[0],kn[1]-hip[1]]);let s=nrm2([an[0]-kn[0],an[1]-kn[1]]);
+  const th=Math.atan2(dot2(t,f0),-dot2(t,u)),tf=[f0[0]*Math.cos(th)+u[0]*Math.sin(th),f0[1]*Math.cos(th)+u[1]*Math.sin(th)];
+  const ph=Math.atan2(-dot2(s,tf),dot2(s,t)),f=[tf[0]*Math.cos(ph)+t[0]*Math.sin(ph),tf[1]*Math.cos(ph)+t[1]*Math.sin(ph)];
+  /* appui sur les orteils (planche, pompe…) : genou décollé du sol, devant de la jambe vers le sol → la cheville monte au-dessus des orteils */
+  if(an[1]<12&&f[1]<-.6&&kn[1]>16){an[1]=13;s=nrm2([an[0]-kn[0],an[1]-kn[1]])}
+  const dir=a=>{const c=Math.cos(a*D),n=Math.sin(a*D);return [f[0]*c+s[0]*n,f[1]*c+s[1]*n]},sole=a=>{const c=Math.cos(a*D),n=Math.sin(a*D);return [s[0]*c-f[0]*n,s[1]*c-f[1]*n]};
+  let a=FOOT.relax;
+  if(an[1]<12&&Math.abs(f[0])>.45){const d=[Math.sign(f[0]),0];a=Math.atan2(dot2(d,s),dot2(d,f))/D;a=Math.max(-FOOT.dorsi,Math.min(FOOT.plantar,a))}
+  else while(a<FOOT.max&&an[1]+dir(a)[1]*L.foot<FOOT.lift)a+=2;
+  const d=dir(a);J['toe'+k]=[an[0]+d[0]*L.foot,an[1]+d[1]*L.foot];J['sole'+k]=sole(a)}
 function from2D(str,flip){const a=PPx(str);['E2','W2','K2','A2'].forEach(k=>{if(!a[k])a[k]=a[k[0]]});
   const c=k=>[((flip?100-a[k][0]:a[k][0])-50)*S2,(92-a[k][1])*S2+5];
   const J={hip:c('P'),sh:c('S'),head:c('H'),elbowN:c('E'),handN:c('W'),kneeN:c('K'),ankleN:c('A'),elbowF:c('E2'),handF:c('W2'),kneeF:c('K2'),ankleF:c('A2')};
   const tv=[J.sh[0]-J.hip[0],J.sh[1]-J.hip[1]],t=Math.atan2(tv[0],tv[1])/D,fw=[tv[1],-tv[0]];
   J.neck=[J.sh[0]+(J.head[0]-J.sh[0])*.3,J.sh[1]+(J.head[1]-J.sh[1])*.3];
-  for(const k of['N','F']){const kn=J['knee'+k],an=J['ankle'+k];let sx=an[0]-kn[0],sy=an[1]-kn[1];const l=Math.hypot(sx,sy)||1;sx/=l;sy/=l;
-    let px=-sy,py=sx;if(px*fw[0]+py*fw[1]<0){px=-px;py=-py}
-    if(an[1]<12&&Math.abs(sx)<.65){px=Math.sign(px)||1;py=0}
-    J['toe'+k]=[an[0]+px*L.foot,an[1]+py*L.foot]}
+  /* Corrections 3 (2 nov. 2026) : le pied suit l'anatomie de TOUTE la jambe (hanche → genou → cheville), dans toutes les positions */
+  for(const k of['N','F'])footOf(J,k,tv,fw);
   const contact=[];const g=k=>a[k][1]>=88;
   if(g('A'))contact.push('RightFoot');if(g('A2'))contact.push('LeftFoot');if(g('W'))contact.push('RightHand');if(g('W2'))contact.push('LeftHand');
   if(g('K'))contact.push('RightLeg');if(g('K2'))contact.push('LeftLeg');if(a.H[1]>=85)contact.push('Head');if(a.P[1]>=85)contact.push('Hips');
@@ -22052,6 +22288,8 @@ function onModel(gltf){
   const s=new THREE.Vector3();BN('Hips').parent.getWorldScale(s);E.toLocal=1/(s.y*100);E.K*=E.toLocal;E.F0*=E.toLocal;
   /* hauteur au repos de chaque point d'appui (m) */
   E.targets={Foot:wp(ft).y,ToeBase:wp(BN('LeftToeBase')).y,Hand:.035,Leg:.06,Head:.1,Hips:.09};
+  /* Corrections 3 : angle réel de l'os du pied sous la semelle, mesuré sur le mannequin */
+  {const a=wp(ft),b=wp(BN('LeftToeBase'));E.footA=Math.atan2(a.y-b.y,Math.hypot(a.z-b.z,a.x-b.x))}
 }
 
 /* orientation d'un os vers une direction du plan de profil */
@@ -22069,16 +22307,18 @@ function applyPose(J,t){
   for(const[S,k]of[['Right','N'],['Left','F']]){const lat=(S==='Left'?1:-1)*E.leftSign;
     aim(BN(S+'Arm'),BN(S+'ForeArm'),d2(J.sh,J['elbow'+k],lat*.16));aim(BN(S+'ForeArm'),BN(S+'Hand'),d2(J['elbow'+k],J['hand'+k],lat*.06));
     aim(BN(S+'UpLeg'),BN(S+'Leg'),d2(J.hip,J['knee'+k],lat*.03));aim(BN(S+'Leg'),BN(S+'Foot'),d2(J['knee'+k],J['ankle'+k],lat*.02));
-    /* l'os du pied du mannequin descend d'environ 30° vers les orteils : on compense pour garder la semelle à plat */
-    const fx=J['toe'+k][0]-J['ankle'+k][0],fy=J['toe'+k][1]-J['ankle'+k][1],c=Math.cos(30*D),s_=Math.sin(30*D);
-    aim(BN(S+'Foot'),BN(S+'ToeBase'),d2([0,0],[fx*c-fy*s_,fx*s_+fy*c]))}
+    /* Corrections 3 : l'os du pied descend de la cheville vers la base des orteils (environ 39° sous la semelle).
+       On vise donc la pointe du pied + cet angle du côté de la semelle (avant : toujours le même sens, d'où des orteils relevés). */
+    const d_=nrm2([J['toe'+k][0]-J['ankle'+k][0],J['toe'+k][1]-J['ankle'+k][1]]);
+    let n_=J['sole'+k];if(n_){n_=[n_[0]-d_[0]*dot2(n_,d_),n_[1]-d_[1]*dot2(n_,d_)];n_=nrm2(n_)}else{const sh=nrm2([J['ankle'+k][0]-J['knee'+k][0],J['ankle'+k][1]-J['knee'+k][1]]);n_=[d_[1],-d_[0]];if(dot2(n_,sh)<0)n_=[-n_[0],-n_[1]]}
+    const ca=Math.cos(E.footA),sa=Math.sin(E.footA);aim(BN(S+'Foot'),BN(S+'ToeBase'),d2([0,0],[d_[0]*ca+n_[0]*sa,d_[1]*ca+n_[1]*sa]))}
 }
 /* appuis au sol : pose les points d'appui sur le sol, et empêche de passer sous le sol */
 function groundFix(contact){const T=E.targets,y=nm=>BN(nm).getWorldPosition(V1).y;
   const pts=[];const pt=(nm,tg)=>pts.push([nm,y(nm)-tg]);
   for(const c of contact){if(/Foot$/.test(c)){pt(c,T.Foot);pt(c.replace('Foot','ToeBase'),T.ToeBase)}else if(/Hand$/.test(c))pt(c,T.Hand);else if(/Leg$/.test(c))pt(c,T.Leg);else if(c==='Head')pt('Head',T.Head);else if(c==='Hips')pt('Hips',T.Hips)}
   let d=pts.length?Math.min(...pts.map(p=>p[1])):Infinity;
-  const all=['LeftToeBase','RightToeBase','LeftFoot','RightFoot','LeftHand','RightHand','Head'].map(nm=>y(nm)-(/Toe/.test(nm)?T.ToeBase:/Foot/.test(nm)?T.Foot:/Hand/.test(nm)?.02:.09));
+  const all=['LeftToe_End','RightToe_End','LeftToeBase','RightToeBase','LeftFoot','RightFoot','LeftHand','RightHand','Head'].map(nm=>y(nm)-(/Toe/.test(nm)?T.ToeBase:/Foot/.test(nm)?T.Foot:/Hand/.test(nm)?.02:.09));
   const pen=Math.min(...all);if(!pts.length)d=Math.min(0,pen);else d=Math.min(d,pen);
   if(Math.abs(d)>1e-4){const hips=BN('Hips');const s=new THREE.Vector3();hips.parent.getWorldScale(s);hips.position.y-=d/s.y;E.rig.updateMatrixWorld(true)}}
 
@@ -22094,16 +22334,15 @@ function rufCfg(){/* Corrections 2 : même mannequin et même flexion que la mus
   c.clock=()=>({k:rufTick(),mir:false});c.ruf=true;return c}
 /* couché sur le dos (repos, P1, P2, P3) : le mannequin 3D allongé, immobile */
 function lieCfg(){const c=exAnimCfg('legraise',[]);if(!c)return null;c.clock=()=>({k:0,mir:false});
-  /* Corrections 3 : couché sur le dos, les pieds sont relâchés (pointe vers l'avant, légèrement relevée), pas dressés vers le ciel */
-  for(const P of [c.A,c.B])for(const k of['N','F']){const J=P.J,kn=J['knee'+k],an=J['ankle'+k];let sx=an[0]-kn[0],sy=an[1]-kn[1];const l=Math.hypot(sx,sy)||1;sx/=l;sy/=l;
-    const ta=-30*Math.PI/180,ux=-sy,uy=sx,up=uy>=0?1:-1;const dx=sx*Math.cos(ta)+ux*up*Math.sin(ta),dy=sy*Math.cos(ta)+uy*up*Math.sin(ta);J['toe'+k]=[an[0]+dx*L.foot,an[1]+dy*L.foot]}const xs=Object.values(c.A.J).map(p=>p[0]);
+  /* les pieds relâchés viennent maintenant de footOf() : la même règle pour toutes les positions */
+  const xs=['hip','sh','head','kneeN','ankleN','toeN'].map(k=>c.A.J[k][0]);
   c.bounds=[c.A.J,{a:[Math.min(...xs)-14,0],b:[Math.max(...xs)+18,0]}];c.muscles=[];return c}
 const easeC=k=>(1-Math.cos(2*Math.PI*k))/2;
-function lerpJ(A,B,k){const o={};for(const n in A.J)o[n]=[A.J[n][0]+(B.J[n][0]-A.J[n][0])*k,A.J[n][1]+(B.J[n][1]-A.J[n][1])*k];return o}
+function lerpJ(A,B,k){const o={};for(const n in A.J)o[n]=[A.J[n][0]+((B.J[n]||A.J[n])[0]-A.J[n][0])*k,A.J[n][1]+((B.J[n]||A.J[n])[1]-A.J[n][1])*k];return o}
 
 function frame(force){const c=E.cfg;if(!c||!E.camera)return;let x0=1e9,x1=-1e9,y1=0;
-  for(const J of c.bounds)for(const k in J){x0=Math.min(x0,J[k][0]);x1=Math.max(x1,J[k][0]);y1=Math.max(y1,J[k][1])}
-  x0-=14;x1+=14;y1+=L.head+14;const sc=E.K*.01;
+  for(const J of c.bounds)for(const k in J){if(k.startsWith('sole'))continue;x0=Math.min(x0,J[k][0]);x1=Math.max(x1,J[k][0]);y1=Math.max(y1,J[k][1])}
+  x0-=22;x1+=22;y1+=L.head+14;const sc=E.K*.01;
   const cz=(x0+x1)/2*sc,h=Math.max(y1,40)*sc,w=(x1-x0)*sc,vf=E.camera.fov*D,asp=E.camera.aspect||1;
   const dist=Math.max(h/(2*Math.tan(vf/2))/.8,w/(2*Math.tan(vf/2)*asp)/.88);
   const target=new THREE.Vector3(0,h*.5,cz);
@@ -22136,7 +22375,7 @@ function rufTick(){const {f,t}=rufState();const q=s=>E.stage.querySelector(`[dat
 function loop(now){E.raf=0;if(!E.stage||!E.stage.isConnected||!E.cfg)return;
   const c=E.cfg;
   if(c.kind==='ruf'){const k=rufTick();const p=lerp(RUF.A,RUF.B,k);applyPose(solve(p),p.t)}
-  else{let k,mir=false;if(c.clock){const q=c.clock();k=q.k;mir=q.mir}else{const ph=((now/1000)%c.cycle)/c.cycle;k=easeC(ph)}let J=lerpJ(c.A,c.B,k);const t=c.A.t+(c.B.t-c.A.t)*k;let ct=k<.5?c.A.contact:c.B.contact;if(mir){const M={};for(const n in J)M[n]=J[n];['elbow','hand','knee','ankle','toe'].forEach(p=>{M[p+'N']=J[p+'F'];M[p+'F']=J[p+'N']});J=M;ct=ct.map(x=>x.replace(/^Right/,'#').replace(/^Left/,'Right').replace(/^#/,'Left'))}applyPose(J,t);groundFix(ct)}
+  else{let k,mir=false;if(c.clock){const q=c.clock();k=q.k;mir=q.mir}else{const ph=((now/1000)%c.cycle)/c.cycle;k=easeC(ph)}let J=lerpJ(c.A,c.B,k);const t=c.A.t+(c.B.t-c.A.t)*k;let ct=k<.5?c.A.contact:c.B.contact;if(mir){const M={};for(const n in J)M[n]=J[n];['elbow','hand','knee','ankle','toe','sole'].forEach(p=>{M[p+'N']=J[p+'F'];M[p+'F']=J[p+'N']});J=M;ct=ct.map(x=>x.replace(/^Right/,'#').replace(/^Left/,'Right').replace(/^#/,'Left'))}applyPose(J,t);groundFix(ct)}
   for(const m of E.meshes)m.material.uniforms.uTime.value=now/1000;
   E.controls.update();E.composer.render();E.raf=requestAnimationFrame(loop)}
 
@@ -22162,8 +22401,19 @@ function mount(){
   if(key!==E.key||!E.cfg){const c=cfgFor(host);if(!c)return;E.cfg=c;E.key=key;E.userMoved=false;E.musKey=null;computeMuscles(c.muscles)}
   if(E.stage.parentNode!==host)host.insertBefore(E.stage,host.querySelector('.f3d-tog'));
   host.classList.add('f3d-on');
+  introLie();
   resize();frame(false);
   if(!E.raf)E.raf=requestAnimationFrame(loop)}
+/* Corrections 3 : page d'instructions du test au lever : le mannequin 3D couché, à côté des flexions.
+   Il n'y a qu'une seule vue WebGL dans l'app : le mannequin couché (immobile) est rendu une fois, puis affiché comme image. */
+function lieSnap(){if(E.lieImg)return E.lieImg;const c=lieCfg();if(!c)return null;const keep={cfg:E.cfg,moved:E.userMoved};const w=800,h=460;
+  try{E.cfg=c;computeMuscles([]);E.renderer.setSize(w,h,false);E.composer.setSize(w,h);E.camera.aspect=w/h;E.camera.updateProjectionMatrix();E.userMoved=false;frame(true);
+    applyPose(lerpJ(c.A,c.B,0),c.A.t);groundFix(c.A.contact);E.ring.visible=false;E.controls.update();E.composer.render();E.lieImg=E.canvas.toDataURL('image/jpeg',.9)}
+  catch(e){console.warn(e)}
+  finally{E.ring.visible=true;E.cfg=keep.cfg;E.userMoved=keep.moved;E.musKey=null;if(keep.cfg)computeMuscles(keep.cfg.muscles)}
+  return E.lieImg}
+function introLie(){const f=document.querySelector('.rdintro .rdintrofigs figure.rdfig:not(.rdfigsq)');if(!f||f.querySelector('.f3d-lieimg'))return;const u=lieSnap();const sv=f.querySelector('svg');if(!u||!sv)return;
+  const im=new Image();im.src=u;im.className='f3d-lieimg';im.alt='Mannequin couché sur le dos, pour les mesures du pouls';sv.replaceWith(im)}
 
 /* ---------- branchements dans la V7 ---------- */
 /* fiche exercice : la vue animée devient le lecteur 3D (le schéma 2D reste en secours) */
