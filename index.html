@@ -21463,7 +21463,7 @@ adminCands=(old=>function(){const C=old();
    Messages       : pièces jointes (photos, PDF…) dans le compartiment privé « fc-msg ».
    Corrections 3  : ☰ centré dans son rond; téléphone et courriel des participants dans le courriel de réservation;
                     pieds du mannequin 3D couché (test au lever). */
-const ETAPE8_VER='Étape 8 · 30 oct. 2026';
+const ETAPE8_VER='Étape 8 · version 2 · 2 nov. 2026';
 document.head.insertAdjacentHTML('beforeend',`<style>
 .fc8p{margin:0 0 16px}
 .fc8p .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
@@ -21771,7 +21771,13 @@ subMsgs=(old=>function(){old();if(!R.sb||!R.uid)return;if(R.mchan8){try{R.sb.rem
   try{R.mchan8=R.sb.channel('fc-msgs8-'+R.uid).on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages'},()=>refreshInbox()).subscribe()}catch(e){}})(subMsgs);
 
 /* ---------- 5. Branchements ---------- */
-CLIENT_TABS.push('abo','forme','nutri','louer');
+CLIENT_TABS.push('abo','forme','nutri','louer','forfaits','panier');
+/* Forfaits mensuels et panier (écrans de la V5) : en mode réel, « Payer » ouvre l'abonnement Stripe (un forfait à la fois) */
+A.v5pay=(old=>function(){if(!(realSubs()&&R.role==='client'))return old();const u=me();const C=((db.v5cart||{})[u.id])||[];if(!C.length)return;
+  const first=C[0];const p=(db.subPlans||[]).find(y=>y.id===first.id);if(!p){flash('Ce forfait n\'est plus offert.');return}
+  if(C.length>1)flash('Un abonnement à la fois : on commence par « '+p.name+' ». Les autres resteront dans votre panier.');
+  subCheckout(p.id)})(A.v5pay);
+A.v5trial=(old=>function(d){if(!(realSubs()&&R.role==='client'))return old(d);subCheckout(d.id)})(A.v5trial);
 loadCoachSide=(old=>async function(){await old();await loadSubs();
   /* première fois avec l'étape 8 : on publie l'inventaire de location et les forfaits mensuels */
   try{const {data}=await R.sb.from('coach_public').select('data').eq('coach_id',R.coachId).maybeSingle();const d=data&&data.data;
@@ -21801,6 +21807,7 @@ async function returns8(){const q=new URLSearchParams(location.search);const sx=
   if(R.on&&ab&&R.role==='client'){st.view='client';st.tab='profil';st.ptab='abo';
     if(ab==='ok'){busyOn('Activation de votre abonnement…');try{await fcInvoke('subscriptions',{action:'sync'})}catch(e){console.warn(e)}
       try{for(let t=0;t<6;t++){await loadSubs();if((db.subs||[]).some(s=>s.real&&s.userId===(me()||{}).id&&s.status==='actif'&&(s.payments||[]).length))break;await new Promise(r=>setTimeout(r,1500))}}finally{busyOff()}
+      try{const u=me();db.v5cart=db.v5cart||{};const C=db.v5cart[u.id]||[];const mine=(db.subs||[]).filter(x=>x.real&&x.userId===u.id&&x.status==='actif').map(x=>x.planId);db.v5cart[u.id]=C.filter(x=>!mine.includes(x.id));save()}catch(e){}
       flash('Abonnement activé. Merci! Les modules inclus sont débloqués.')}
     else if(ab==='annule')flash('Abonnement non complété : rien n\'a été facturé.');
     render()}
