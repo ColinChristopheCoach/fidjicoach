@@ -2122,7 +2122,7 @@ function modalV(u){
 
 /* ================= Actions ================= */
 function login(email,pass){const u=db.users.find(x=>(x.email||'').toLowerCase()===email.toLowerCase()&&x.pass===pass);if(!u)return false;db.session=u.id;save();return true}
-function afterLogin(){const u=me();st.authErr='';if(u.role==='admin'){checkRentalReminders();st.pushes=db.notifs.filter(n=>!n.read&&(n.ch||chan(n.kind)).includes('app')).slice(0,3)}else st.pushes=(db.cnotifs||[]).filter(n=>n.userId===u.id&&!n.read&&(n.ch||[]).includes('app')).slice(0,3);
+function afterLogin(){const u=me();st.authErr='';if(!u)return;if(u.role==='admin'){checkRentalReminders();st.pushes=db.notifs.filter(n=>!n.read&&(n.ch||chan(n.kind)).includes('app')).slice(0,3)}else st.pushes=(db.cnotifs||[]).filter(n=>n.userId===u.id&&!n.read&&(n.ch||[]).includes('app')).slice(0,3);
   if(st.after==='join'){st.view='join';st.after=null}else{st.view=u.role==='admin'?'admin':'client';st.tab=u.role==='admin'?'today':'accueil'}
   render();window.scrollTo(0,0)}
 const B=id=>db.bookings.find(x=>x.id===id);
@@ -20319,6 +20319,9 @@ addEventListener('submit',async e=>{const f=e.target;if(!f||f.id!=='authForm')re
   const email=document.getElementById('aEmail').value.trim(),pass=document.getElementById('aPass').value;
   if(!email||!pass){st.authErr='Entrez votre courriel et votre mot de passe.';render();return}
   const btn=f.querySelector('[type=submit]');if(btn){btn.disabled=true;btn.textContent='Un instant…'}
+  /* Corrections 3 : erreur « reading 'role' » à la première connexion. Le démarrage (vérification de l'ancienne session,
+     parfois lent) pouvait finir PENDANT la connexion et effacer le compte qui venait d'être chargé. On attend qu'il soit fini. */
+  try{if(R.bootP)await R.bootP}catch(e){}
   try{
     if(st.authMode==='login'){
       const {error}=await R.sb.auth.signInWithPassword({email,password:pass});if(error)throw error;
@@ -20751,7 +20754,7 @@ async function bootReal(){
     if(ev==='SIGNED_OUT'&&R.on){resetLocal();st.view='home';render()}});
   const {data:{session}}=await R.sb.auth.getSession();
   if(session){if(await loadMe()){stampTerms();if(st.view==='home'||st.view==='auth'){st.view=R.role==='admin'?'admin':'client';st.tab=R.role==='admin'?'today':(me().onboarded?'accueil':null)}render()}}
-  else{resetLocal();try{const {data:c}=await R.sb.from('coaches').select('id,owner_id,slug,nom_affiche,sport,ville_depart').eq('slug',fcSlug()).maybeSingle();R.coachId=c&&c.id;R.coachRow=c||null;if(R.coachId){await loadPub();fcIdent();render()}}catch(e){console.warn(e)}render()}}
+  else{if(!R.on&&!R.booting)resetLocal();try{const {data:c}=await R.sb.from('coaches').select('id,owner_id,slug,nom_affiche,sport,ville_depart').eq('slug',fcSlug()).maybeSingle();R.coachId=c&&c.id;R.coachRow=c||null;if(R.coachId){await loadPub();fcIdent();render()}}catch(e){console.warn(e)}render()}}
 
 
 /* ================= Étape 6 : notifications en ligne, comptabilité nette, mode Stripe =================
@@ -22055,6 +22058,19 @@ profileSub=(old=>function(u){if(st.ptab!=='exos')return old(u);return `<div clas
 pBadge=(old=>function(u,p){if(p!=='exos')return old(u,p);return exosOk(u)?'':'<span class="pill neutral">🔒 Forfait</span>'})(pBadge);
 CLIENT_TABS.push('exos','parrain');
 
+/* ---------- Page Connexion / Créer un compte : image de marque FidjiCoach seulement ----------
+   À cette étape, on ne sait pas encore chez quel entraîneur ira le client : ni logo ni coordonnées d'un entraîneur. */
+document.head.insertAdjacentHTML('beforeend','<style>.fcauthb .brand .fcai{display:block;width:38px;height:38px;flex:none}.fcauthb .brand b{letter-spacing:.02em}</style>');
+const authOnly=()=>st.view==='auth'&&!me();
+header=(old=>function(u){let h=old(u);if(!authOnly())return h;
+  return h.replace(/<header class="top">/,'<header class="top fcauthb">').replace(/<img class="brandmark"[^>]*>/,`<span class="fcai">${FIDJICOACH_ICON(38)}</span>`)
+    .replace(/(<button class="brand"[\s\S]*?<div>)<b>[^<]*<\/b><span>[^<]*<\/span>/,'$1<b>Fidji<em class="fcx">Coach</em></b><span>La plateforme des entraîneurs</span>')})(header);
+footerMini=(old=>function(){const h=old();if(!authOnly())return h;
+  return h.replace(/^(<footer[^>]*>)<span>[\s\S]*?<\/span>/,'$1<span>FidjiCoach · La plateforme des entraîneurs</span>')})(footerMini);
+authV=(old=>function(){let h=old();if(!authOnly())return h;const c=R.coachRow;
+  return h.replace(/<span>Votre espace pour réserver vos cours avec [^<]*<\/span>/,`<span>${c&&c.slug!==COACH_SLUG?'Votre espace pour réserver vos cours avec '+esc(c.nom_affiche):'Votre espace pour réserver vos cours et suivre votre entraînement'}</span>`)})(authV);
+coachify=(old=>function(h){let o=old(h);if(!authOnly())return o;const d=UI0.coach,c=ui().coach;return o.split(c.tel||d.tel).join('').split(c.email||d.email).join('')})(coachify);
+
 /* ---------- Branchements ---------- */
 decorate=(old=>function(){old();try{fcPicker();
     /* code de parrainage reçu dans une invitation : vérifié automatiquement à la réservation */
@@ -22065,7 +22081,7 @@ bootReal=(old=>async function(){await old();try{await returnsC3()}catch(e){conso
 
 if(msg)setTimeout(()=>flash(msg),300);
 try{render()}catch(e){console.error(e)}
-bootReal().then(stripeReturn).catch(e=>console.error(e));
+R.bootP=bootReal();R.bootP.then(stripeReturn).catch(e=>console.error(e));
 })();
 </script>
 <script>
