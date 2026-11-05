@@ -21938,14 +21938,14 @@ function fcIdent(){const c=R.coachRow;if(!c||!db.settings)return;const U=ui();
   if(R.realRole==='admin')return;
   if(R.realRole==='coach'){if(U.coach.name===UI0.coach.name&&c.nom_affiche)U.coach.name=c.nom_affiche;if(c.ville_depart&&U.coach.region===UI0.coach.region)U.coach.region=c.ville_depart;return}
   const I=R.coachInfo||{},O=fcOther();
-  U.coach.name=c.nom_affiche||I.name||UI0.coach.name;U.coach.tel=I.tel||(O?'':UI0.coach.tel);U.coach.email=I.email||(O?'':UI0.coach.email);U.coach.region=I.region||(O&&c.ville_depart)||UI0.coach.region;U.home.name=I.home||(O?(c.ville_depart||''):UI0.home.name)}
+  U.coach.name=c.nom_affiche||I.name||UI0.coach.name;U.coach.tel=I.tel||(O?'':UI0.coach.tel);U.coach.email=(O&&['colinchristophe.coach@outlook.com',UI0.coach.email].includes(I.email)?'':I.email)||(O?'':UI0.coach.email);U.coach.region=I.region||(O&&c.ville_depart)||UI0.coach.region;U.home.name=I.home||(O?(c.ville_depart||''):UI0.home.name)}
 /* l'identité de l'entraîneur (téléphone, courriel, région) est publiée avec ses tarifs */
 pubData=(old=>function(){const d=old();try{const U=ui();d.coachInfo={name:U.coach.name,tel:U.coach.tel,email:U.coach.email,region:U.coach.region,home:U.home.name}}catch(e){}return d})(pubData);
 applyPub=(old=>function(d){old(d);if(d&&d.coachInfo&&R.role!=='admin')R.coachInfo=d.coachInfo})(applyPub);
 loadCoachSide=(old=>async function(){await old();try{const {data}=await R.sb.from('coach_public').select('data').eq('coach_id',R.coachId).maybeSingle();if(data&&data.data&&!data.data.coachInfo){R.snap.pub=null;setTimeout(queueSync,80)}}catch(e){}})(loadCoachSide);
 loadMe=(old=>async function(){const r=await old();try{fcIdent()}catch(e){console.warn(e)}return r})(loadMe);
 resetLocal=(old=>function(){old();R.myCoaches=[];R.coachInfo=null})(resetLocal);
-coachify=(old=>function(h){let o=old(h);if(!fcOther())return o;const c=ui().coach,d=UI0.coach;if(!c.tel)o=o.split(d.tel).join('');if(!c.email)o=o.split(d.email).join('');return o})(coachify);
+coachify=(old=>function(h){let o=old(h);if(!fcOther())return o;const c=ui().coach,d=UI0.coach;if(!c.tel)o=o.split(d.tel).join('');if(!c.email){o=o.split(d.email).join('');o=o.split('colinchristophe.coach@outlook.com').join('')}return o})(coachify);
 header=(old=>function(u){let h=old(u);if(!fcOther())return h;const c=R.coachRow;
   return h.replace(/<img class="brandmark"[^>]*>/,'').replace(/(<button class="brand"[\s\S]*?<span>)[^<]*(<\/span>)/,(m,a,b)=>a+esc([c.sport,ui().coach.region].filter(Boolean).join(' · '))+b)})(header);
 function fcPicker(){if(!R.on||R.role!=='client')return;const L=R.myCoaches||[];if(L.length<2)return;const side=document.querySelector('.v5side');if(!side||side.querySelector('.fcmc'))return;
@@ -22182,8 +22182,10 @@ applyPub=(old=>function(d){old(d);if(!d||R.role==='admin')return;try{
     if(s.home&&Number(s.home.lat)&&Number(s.home.lon)){U.home={name:s.home.name||U.home.name,lat:s.home.lat,lon:s.home.lon}}}
   db.cm12=s&&s.sponsorsOn&&d.cm12?Object.assign({v:1,sp:[],set:{}},d.cm12):{v:1,sp:[],set:{t:'Merci à nos partenaires'}}}catch(e){console.warn(e)}})(applyPub);
 /* l'entraîneur revient : sa vitrine n'a jamais été publiée -> on la publie avec ses tarifs */
-function freshCoach9(){if(R.realRole!=='coach')return;const U=ui(),d=UI0.coach;const c=R.coachRow||{};
-  if(U.coach.tel===d.tel)U.coach.tel='';if(U.coach.email===d.email)U.coach.email='';
+const FOUNDER_MAILS=[UI0.coach.email,'colinchristophe.coach@outlook.com','colin.christophe42@gmail.com'];
+function freshCoach9(){if(R.realRole!=='coach')return;const U=ui(),d=UI0.coach;const c=R.coachRow||{};let chg=false;
+  if(U.coach.tel===d.tel){U.coach.tel='';chg=true}if(FOUNDER_MAILS.includes(U.coach.email)){U.coach.email='';chg=true}
+  if(chg)setTimeout(()=>{R.snap.pub=null;queueSync()},100);
   if(U.coach.region===d.region&&c.ville_depart)U.coach.region=c.ville_depart;if(U.home.name===UI0.home.name&&c.ville_depart)U.home.name=c.ville_depart;
   const a=U.about;if(!a||a.intro===ABOUT.intro)U.about={intro:'',parcours:[],photo:null,title:'Mon parcours'};
   const s=show9();if(!s.init9){s.init9=1;s.nl={on:false,text:''}}}
@@ -22245,7 +22247,7 @@ header=(old=>function(u){let h=old(u);if(platMode())return h;
   if(!u&&R.coachRow&&!/data-a="fcPlatform"/.test(h))h=h.replace('<nav><span class="navlinks">','<nav><span class="navlinks"><button class="btn btn-ghost btn-sm" data-a="fcPlatform" title="Tous les entraîneurs de FidjiCoach">‹ FidjiCoach</button>');
   return h})(header);
 /* l'entraîneur invité : ni le téléphone ni le courriel du fondateur dans ses textes tant qu'il n'a pas entré les siens */
-coachify=(old=>function(h){let o=old(h);if(!(R.on&&R.realRole==='coach'))return o;const c=ui().coach,d=UI0.coach;if(!c.tel)o=o.split(d.tel).join('');if(!c.email)o=o.split(d.email).join('');return o})(coachify);
+coachify=(old=>function(h){let o=old(h);if(!(R.on&&R.realRole==='coach'))return o;const c=ui().coach,d=UI0.coach;if(!c.tel)o=o.split(d.tel).join('');if(!c.email)FOUNDER_MAILS.forEach(m=>{o=o.split(m).join('')});return o})(coachify);
 /* accueil de la vitrine : politique d'annulation de l'entraîneur, infolettre (ou non), pas d'Interac chez les autres entraîneurs */
 homeV=(old=>function(){let h=old();if(platMode()||st.p3on||st.p8pub||st.rep)return h;const s=show9();
   try{
@@ -22254,6 +22256,8 @@ homeV=(old=>function(){let h=old();if(platMode()||st.p3on||st.p8pub||st.rep)retu
     if(s.nl&&s.nl.on===false)h=h.replace(/<section class="block"><div class="wrap"><div class="two" style="align-items:center"><div class="head" style="margin:0"><span class="eyebrow">Infolettre<\/span>[\s\S]*?<\/section>/,'');
     else if(s.nl&&s.nl.text)h=h.replace(/(<span class="eyebrow">Infolettre<\/span><h2>[^<]*<\/h2><p class="muted">)[^<]*(<\/p>)/,(m,a,b)=>a+esc(s.nl.text)+b);
     if(R.on?R.interacOk===false:fcOther())h=h.replace(/<div class="panel"><span class="eyebrow">Virement<\/span><h3>Interac[\s\S]*?<\/div><\/div><\/div><\/section>/,'</div></div></section>');
+    /* l'atelier de fartage n'apparaît que si le type de cours « fartage » est offert */
+    {const f=(db.ctypes||[]).find(c=>c.id==='fartage');if(!f||f.actif===false){h=h.replace(/<section class="block"><div class="wrap">\s*<div class="head"><span class="eyebrow">Atelier pratique<\/span>[\s\S]*?<\/section>/,'').replace('<span>Fartage</span>','')}}
   }catch(e){console.warn(e)}return h})(homeV);
 /* inscription à l'infolettre depuis la vitrine : enregistrée en ligne */
 addEventListener('submit',async e=>{const f=e.target;if(!f||f.id!=='nlForm'||!R.sb||!R.coachId||me())return;e.preventDefault();e.stopImmediatePropagation();
