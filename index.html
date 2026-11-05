@@ -22177,10 +22177,12 @@ pubData=(old=>function(){const d=old();try{if(R.role==='admin'){d.showcase9=show
   if(d.showcase9.sponsorsOn&&window.fcCm){const P=window.fcCm.P();d.cm12={v:1,set:P.set||{},sp:(P.sp||[]).filter(sp=>window.fcCm.live(sp)&&sp.vis&&(sp.vis.pub||sp.vis.home)).map(sp=>Object.assign({},sp,{logo:sp.logo&&String(sp.logo).length<160000?sp.logo:null,email:'',tel:'',note:'',amt:null}))}}}}catch(e){console.warn(e)}return d})(pubData);
 applyPub=(old=>function(d){old(d);if(!d||R.role==='admin')return;try{
   const s=d.showcase9||null;R.show=s;db.settings=db.settings||{};
-  if(s){const U=ui();if(s.intro||(s.parcours&&s.parcours.length)||s.photo){U.about={intro:s.intro||'',parcours:(s.parcours||[]).map(r=>[r[0],r[1]]),photo:s.photo||null,title:s.title||'Mon parcours'}}
-    else if(fcOther())U.about={intro:'',parcours:[],photo:null,title:'Mon parcours'};
-    if(s.logo)db.settings.brand={color:s.logo,white:s.logoWhite||s.logo,mark:s.logoWhite||s.logo};else if(fcOther())delete db.settings.brand;
+  const U=ui();if(s){if(s.intro||(s.parcours&&s.parcours.length)||s.photo){U.about={intro:s.intro||'',parcours:(s.parcours||[]).map(r=>[r[0],r[1]]),photo:s.photo||null,title:s.title||'Mon parcours'}}
+    else if(fcOther())U.about={intro:'',parcours:[],photo:null,title:'Mon parcours'};else delete U.about;
+    /* 9c : le logo suit l'entraîneur affiché — sans logo publié, on revient au logo d'origine (changement d'entraîneur) */
+    if(s.logo)db.settings.brand={color:s.logo,white:s.logoWhite||s.logo,mark:s.logoWhite||s.logo};else delete db.settings.brand;
     if(s.home&&Number(s.home.lat)&&Number(s.home.lon)){U.home={name:s.home.name||U.home.name,lat:s.home.lat,lon:s.home.lon}}}
+  else if(!fcOther()){delete db.settings.brand;delete U.about}
   db.cm12=s&&s.sponsorsOn&&d.cm12?Object.assign({v:1,sp:[],set:{}},d.cm12):{v:1,sp:[],set:{t:'Merci à nos partenaires'}}}catch(e){console.warn(e)}})(applyPub);
 /* l'entraîneur revient : sa vitrine n'a jamais été publiée -> on la publie avec ses tarifs */
 const FOUNDER_MAILS=[UI0.coach.email,'colinchristophe.coach@outlook.com','colin.christophe42@gmail.com'];
