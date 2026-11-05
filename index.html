@@ -22496,6 +22496,20 @@ decorate=(old=>function(){old();if(!R.on||R.role!=='admin')return;try{
     if(/^Rédiger$/.test(b.textContent.trim())&&!b.nextElementSibling?.classList?.contains('fc9x'))b.insertAdjacentHTML('afterend',`<button class="btn-xs fc9x" data-a="fcRepX" data-s="${esc(sid)}" title="Ignorer ce rapport" aria-label="Ignorer ce rapport">×</button>`)})}
   catch(e){console.warn(e)}})(decorate);
 
+/* ---------- 9b. Le courriel et le téléphone de la personne connectée ne sont jamais « remplacés » ----------
+   Le site remplace l'adresse par défaut de la plateforme par celle de l'entraîneur courant; si un client a justement cette
+   adresse, son propre courriel était remplacé à l'écran (formulaire, menu, réglages). On protège ses valeurs. */
+coachify=(old=>function(h){const u=me();if(!u||!R.on)return old(h);const d=UI0.coach;const prot=[];
+  const em=String(u.email||''),tel=String((u.fiche||{}).tel||'');
+  if(em&&em.toLowerCase()===d.email.toLowerCase())prot.push(em);if(tel&&tel===d.tel)prot.push(tel);
+  if(!prot.length)return old(h);
+  let o=h;const M='\u0002P\u0002';prot.forEach((v,i)=>{const re=new RegExp('(value="|>|Courriel : |Texto : )'+v.replace(/[.+?()[\]]/g,'\\$&'),'gi');o=o.replace(re,(m,a)=>a+M+i+M)});
+  o=old(o);prot.forEach((v,i)=>{o=o.split(M+i+M).join(esc(v))});return o})(coachify);
+/* lien d'activation expiré ou déjà utilisé (ex. : courriel « visité » par Outlook avant le clic) : on le dit clairement */
+{try{const m=(location.hash||'').match(/error_code=([^&]+)/);if(m){const code=decodeURIComponent(m[1]);history.replaceState(null,'',location.pathname+location.search);
+  setTimeout(()=>{R.info=code==='otp_expired'?'Ce lien d\'activation a expiré ou a déjà été utilisé. Si vous venez de créer votre compte, il est probablement déjà activé : connectez-vous avec votre courriel et votre mot de passe. Sinon, utilisez « Mot de passe oublié? » pour recevoir un nouveau lien.':'Ce lien n\'est plus valide ('+code+'). Connectez-vous ou demandez un nouveau lien.';
+    if(!me()){st.view='auth';st.authMode='login';st.authErr='';render()}else flash(R.info)},400)}}catch(e){}}
+
 /* ---------- 10. Branchements ---------- */
 syncAll=(old=>async function(){await old();try{repApply()}catch(e){}})(syncAll);
 /* plateforme : « Trouver un entraîneur » et « À propos » depuis les liens #trouver / #apropos */
