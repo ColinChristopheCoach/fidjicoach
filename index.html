@@ -1,6 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
-<title>FidjiCoach</title>
-<meta name="description" content="Cours de ski de fond à Québec avec Colin Christophe : classique et patin, privé, duo ou petit groupe, ateliers de fartage.">
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><title>FidjiCoach</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#13325b">
 <meta name="mobile-web-app-capable" content="yes">
@@ -10,6 +8,8 @@
 <meta name="application-name" content="FidjiCoach">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+</head><body>
+<meta name="description" content="Cours de ski de fond à Québec avec Colin Christophe : classique et patin, privé, duo ou petit groupe, ateliers de fartage.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -23513,7 +23513,7 @@ const installable=()=>!standalone()&&!PWA.installed&&(!!PWA.deferred||isMobile||
 function helpHtml(){const ios=isIOS,and=/Android/i.test(navigator.userAgent);
   const steps=ios?['Dans <b>Safari</b>, touchez le bouton <b>Partager</b> (le carré avec une flèche vers le haut, au bas de l\'écran).','Faites défiler et choisissez <b>Sur l\'écran d\'accueil</b>.','Touchez <b>Ajouter</b> : l\'icône FidjiCoach apparaît sur votre écran d\'accueil.','Ouvrez FidjiCoach <b>depuis cette icône</b> et connectez-vous de nouveau (une seule fois). Les notifications s\'activent ensuite dans Réglages.']
    :and?['Dans <b>Chrome</b>, touchez le menu <b>⋮</b> (en haut à droite).','Choisissez <b>Installer l\'application</b> (ou <b>Ajouter à l\'écran d\'accueil</b>), puis <b>Installer</b>.','Ouvrez FidjiCoach depuis son icône.']
-   :['Dans <b>Chrome</b> ou <b>Edge</b> : cliquez l\'icône d\'installation à droite de la barre d\'adresse (ou menu <b>⋮</b> › <b>Installer FidjiCoach</b>).','Dans <b>Safari</b> (Mac) : menu <b>Fichier</b> › <b>Ajouter au Dock</b>.','Firefox n\'installe pas les applications web : utilisez-y FidjiCoach dans un onglet, les notifications y fonctionnent quand même.'];
+   :['Dans <b>Chrome</b> (ordinateur ou Chromebook) : menu <b>⋮</b> › <b>Caster, enregistrer et partager</b> › <b>Installer la page en tant qu\'application</b> (ou l\'icône d\'installation à droite de la barre d\'adresse, quand elle apparaît). Dans <b>Edge</b> : menu <b>⋯</b> › <b>Applications</b> › <b>Installer ce site en tant qu\'application</b>.','Dans <b>Safari</b> (Mac) : menu <b>Fichier</b> › <b>Ajouter au Dock</b>.','Firefox n\'installe pas les applications web : utilisez-y FidjiCoach dans un onglet, les notifications y fonctionnent quand même.'];
   return `<div><h3>Installer FidjiCoach sur ${ios?'votre iPhone ou iPad':and?'votre Android':'cet ordinateur'}</h3><p class="muted small">L'application s'ouvre en plein écran, avec son icône, et peut vous envoyer des notifications${ios?' (iOS 16.4 ou plus récent)':''}.</p><ol>${steps.map(s=>`<li>${s}</li>`).join('')}</ol><div class="actions" style="margin-top:14px"><button class="btn btn-accent" data-a="pwaClose">Compris</button></div></div>`}
 A.pwaHelp=()=>{modal.innerHTML=helpHtml();modal.hidden=false};
 A.pwaClose=()=>{modal.hidden=true};
