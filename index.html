@@ -18950,6 +18950,7 @@ const CMVIS=[['pub','Page publique'],['home','Accueil'],['res','PDF des résulta
 function cmOf(c){if(c.cm12&&c.cm12.v)return c.cm12;c.cm12={v:1,sp:[],set:{t:'Merci à nos commanditaires'}};return c.cm12}
 function cmP(){if(db.cm12&&db.cm12.v)return db.cm12;db.cm12={v:1,sp:[],set:{t:'Merci à nos partenaires'}};return db.cm12}
 const cmLive=sp=>{const T=today();return sp.on!==false&&(!sp.from||T>=sp.from)&&(!sp.to||T<=sp.to)};
+window.fcCm={P:cmP,live:cmLive}; /* Étape 9 : commanditaires publiés avec la vitrine */
 const cmStat=sp=>{const T=today();if(sp.on===false)return ['Retiré','neutral'];if(sp.from&&T<sp.from)return ['À venir','neutral'];if(sp.to&&T>sp.to)return ['Terminé','neutral'];if(sp.to&&plus(T,30)>=sp.to)return ['Se termine bientôt','warn'];return ['Actif','ok']};
 const cmRank=sp=>CMLV.findIndex(x=>x[0]===sp.lvl);
 const cmSort=L=>L.slice().sort((a,b)=>cmRank(a)-cmRank(b)||(+b.amt||0)-(+a.amt||0)||String(a.n).localeCompare(String(b.n)));
@@ -19353,6 +19354,7 @@ function fidjiV(ph){const F=fidjiL();
   return `<section class="fidji nosport" id="fidji" data-notr="1"><svg class="fj-paws" viewBox="0 0 100 100" aria-hidden="true"><g transform="translate(26 78) rotate(-20)">${PAW}</g><g transform="translate(48 56) rotate(-20) scale(.9)">${PAW}</g><g transform="translate(70 32) rotate(-20) scale(.8)">${PAW}</g></svg>
    ${ph?`<figure class="fjfig"><img class="fjphoto" src="${PHOTO}" alt="Fidji, berger allemand, avec C&#111;lin Christ&#111;phe sur une piste de ski de fond"><figcaption>Fidji et C&#111;lin sur les pistes</figcaption></figure>`:''}<span class="eyebrow">${esc(F.eye)}</span><h3>${esc(F.t)}</h3>${F.p.map(x=>`<p>${esc(x)}</p>`).join('')}
    <div class="fj-sign"><svg width="22" height="22" viewBox="-10 -10 20 20" aria-hidden="true" style="color:var(--accent);flex:none">${PAW}</svg><span><b>${esc(F.mem)}</b><br>${F.sign}</span></div></section>`}
+window.fcFidjiV=fidjiV; /* Étape 9 : l'histoire du nom sur la page d'accueil de la plateforme */
 aboutV=(old=>function(teaser){const h=old(teaser);if(teaser)return h;
   const i=h.lastIndexOf('<div class="actions" style="margin-top:22px">');const ph=!fidjiOwn();return i<0?h.replace(/<\/main>$/,fidjiV(ph)+'</main>'):h.slice(0,i)+fidjiV(ph)+h.slice(i)})(aboutV);
 /* la photo de Colin et Fidji est déjà en haut de la page À propos seulement chez Colin, en ski de fond, sans photo personnalisée */
@@ -22088,6 +22090,413 @@ decorate=(old=>function(){old();try{fcPicker();
   catch(e){console.warn(e)}})(decorate);
 bootReal=(old=>async function(){await old();try{await returnsC3()}catch(e){console.warn(e)}})(bootReal);
 
+
+/* ================= Étape 9 · phase 1 (4 nov. 2026) : plateforme FidjiCoach, vitrines et entraîneurs invités =================
+   A. Parcours de l'entraîneur invité : la tuile « Entraîneur » de la page d'inscription devient une demande d'invitation;
+      l'administrateur l'approuve dans Finances › Paiements en ligne; le lien du courriel crée DIRECTEMENT le compte
+      entraîneur (fenêtre « Créer votre compte entraîneur »); mise en place guidée obligatoire (page « Mise en place »).
+   B. Site public FidjiCoach (sans entraîneur choisi) : accueil = À propos de la plateforme (histoire du nom Fidji,
+      fondateur); en-tête À propos / Trouver un entraîneur / Connexion; « Réserver » mène à Trouver un entraîneur.
+   C. Vitrine de chaque entraîneur (fidjicoach.ca/?entraineur=slug) : logo, photo de marque, histoire, tarifs, forfaits,
+      politique d'annulation, infolettre, commanditaires, ses Centres et sa Météo.
+   D. Création de compte chez l'entraîneur choisi : infolettre et phrase légale de CET entraîneur; conditions d'un
+      2e entraîneur acceptées avant la première réservation chez lui.
+   F. Corrections : « X » pour ignorer un rapport de cours (rapports partagés en ligne), « Fidji » clair en mode sombre,
+      (la case 2D/3D est dans le lecteur 3D, plus bas). */
+const E9_VER='Étape 9 · phase 1 · 4 nov. 2026';
+const BUCKET9='fc-brand';
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* F2 : le mot « Fidji » (marine) et le symbole deviennent clairs quand l'appareil est en couleurs sombres */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) :is(.powered:not(.dark) b,.authbrand b,.gbrand .gb b,b:has(>em.fcx)){color:var(--ink)!important}
+  :root:not([data-theme="light"]) .powered:not(.dark) svg [fill="#13325b"]{fill:var(--ink)}
+  :root:not([data-theme="light"]) .powered:not(.dark) svg [stroke="#13325b"]{stroke:var(--ink)}}
+:root[data-theme="dark"] :is(.powered:not(.dark) b,.authbrand b,.gbrand .gb b,b:has(>em.fcx)){color:var(--ink)!important}
+:root[data-theme="dark"] .powered:not(.dark) svg [fill="#13325b"]{fill:var(--ink)}
+:root[data-theme="dark"] .powered:not(.dark) svg [stroke="#13325b"]{stroke:var(--ink)}
+/* plateforme */
+.fc9top .brand .fcai{display:block;width:38px;height:38px;flex:none}.fc9top .brand .fcai svg{display:block}
+.fc9plat{display:grid;gap:26px}
+.fc9hero{background:var(--navy);color:var(--navy-ink);border-radius:18px;padding:34px 28px;display:grid;gap:14px}
+.fc9hero h1{font-size:clamp(2.4rem,6vw,3.6rem)}.fc9hero .lead{color:var(--navy-soft);max-width:46rem;font-size:1.1rem}
+.fc9hero .cta{display:flex;gap:10px;flex-wrap:wrap}
+.fc9cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.fc9card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:grid;grid-template-rows:auto 1fr}
+.fc9card .ph{aspect-ratio:16/9;background:var(--surface-2);display:grid;place-items:center;overflow:hidden}
+.fc9card .ph img{width:100%;height:100%;object-fit:cover;display:block}
+.fc9card .ph .lg{width:60%;max-height:70%;object-fit:contain}
+.fc9card .bd{padding:14px 16px 16px;display:grid;gap:6px;align-content:start}
+.fc9card .bd h3{font-size:1.45rem}.fc9card .bd p{color:var(--muted);font-size:.92rem}
+.fc9card .bd .actions{margin-top:6px}
+.fc9founder{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:2px 9px}
+.fc9logo{display:flex;align-items:center;gap:10px;min-height:44px}.fc9logo img{height:40px;width:auto;max-width:150px;object-fit:contain}
+.fc9tools{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:10px;margin-bottom:12px}@media (max-width:560px){.fc9tools{grid-template-columns:1fr}}
+.brandmark.fc9mark{height:34px;width:auto;max-width:120px;object-fit:contain;border-radius:6px}
+/* mise en place guidée */
+.fc9steps{display:grid;gap:12px}
+.fc9step{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;gap:10px}
+.fc9step .hd{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.fc9step .hd h3{font-size:1.25rem;display:flex;gap:8px;align-items:center}
+.fc9ok,.fc9no{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;font-size:.8rem;font-weight:700;flex:none}
+.fc9ok{background:var(--ok-soft);color:var(--ok)}.fc9no{background:var(--warn-soft);color:var(--warn)}
+.fc9step .prev{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.fc9step .prev img{max-height:90px;max-width:220px;object-fit:contain;border-radius:8px;background:var(--surface-2);padding:4px}
+.fc9step .prev img.dk{background:var(--navy)}.fc9step .prev img.photo{max-height:150px}
+.fc9prog{display:flex;gap:10px;align-items:center;background:var(--surface-2);border-radius:12px;padding:10px 14px;margin-bottom:14px;flex-wrap:wrap}
+.fc9prog b{font-family:var(--f-display);font-size:1.3rem}
+.fc9bar{flex:1;min-width:120px;height:8px;border-radius:999px;background:var(--line);overflow:hidden}.fc9bar i{display:block;height:100%;background:var(--ok)}
+.fc9note{font-size:.82rem;color:var(--muted)}
+.fc9step textarea{min-height:120px}
+.fc9x{margin-left:6px;border-radius:50%;width:28px;height:28px;padding:0;line-height:1;font-size:1rem}
+.fc9req .row{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
+.fc9req .row:first-of-type{border-top:0}
+.fc9terms{max-height:50vh;overflow:auto;white-space:pre-wrap;line-height:1.5;background:var(--surface-2);border-radius:10px;padding:12px 14px;font-size:.93rem}
+.fc9terms h4{margin:10px 0 4px}
+.fc9policy p{white-space:pre-wrap;margin:0 0 10px}.fc9policy h4{margin:12px 0 4px}.fc9policy p:last-child{margin-bottom:0}
+</style>`);
+
+/* ---------- 0. État : vitrine publiée, mode plateforme ---------- */
+R.show=null;R.setup=null;R.list=null;R.reports={};R.nlList=null;
+R.platform=false;try{R.platform=!localStorage.getItem(CKEY)}catch(e){R.platform=true}
+const platMode=()=>R.platform&&!me();
+const DEF9={nl:{on:true,text:'Ouverture des pistes, nouvelles dates de cours et conseils de fartage, quelques fois par saison.'},sponsorsOn:false};
+function show9(){if(R.on&&R.role==='admin'){const s=db.settings;if(!s.show9)s.show9={};const o=s.show9;if(!o.nl)o.nl=JSON.parse(JSON.stringify(DEF9.nl));return o}return R.show||{}}
+/* modèle des conditions de service et de la politique d'annulation (l'entraîneur les adapte dans Mise en place) */
+function terms9Default(){return TERMS.map(([h,p])=>h+'\n'+p).join('\n\n')}
+function cancel9Default(){return 'Vous pouvez annuler ou déplacer un cours vous-même dans votre compte. Toute annulation ou modification doit être faite au moins 48 heures à l\'avance.\n\n48 h ou plus à l\'avance : remboursement complet ou report du cours, selon votre préférence.\nMoins de 48 h à l\'avance : paiement non remboursable. Un report peut être offert à titre exceptionnel, selon les disponibilités.\nAbsence sans préavis : le cours est considéré comme dû et aucun remboursement ne sera accordé.\n\nEn cas d\'annulation du cours par l\'entraîneur (notamment pour des conditions météo non sécuritaires), vous choisissez entre un remboursement complet ou le report du cours à une autre date.'}
+const coachName9=()=>(R.coachRow&&R.coachRow.nom_affiche)||ui().coach.name||'votre entraîneur';
+/* texte libre -> HTML (titres sur une ligne, paragraphes) */
+function text9(t){return String(t||'').split(/\n{2,}/).map(p=>{const L=p.split('\n');if(L.length>1&&L[0].length<90&&!/[.!?:]$/.test(L[0].trim()))return `<h4>${esc(L[0])}</h4><p>${esc(L.slice(1).join('\n'))}</p>`;return `<p>${esc(p)}</p>`}).join('')}
+
+/* ---------- 1. Publication de la vitrine (avec les tarifs) et réception côté client ---------- */
+function showcasePub(){const s=show9();const a=ui().about||{};const U=ui();
+  return {logo:s.logo||null,logoWhite:s.logoWhite||null,photo:s.photo||null,intro:a.intro||'',title:a.title||'Mon parcours',
+    parcours:(a.parcours||[]).map(r=>[r[0]||'',r[1]||'']).filter(r=>r[0]||r[1]).slice(0,12),terms:s.terms||'',cancel:s.cancel||'',
+    nl:{on:!!(s.nl&&s.nl.on),text:(s.nl&&s.nl.text)||''},sponsorsOn:!!s.sponsorsOn,home:{lat:U.home.lat,lon:U.home.lon,name:U.home.name}}}
+pubData=(old=>function(){const d=old();try{if(R.role==='admin'){d.showcase9=showcasePub();
+  if(d.showcase9.sponsorsOn&&window.fcCm){const P=window.fcCm.P();d.cm12={v:1,set:P.set||{},sp:(P.sp||[]).filter(sp=>window.fcCm.live(sp)&&sp.vis&&(sp.vis.pub||sp.vis.home)).map(sp=>Object.assign({},sp,{logo:sp.logo&&String(sp.logo).length<160000?sp.logo:null,email:'',tel:'',note:'',amt:null}))}}}}catch(e){console.warn(e)}return d})(pubData);
+applyPub=(old=>function(d){old(d);if(!d||R.role==='admin')return;try{
+  const s=d.showcase9||null;R.show=s;db.settings=db.settings||{};
+  if(s){const U=ui();if(s.intro||(s.parcours&&s.parcours.length)||s.photo){U.about={intro:s.intro||'',parcours:(s.parcours||[]).map(r=>[r[0],r[1]]),photo:s.photo||null,title:s.title||'Mon parcours'}}
+    else if(fcOther())U.about={intro:'',parcours:[],photo:null,title:'Mon parcours'};
+    if(s.logo)db.settings.brand={color:s.logo,white:s.logoWhite||s.logo,mark:s.logoWhite||s.logo};else if(fcOther())delete db.settings.brand;
+    if(s.home&&Number(s.home.lat)&&Number(s.home.lon)){U.home={name:s.home.name||U.home.name,lat:s.home.lat,lon:s.home.lon}}}
+  db.cm12=s&&s.sponsorsOn&&d.cm12?Object.assign({v:1,sp:[],set:{}},d.cm12):{v:1,sp:[],set:{t:'Merci à nos partenaires'}}}catch(e){console.warn(e)}})(applyPub);
+/* l'entraîneur revient : sa vitrine n'a jamais été publiée -> on la publie avec ses tarifs */
+function freshCoach9(){if(R.realRole!=='coach')return;const U=ui(),d=UI0.coach;const c=R.coachRow||{};
+  if(U.coach.tel===d.tel)U.coach.tel='';if(U.coach.email===d.email)U.coach.email='';
+  if(U.coach.region===d.region&&c.ville_depart)U.coach.region=c.ville_depart;if(U.home.name===UI0.home.name&&c.ville_depart)U.home.name=c.ville_depart;
+  const a=U.about;if(!a||a.intro===ABOUT.intro)U.about={intro:'',parcours:[],photo:null,title:'Mon parcours'};
+  const s=show9();if(!s.init9){s.init9=1;s.nl={on:false,text:''}}}
+loadCoachSide=(old=>async function(){await old();try{freshCoach9()}catch(e){console.warn(e)}
+  try{const {data}=await R.sb.from('coach_public').select('data').eq('coach_id',R.coachId).maybeSingle();if(data&&data.data&&!data.data.showcase9){R.snap.pub=null;setTimeout(queueSync,80)}}catch(e){}
+  try{await loadSetup()}catch(e){console.warn(e)}try{await loadReports()}catch(e){console.warn(e)}})(loadCoachSide);
+resetLocal=(old=>function(){old();R.show=null;R.setup=null;R.reports={};R.nlList=null;R.forceSetup=false})(resetLocal);
+
+/* ---------- 2. Site public FidjiCoach (aucun entraîneur choisi) ---------- */
+A.fcPlatform=function(){try{localStorage.removeItem(CKEY)}catch(e){}busyOn('FidjiCoach…');location.replace(location.pathname)};
+A.pgo=d=>{st.view='home';st.pubPage=d.v||'apropos';st.modal=null;render();window.scrollTo(0,0)};
+A.fcAskInvite=function(){st.view='auth';st.authMode='signup';st.authWho='coach';st.authErr='';render();window.scrollTo(0,0)};
+render=(old=>function(){try{if(platMode()&&['apropos','centres','meteo'].includes(st.view)){st.view='home';st.pubPage='apropos'}}catch(e){}return old.apply(this,arguments)})(render);
+header=(old=>function(u){if(!platMode())return old(u);const p=st.view==='home'?(st.pubPage||'apropos'):'';
+  return `<header class="top fcauthb fc9top"><div class="wrap"><button class="brand" data-a="pgo" data-v="apropos"><span class="fcai">${FIDJICOACH_ICON(38)}</span><div><b>Fidji<em class="fcx">Coach</em></b><span>La plateforme des entraîneurs</span></div></button>
+  <nav><span class="navlinks"><button class="btn btn-ghost btn-sm ${p==='apropos'?'on':''}" data-a="pgo" data-v="apropos">À propos</button><button class="btn btn-ghost btn-sm ${p==='trouver'?'on':''}" data-a="pgo" data-v="trouver">Trouver un entraîneur</button></span>
+  <button class="btn btn-accent btn-sm" data-a="pgo" data-v="trouver">Réserver</button><button class="hicon uav" data-a="hLogin" aria-label="Connexion" title="Connexion">${ICO.user}</button></nav></div></header>`})(header);
+footerMini=(old=>function(){if(!platMode())return old();
+  return `<footer class="wrap muted small foot" style="padding-block:24px;border-top:1px solid var(--line)"><span>FidjiCoach · La plateforme des entraîneurs · Québec</span><span class="foot-legal"><button class="linkbtn" data-a="legal" data-d="privacy">Politique de confidentialité</button> · <button class="linkbtn" data-a="legal" data-d="contract">Contrat d'utilisation des entraîneurs</button> · <button class="linkbtn" data-a="fcAskInvite">Vous êtes entraîneur?</button></span></footer>`})(footerMini);
+A.bookNow=(old=>function(){if(platMode()){A.pgo({v:'trouver'});return}return old()})(A.bookNow);
+function platAboutV(){
+  return `<main class="wrap app fc9plat">
+  <section class="fc9hero"><span class="eyebrow" style="color:var(--navy-soft)">La plateforme des entraîneurs</span><h1>Fidji<em class="fcx">Coach</em></h1>
+    <p class="lead">Chaque entraîneur a sa page : son histoire, ses tarifs, ses disponibilités, ses centres et sa météo. Vous réservez et payez en ligne, vous échangez avec lui par messages et vous suivez votre entraînement, vos programmes et vos documents au même endroit.</p>
+    <div class="cta"><button class="btn btn-accent" data-a="pgo" data-v="trouver">Trouver un entraîneur</button><button class="btn btn-ghost" data-a="hLogin">Connexion</button></div></section>
+  <section class="two"><div class="panel"><span class="eyebrow">Pour les clients et les parents</span><h3>Un compte, votre entraîneur</h3><p class="muted">Vous choisissez votre entraîneur, puis vous créez votre compte chez lui. Réservations, paiements par carte, messages, documents, programmes de musculation et d'étirements, test au lever et plan d'entraînement : tout vous suit, sur le cellulaire comme à l'ordinateur.</p></div>
+    <div class="panel"><span class="eyebrow">Pour les entraîneurs</span><h3>Votre vitrine, vos clients, vos paiements</h3><p class="muted">FidjiCoach accueille les entraîneurs sur invitation. Vous recevez les paiements directement dans votre compte Stripe, vous publiez vos tarifs, vos conditions et votre politique d'annulation, et vous suivez vos athlètes.</p><p style="margin-top:10px"><button class="btn btn-sm btn-plain" data-a="fcAskInvite">Demander une invitation</button></p></div></section>
+  ${window.fcFidjiV?window.fcFidjiV(true):''}
+  <section class="panel" style="display:grid;gap:10px"><span class="eyebrow">Le fondateur</span><h3>Colin Christophe · entraîneur de ski de fond, Québec</h3><p class="muted">FidjiCoach est née sur les pistes : une plateforme pensée par un entraîneur, pour les entraîneurs et leurs athlètes. Colin y donne lui-même ses cours de ski de fond, en classique et en patin.</p>
+    <div class="actions"><button class="btn btn-accent btn-sm" data-a="fcCoachPick" data-s="${esc(COACH_SLUG)}">Voir la page de Colin</button><button class="btn btn-plain btn-sm" data-a="pgo" data-v="trouver">Tous les entraîneurs</button></div></section>
+  </main>`}
+async function loadList(){if(!R.sb||R.list==='loading')return;R.list='loading';
+  try{const {data,error}=await R.sb.rpc('coaches_public');if(error)throw error;R.list=Array.isArray(data)?data:[]}
+  catch(e){console.warn(e);R.list=missing(e)?'off':[]}
+  if(st.view==='home'&&st.pubPage==='trouver')render()}
+function findV(){const F=st.fq||(st.fq={q:'',sport:''});
+  if(R.list===null||R.list===undefined)loadList();
+  const L=Array.isArray(R.list)?R.list:[];const q=deacc(String(F.q||'').toLowerCase());
+  const sports=[...new Set(L.map(c=>c.sport).filter(Boolean))].sort();
+  const hit=L.filter(c=>(!F.sport||c.sport===F.sport)&&(!q||deacc((c.nom+' '+(c.region||'')+' '+(c.ville||'')+' '+(c.sport||'')).toLowerCase()).includes(q)));
+  const card=c=>`<article class="fc9card"><div class="ph">${c.photo?`<img src="${esc(c.photo)}" alt="" loading="lazy">`:c.logo?`<img class="lg" src="${esc(c.logo)}" alt="" loading="lazy">`:(c.founder?`<img src="${PHOTO}" alt="" loading="lazy">`:FIDJICOACH_ICON(64))}</div>
+    <div class="bd">${c.founder?'<span class="fc9founder">Fondateur de FidjiCoach</span>':''}<div class="fc9logo">${c.logo&&c.photo?`<img src="${esc(c.logo)}" alt="">`:''}<h3>${esc(c.nom)}</h3></div>
+    <p><b>${esc(c.sport||'')}</b>${c.region?' · '+esc(c.region):''}</p>${c.intro?`<p>${esc(c.intro.length>=260?c.intro.slice(0,257).replace(/\s+\S*$/,'')+'…':c.intro)}</p>`:''}
+    <div class="actions"><button class="btn btn-accent btn-sm" data-a="fcCoachPick" data-s="${esc(c.slug)}">Voir sa page et réserver</button></div></div></article>`;
+  return `<main class="wrap app fc9plat"><div><span class="eyebrow">FidjiCoach</span><h2 style="font-size:2.4rem;margin-top:6px">Trouver un entraîneur</h2><p class="muted" style="margin-top:6px;max-width:44rem">Choisissez votre entraîneur : sa page présente son histoire, ses tarifs, ses centres et sa politique d'annulation. Vous y créez votre compte et réservez.</p></div>
+  <div><div class="fc9tools"><label class="field"><span>Recherche (nom, région, ville)</span><input type="search" id="fc9q" value="${esc(F.q||'')}" placeholder="Ex. : Québec, Lévis, Mauricie…"></label>
+    <label class="field"><span>Sport</span><select id="fc9sport"><option value="">Tous les sports</option>${sports.map(s=>`<option ${F.sport===s?'selected':''}>${esc(s)}</option>`).join('')}</select></label></div>
+  ${R.list==='loading'||R.list===null?'<div class="empty">Chargement des entraîneurs…</div>':R.list==='off'?'<p class="fcmsgoff">Liste indisponible : exécutez le script SQL de l\'étape 9.</p>':hit.length?`<p class="muted small" aria-live="polite">${hit.length} entraîneur${hit.length>1?'s':''}</p><div class="fc9cards" style="margin-top:10px">${hit.map(card).join('')}</div>`:'<div class="empty">Aucun entraîneur pour cette recherche.</div>'}</div>
+  <p class="fc9note">Vous êtes entraîneur et vous voulez votre page ici? <button class="linkbtn" data-a="fcAskInvite">Demandez une invitation</button>.</p></main>`}
+homeV=(old=>function(){if(platMode())return (st.pubPage||'apropos')==='trouver'?findV():platAboutV();return old()})(homeV);
+let fc9qT=null;document.addEventListener('input',e=>{const t=e.target;if(!t||t.id!=='fc9q')return;(st.fq=st.fq||{q:'',sport:''}).q=t.value;clearTimeout(fc9qT);fc9qT=setTimeout(()=>{const pos=t.selectionStart;render();const n=document.getElementById('fc9q');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}},250)});
+document.addEventListener('change',e=>{const t=e.target;if(t&&t.id==='fc9sport'){(st.fq=st.fq||{q:'',sport:''}).sport=t.value;render()}});
+
+/* ---------- 3. Vitrine de l'entraîneur choisi ---------- */
+/* son logo dans l'en-tête (Corrections 3 l'enlevait chez les autres entraîneurs; il revient s'il a téléversé le sien) */
+header=(old=>function(u){let h=old(u);if(platMode())return h;
+  if(R.on&&R.realRole==='coach'&&!(db.settings.brand&&db.settings.brand.mark))h=h.replace(/<img class="brandmark"[^>]*>/,'');
+  if(fcOther()&&R.show&&R.show.logo&&!/class="brandmark/.test(h))h=h.replace(/(<button class="brand"[^>]*>)/,`$1<img class="brandmark fc9mark" src="${esc(R.show.logoWhite||R.show.logo)}" alt="">`);
+  if(!u&&R.coachRow&&!/data-a="fcPlatform"/.test(h))h=h.replace('<nav><span class="navlinks">','<nav><span class="navlinks"><button class="btn btn-ghost btn-sm" data-a="fcPlatform" title="Tous les entraîneurs de FidjiCoach">‹ FidjiCoach</button>');
+  return h})(header);
+/* l'entraîneur invité : ni le téléphone ni le courriel du fondateur dans ses textes tant qu'il n'a pas entré les siens */
+coachify=(old=>function(h){let o=old(h);if(!(R.on&&R.realRole==='coach'))return o;const c=ui().coach,d=UI0.coach;if(!c.tel)o=o.split(d.tel).join('');if(!c.email)o=o.split(d.email).join('');return o})(coachify);
+/* accueil de la vitrine : politique d'annulation de l'entraîneur, infolettre (ou non), pas d'Interac chez les autres entraîneurs */
+homeV=(old=>function(){let h=old();if(platMode()||st.p3on||st.p8pub||st.rep)return h;const s=show9();
+  try{
+    if(s.cancel&&s.cancel.trim()){h=h.replace(/<section class="block"><div class="wrap"><div class="head"><span class="eyebrow">À savoir<\/span><h2>Politique d'annulation<\/h2>[\s\S]*?<\/section>/,
+      `<section class="block"><div class="wrap"><div class="head"><span class="eyebrow">À savoir</span><h2>Politique d'annulation</h2></div><div class="panel fc9policy" data-notr="1" style="max-width:52rem">${text9(s.cancel)}</div>${s.terms&&s.terms.trim()?`<p class="muted small" style="margin-top:12px"><button class="linkbtn" data-a="terms">Lire les conditions de service de ${esc(coachName9())}</button></p>`:''}</div></section>`)}
+    if(s.nl&&s.nl.on===false)h=h.replace(/<section class="block"><div class="wrap"><div class="two" style="align-items:center"><div class="head" style="margin:0"><span class="eyebrow">Infolettre<\/span>[\s\S]*?<\/section>/,'');
+    else if(s.nl&&s.nl.text)h=h.replace(/(<span class="eyebrow">Infolettre<\/span><h2>[^<]*<\/h2><p class="muted">)[^<]*(<\/p>)/,(m,a,b)=>a+esc(s.nl.text)+b);
+    if(R.on?R.interacOk===false:fcOther())h=h.replace(/<div class="panel"><span class="eyebrow">Virement<\/span><h3>Interac[\s\S]*?<\/div><\/div><\/div><\/section>/,'</div></div></section>');
+  }catch(e){console.warn(e)}return h})(homeV);
+/* inscription à l'infolettre depuis la vitrine : enregistrée en ligne */
+addEventListener('submit',async e=>{const f=e.target;if(!f||f.id!=='nlForm'||!R.sb||!R.coachId||me())return;e.preventDefault();e.stopImmediatePropagation();
+  const em=(document.getElementById('nlEmail')||{}).value||'';const ok=(document.getElementById('nlOk')||{}).checked;
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em.trim())){flash('Entrez un courriel valide');return}if(!ok){flash('Cochez la case pour accepter de recevoir l\'infolettre');return}
+  busyOn('Inscription…');try{const {error}=await R.sb.rpc('newsletter_join',{p_coach:R.coachId,p_email:em.trim(),p_prenom:null});if(error)throw error;flash('Merci! Vous êtes abonné à l\'infolettre de '+coachName9()+'.');const i=document.getElementById('nlEmail');if(i)i.value=''}
+  catch(err){flash(missing(err)?'Infolettre indisponible : exécutez le script SQL de l\'étape 9.':errTxt(err))}finally{busyOff()}},true);
+/* conditions de service et politique d'annulation de l'entraîneur (bouton « conditions » et modale d'acceptation) */
+function terms9Body(){const s=show9();const n=coachName9();
+  return `<div class="fc9terms" data-notr="1"><h4 style="margin-top:0">Conditions de service de ${esc(n)}</h4>${text9(s.terms&&s.terms.trim()?s.terms:terms9Default())}<h4>Politique d'annulation</h4>${text9(s.cancel&&s.cancel.trim()?s.cancel:cancel9Default())}</div>
+  <p class="small muted" style="margin-top:10px">La plateforme FidjiCoach a aussi sa <button class="linkbtn" data-a="legal" data-d="privacy">politique de confidentialité</button> et son <button class="linkbtn" data-a="legal" data-d="contract">contrat d'utilisation</button>.</p>`}
+MOD3.fcTerms9=function(u,m){const n=coachName9();
+  return [`<span class="eyebrow">${esc(n)}</span><h3>Conditions de service et politique d'annulation</h3>${terms9Body()}
+  ${m.accept?`<label class="check2" style="margin-top:12px"><input id="fc9acc" type="checkbox"> <span>J'ai lu et j'accepte les conditions de service et la politique d'annulation de ${esc(n)}.</span></label>
+  <div class="actions"><button class="btn btn-accent" data-a="fcTerms9Ok">Accepter et continuer</button><button class="btn btn-plain" data-a="close">Annuler</button></div>`:'<div class="actions"><button class="btn btn-plain" data-a="close">Fermer</button></div>'}`,true]};
+A.terms=(old=>function(d){const s=show9();if(R.coachRow&&s.terms&&s.terms.trim()){st.modal={kind:'fcTerms9'};render();return}return old(d)})(A.terms);
+const termsOk9=()=>{if(!R.on||R.role!=='client'||!R.coachId)return true;const c=(R.myCoaches||[]).find(x=>x.id===R.coachId);return !!(c&&c.terms_at)};
+A.fcTerms9Ok=async function(){const ok=(document.getElementById('fc9acc')||{}).checked;if(!ok){flash('Cochez la case pour accepter les conditions.');return}
+  const m=st.modal||{};busyOn('Enregistrement…');
+  try{const {error}=await R.sb.rpc('accept_coach_terms',{p_coach:R.coachId});if(error)throw error;
+    const c=(R.myCoaches||[]).find(x=>x.id===R.coachId);if(c)c.terms_at=new Date().toISOString();st.modal=null;busyOff();
+    if(m.then==='book')A.book();else if(m.then==='rent')window.fcRentLong();else render()}
+  catch(e){busyOff();flash(missing(e)?'Exécutez d\'abord le script SQL de l\'étape 9.':errTxt(e))}};
+A.book=(old=>function(){if(R.on&&R.role==='client'&&st.R&&(!st.R.what||st.R.what==='cours')&&!termsOk9()){st.modal={kind:'fcTerms9',accept:true,then:'book'};render();return}return old.apply(this,arguments)})(A.book);
+if(window.fcRentLong)window.fcRentLong=(old=>function(){if(R.on&&R.role==='client'&&!termsOk9()){st.modal={kind:'fcTerms9',accept:true,then:'rent'};render();return}return old.apply(this,arguments)})(window.fcRentLong);
+
+/* ---------- 4. Création de compte chez l'entraîneur choisi ---------- */
+authV=(old=>function(){let h=old();if(me()||st.authMode==='login')return h;const w=st.authWho||'skieur';const s=show9();const n=coachName9();
+  if(w==='coach'){const F=st.fc9req||{};const v=k=>esc(F[k]||'');
+    const form=`<div class="v7pro"><div><span class="eyebrow">FidjiCoach pour les entraîneurs</span><h2>Demander une invitation</h2><p class="muted">FidjiCoach accueille les entraîneurs sur invitation. Laissez vos coordonnées : nous vous répondons par courriel. Si votre demande est acceptée, vous recevez un lien personnel qui crée votre compte entraîneur, puis une mise en place guidée (contrat, Stripe, logo, histoire, tarifs, disponibilités, conditions).</p></div>
+      <form id="fc9req" class="fs" novalidate><div class="grid2"><label class="field"><span>Votre nom <i>*</i></span><input name="nom" maxlength="80" autocomplete="name" value="${v('nom')}" required></label><label class="field"><span>Courriel <i>*</i></span><input name="email" type="email" autocomplete="email" value="${v('email')}" required></label>
+      <label class="field"><span>Sport</span><input name="sport" maxlength="60" value="${v('sport')||'Ski de fond'}"></label><label class="field"><span>Région</span><input name="region" maxlength="80" placeholder="Ex. : Québec, Lévis, Mauricie" value="${v('region')}"></label></div>
+      <label class="field"><span>Un mot sur votre pratique (facultatif)</span><textarea name="message" maxlength="1200" placeholder="Cours offerts, certifications, clientèle…">${v('message')}</textarea></label>
+      <div class="actions"><button class="btn btn-accent" type="submit">Envoyer ma demande</button></div></form>
+      <p class="small muted">Déjà invité? Ouvrez le lien reçu par courriel. Vous représentez un club? <button type="button" class="linkbtn" data-a="authWho" data-w="club">Voir l'offre pour les clubs</button>.</p></div>`;
+    return h.replace(/<div class="v7pro">[\s\S]*$/,form+'</div></main>')}
+  if(w!=='skieur')return h;
+  if(platMode()||!R.coachRow){return h.replace(/<form id="authForm"[\s\S]*?<\/form>/,`<div class="panel" style="display:grid;gap:10px"><span class="eyebrow">Avant de créer votre compte</span><h3>Choisissez d'abord votre entraîneur</h3><p class="muted">Votre compte est créé chez l'entraîneur avec qui vous réservez : vous acceptez ses conditions de service et sa politique d'annulation, et vous pouvez vous abonner à son infolettre.</p><div class="actions"><button class="btn btn-accent" data-a="pgo" data-v="trouver">Trouver un entraîneur</button></div></div>`)}
+  /* vitrine d'un entraîneur : sa phrase légale et son infolettre */
+  const hasT=!!(s.terms&&s.terms.trim());
+  h=h.replace(/<label class="check2"><input id="aTerms"[\s\S]*?<\/label>/,`<label class="check2"><input id="aTerms" type="checkbox"> <span>J'ai lu et j'accepte ${hasT?`les <button type="button" class="linkbtn" data-a="terms">conditions de service et la politique d'annulation de ${esc(n)}</button>`:`les <button type="button" class="linkbtn" data-a="terms">conditions de service de ${esc(n)}</button>`}, ainsi que la <button type="button" class="linkbtn" data-a="legal" data-d="privacy">politique de confidentialité</button> et le <button type="button" class="linkbtn" data-a="legal" data-d="contract">contrat d'utilisation</button> de FidjiCoach. <i>*</i></span></label>`);
+  if(s.nl&&s.nl.on===false)h=h.replace(/<label class="check2"><input id="aNews"[\s\S]*?<\/label>/,'');
+  else h=h.replace(/<label class="check2"><input id="aNews"[\s\S]*?<\/label>/,`<label class="check2"><input id="aNews" type="checkbox"> <span>Je veux recevoir l'infolettre de ${esc(n)} (facultatif, désabonnement en tout temps).</span></label>`);
+  return h})(authV);
+/* demande d'invitation : envoyée au serveur */
+addEventListener('submit',async e=>{const f=e.target;if(!f||f.id!=='fc9req')return;e.preventDefault();e.stopImmediatePropagation();
+  const v=k=>(f[k].value||'').trim();const F={nom:v('nom'),email:v('email'),sport:v('sport')||'Ski de fond',region:v('region'),message:v('message')};st.fc9req=F;
+  if(F.nom.length<3||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(F.email)){flash('Indiquez votre nom et un courriel valide.');return}
+  if(!R.sb){flash('Le service ne répond pas. Réessayez plus tard.');return}
+  busyOn('Envoi de votre demande…');
+  try{const {error}=await R.sb.rpc('coach_request',{p:F});if(error)throw error;st.fc9req=null;st.view='home';st.pubPage='apropos';render();window.scrollTo(0,0);
+    flash('Merci! Votre demande est envoyée : vous recevrez une réponse par courriel.')}
+  catch(err){flash(missing(err)?'Demande indisponible : le script SQL de l\'étape 9 n\'est pas exécuté.':errTxt(err))}finally{busyOff()}},true);
+/* le compte du client est créé chez l'entraîneur de la vitrine : l'infolettre et les conditions sont celles de cet entraîneur */
+function meta9(){const m={terms:true};const n=document.getElementById('aNews');m.newsletter=!!(n&&n.checked);if(R.coachRow&&R.coachRow.slug)m.coach=R.coachRow.slug;return m}
+bootReal=(old=>async function(){await old();try{if(R.sb&&R.sb.auth&&!R.sb.auth.fc9){const o=R.sb.auth.signUp.bind(R.sb.auth);R.sb.auth.fc9=true;
+  R.sb.auth.signUp=function(a){try{a=a||{};a.options=a.options||{};a.options.data=Object.assign({},a.options.data||{},a.options.data&&a.options.data.invite?{}:meta9())}catch(e){}return o(a)}}}catch(e){console.warn(e)}})(bootReal);
+/* client connecté : case « infolettre » = l'infolettre de CET entraîneur */
+loadMe=(old=>async function(){const r=await old();try{if(R.on&&R.role==='client'&&R.coachId){const c=(R.myCoaches||[]).find(x=>x.id===R.coachId);const u=me();if(c&&u&&typeof c.newsletter==='boolean'){u.newsletter=c.newsletter;R.snap[u.id]=snapOf(u)}}}catch(e){}return r})(loadMe);
+document.addEventListener('change',async e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.nl||!R.on||R.role!=='client'||!R.coachId)return;
+  try{const {error}=await R.sb.rpc('my_newsletter_set',{p_coach:R.coachId,p_on:!!t.checked});if(error)throw error;const c=(R.myCoaches||[]).find(x=>x.id===R.coachId);if(c)c.newsletter=!!t.checked}catch(err){console.warn(err)}});
+clientSetV=(old=>function(u){let h=old(u);if(!R.on)return h;const s=show9();
+  if(s.nl&&s.nl.on===false)h=h.replace(/<label class="toggle"><span>Recevoir l'infolettre de [\s\S]*?<\/label>/,`<p class="muted small">${esc(coachName9())} n'a pas d'infolettre pour l'instant.</p>`);
+  else if(s.nl&&s.nl.text)h=h.replace(/(Recevoir l'infolettre de [^<]*<br><span class="muted small">)[^<]*(<\/span>)/,(m,a,b)=>a+esc(s.nl.text)+' Désabonnement en tout temps.'+b);
+  return h})(clientSetV);
+
+/* ---------- 5. Le lien d'invitation crée directement le compte entraîneur ---------- */
+const iv9=document.createElement('div');iv9.className='fcq';iv9.hidden=true;
+iv9.innerHTML=`<form novalidate><button type="button" class="x" aria-label="Fermer" data-x>×</button><div><span class="eyebrow">Invitation FidjiCoach</span><h2>Créer votre compte entraîneur</h2><p class="small muted" data-i style="margin-top:6px"></p></div>
+<label class="field"><span>Courriel du compte (celui de l'invitation)</span><input name="email" type="email" readonly></label>
+<label class="field"><span>Mot de passe (8 caractères ou plus)</span><input name="pass" type="password" autocomplete="new-password" required></label>
+<div class="grid2"><label class="field"><span>Nom affiché à vos clients</span><input name="nom" maxlength="80" required></label><label class="field"><span>Sport</span><input name="sport" maxlength="60" value="Ski de fond"></label></div>
+<label class="field"><span>Ville de départ (frais de déplacement)</span><input name="ville" maxlength="80"></label>
+<label class="check2"><input type="checkbox" name="ok"> <span>J'ai lu et j'accepte le <button type="button" class="linkbtn" data-a="legal" data-d="contract">contrat d'utilisation de FidjiCoach</button> pour les entraîneurs (frais de la plateforme, paiements par Stripe Connect, confidentialité des clients) et sa <button type="button" class="linkbtn" data-a="legal" data-d="privacy">politique de confidentialité</button>.</span></label>
+<p class="small" data-err style="color:var(--bad)" hidden></p>
+<div class="actions"><button type="submit" class="btn btn-accent">Créer mon compte entraîneur</button><button type="button" class="btn btn-plain" data-x>Plus tard</button></div>
+<div class="ok small" data-done hidden></div></form>`;
+document.body.appendChild(iv9);
+const iv9Close=()=>{iv9.hidden=true;document.body.style.overflow=''};
+iv9.addEventListener('click',e=>{if(e.target.closest('[data-x]'))iv9Close()});
+iv9.querySelector('form').addEventListener('submit',async e=>{e.preventDefault();const F=e.target,er=F.querySelector('[data-err]');er.hidden=true;
+  if(F.pass.value.length<8){er.textContent='Choisissez un mot de passe d\'au moins 8 caractères.';er.hidden=false;return}
+  if(F.nom.value.trim().length<3){er.textContent='Indiquez le nom affiché à vos clients.';er.hidden=false;return}
+  if(!F.ok.checked){er.textContent='Acceptez le contrat d\'utilisation pour continuer.';er.hidden=false;return}
+  const btn=F.querySelector('[type=submit]');btn.disabled=true;
+  try{try{if(R.bootP)await R.bootP}catch(_){}
+    const {data,error}=await R.sb.auth.signUp({email:F.email.value.trim(),password:F.pass.value,options:{emailRedirectTo:location.origin+location.pathname,
+      data:{invite:iv9.dataset.c,nom_affiche:F.nom.value.trim(),sport:F.sport.value.trim()||'Ski de fond',ville:F.ville.value.trim(),contrat:true,terms:true}}});
+    if(error)throw error;
+    if(data.user&&Array.isArray(data.user.identities)&&!data.user.identities.length)throw new Error('Un compte existe déjà avec ce courriel. Connectez-vous : votre espace entraîneur sera créé à la connexion.');
+    try{localStorage.removeItem(IKEY)}catch(_){}
+    if(!data.session){const d=F.querySelector('[data-done]');d.textContent='Presque terminé! Ouvrez le courriel envoyé à '+F.email.value.trim()+' et cliquez sur le lien pour activer votre compte. Revenez ensuite vous connecter : la mise en place guidée commence.';d.hidden=false;btn.hidden=true;
+      st.view='auth';st.authMode='login';st.authErr='';R.info='Compte entraîneur créé. Activez-le avec le courriel reçu, puis connectez-vous ici.';render();return}
+    iv9Close();if(await loadMe())afterLogin()}
+  catch(err){er.textContent=fr(err.message).replace(/^Erreur : /,'');er.hidden=false;btn.disabled=false}});
+inviteFlow=(old=>async function(){let c=null;try{c=localStorage.getItem(IKEY)}catch(e){}if(!c||!R.sb)return;
+  if(R.on)return old();
+  const {data:info}=await R.sb.rpc('invite_info',{p_code:c});
+  if(!info||!info.valid){try{localStorage.removeItem(IKEY)}catch(e){}flash(info&&info.used?'Cette invitation a déjà été utilisée : connectez-vous.':'Ce lien d\'invitation n\'est plus valide.');return}
+  iv9.dataset.c=c;const F=iv9.querySelector('form');F.email.value=info.email||'';if(!F.nom.value)F.nom.value=info.nom||'';if(info.sport)F.sport.value=info.sport;if(info.region&&!F.ville.value)F.ville.value=info.region;
+  iv9.querySelector('[data-i]').textContent='Invitation pour '+info.email+'. Ce compte sera directement un compte entraîneur.';
+  F.querySelector('[data-done]').hidden=true;F.querySelector('[type=submit]').hidden=false;F.querySelector('[type=submit]').disabled=false;
+  st.view='auth';st.authMode='login';render();iv9.hidden=false;document.body.style.overflow='hidden';setTimeout(()=>F.pass.focus(),60)})(inviteFlow);
+
+/* ---------- 6. Mise en place guidée de l'entraîneur ---------- */
+async function loadSetup(){if(!R.sb||!R.uid||R.role!=='admin'||!R.coachId)return;try{const {data,error}=await R.sb.rpc('coach_setup',{p_coach:R.coachId});if(error)throw error;R.setup=data}catch(e){R.setup=missing(e)?{off:true}:R.setup;console.warn('Mise en place',e.message)}}
+const STEPS9=[['contrat','Contrat FidjiCoach'],['stripe','Compte Stripe (paiements par carte)'],['logo','Votre logo'],['photo','Votre photo de marque'],['histoire','Votre histoire'],['identite','Sport, région et coordonnées'],['tarifs','Vos tarifs'],['dispo','Vos disponibilités'],['conditions','Vos conditions de service'],['annulation','Votre politique d\'annulation'],['infolettre','Infolettre (facultatif)'],['commanditaires','Commanditaires et partenaires (facultatif)']];
+const REQ9=['contrat','stripe','logo','photo','histoire','identite','tarifs','dispo','conditions','annulation'];
+const stOk=k=>!!(R.setup&&R.setup[k]);
+const okTag=k=>stOk(k)?'<span class="fc9ok" aria-label="Fait">✓</span>':REQ9.includes(k)?'<span class="fc9no" aria-label="À faire">!</span>':'<span class="fc9ok" style="background:var(--surface-2);color:var(--muted)" aria-label="Facultatif">○</span>';
+function setupV(){if(!R.on)return '<div class="empty">Connectez-vous.</div>';if(R.setup&&R.setup.off)return '<p class="fcmsgoff">Exécutez d\'abord le script SQL de l\'étape 9 dans Supabase.</p>';
+  const s=show9();const a=ui().about||{};const U=ui();const c=R.coachRow||{};const done=REQ9.filter(stOk).length;const owner=R.realRole==='admin';
+  const I=R.pay&&R.pay.info||{};const rows=(a.parcours||[]).slice();while(rows.length<4)rows.push(['','']);
+  const step=(k,body,act)=>`<section class="fc9step" id="fc9-${k}"><div class="hd"><h3>${okTag(k)} ${esc(STEPS9.find(x=>x[0]===k)[1])}</h3>${act||''}</div>${body}</section>`;
+  return `<div class="fc9prog"><b>${done} / ${REQ9.length}</b><div class="fc9bar"><i style="width:${Math.round(done/REQ9.length*100)}%"></i></div><span class="small">${R.setup&&R.setup.listed?(owner?'Vous êtes le fondateur : votre page est toujours visible dans « Trouver un entraîneur ».':'Votre page est <b>visible</b> dans « Trouver un entraîneur ».'):'Votre page sera visible dans « Trouver un entraîneur » quand les 10 étapes obligatoires seront faites.'}</span></div>
+  <p class="muted" style="max-width:48rem;margin-bottom:14px">Tout ce que vos clients verront sur votre vitrine (fidjicoach.ca/?entraineur=${esc(c.slug||'')}). Les textes se publient quand vous touchez <b>Enregistrer et vérifier</b>; les images se publient dès leur téléversement.</p>
+  <form id="fc9setup" class="fc9steps" novalidate>
+  ${step('contrat',`<p class="small">${owner?'Vous êtes l\'exploitant de FidjiCoach : ce contrat est celui que les autres entraîneurs acceptent.':stOk('contrat')?'Contrat accepté'+(c.contrat_signe_at?' le '+esc(String(c.contrat_signe_at).slice(0,10)):'')+'.':'Lisez le contrat d\'utilisation de FidjiCoach pour les entraîneurs (frais de la plateforme, Stripe Connect, confidentialité des clients), puis acceptez-le.'}</p>`,
+    `<span class="actions"><button type="button" class="btn btn-sm btn-plain" data-a="legal" data-d="contract">Lire le contrat</button>${stOk('contrat')||owner?'':'<button type="button" class="btn btn-sm btn-accent" data-a="fc9contract">J\'accepte le contrat</button>'}</span>`)}
+  ${step('stripe',`<p class="small">${owner?'Vous êtes la plateforme : vos paiements arrivent directement dans votre compte Stripe, rien à faire ici.':stOk('stripe')?'Votre compte Stripe est prêt : vos clients peuvent payer par carte.':'Connectez votre compte Stripe pour recevoir les paiements par carte (quelques minutes, pièce d\'identité et compte bancaire).'}</p>`,
+    owner?'':`<span class="actions"><button type="button" class="btn btn-sm ${stOk('stripe')?'btn-plain':'btn-accent'}" data-a="fcStripe" data-x="${I.charges?'dashboard':'onboard'}">${I.charges?'Ouvrir mon tableau de bord Stripe':I.account?'Terminer la configuration Stripe':'Connecter mon compte Stripe'}</button><button type="button" class="btn btn-sm btn-plain" data-a="nav" data-s="fcpay">Paiements en ligne</button></span>`)}
+  ${step('logo',`<p class="small">Image PNG à fond transparent (ou JPEG, WebP, SVG). Le logo pour fond foncé est facultatif : il sert dans l'en-tête de votre vitrine et les sections sombres; sinon votre logo principal est utilisé.</p>
+    <div class="grid2"><label class="field"><span>Logo (fond clair) <i>*</i></span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-fc9up="logo"></label><label class="field"><span>Logo pour fond foncé (blanc, facultatif)</span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-fc9up="logoWhite"></label></div>
+    <div class="prev">${s.logo?`<img src="${esc(s.logo)}" alt="Logo">`:''}${s.logoWhite?`<img class="dk" src="${esc(s.logoWhite)}" alt="Logo pour fond foncé">`:''}${s.logo?`<button type="button" class="btn-xs" data-a="fc9rm" data-k="logo">Retirer le logo</button>`:''}${s.logoWhite?`<button type="button" class="btn-xs" data-a="fc9rm" data-k="logoWhite">Retirer le logo foncé</button>`:''}</div>`)}
+  ${step('photo',`<p class="small">Une photo de vous (ou de votre équipe) en action : elle ouvre votre page À propos et votre carte dans « Trouver un entraîneur ». Format paysage recommandé; elle est réduite automatiquement.</p>
+    <label class="field"><span>Photo de marque <i>*</i></span><input type="file" accept="image/png,image/jpeg,image/webp" data-fc9up="photo"></label>
+    <div class="prev">${s.photo?`<img class="photo" src="${esc(s.photo)}" alt="Photo de marque"><button type="button" class="btn-xs" data-a="fc9rm" data-k="photo">Retirer la photo</button>`:''}</div>`)}
+  ${step('histoire',`<label class="field"><span>Votre présentation (quelques phrases : qui vous êtes, ce que vous offrez, à qui) <i>*</i></span><textarea name="intro" maxlength="1500" placeholder="Ex. : Entraîneur certifié depuis 10 ans, j'accompagne les skieurs de tous les niveaux…">${esc(a.intro||'')}</textarea></label>
+    <label class="field"><span>Titre de votre parcours</span><input name="title" maxlength="60" value="${esc(a.title||'Mon parcours')}"></label>
+    <p class="small muted">Votre parcours, en quelques jalons (année ou titre, puis une ligne) :</p>
+    ${rows.slice(0,8).map((r,i)=>`<div class="grid2"><label class="field"><span>Jalon ${i+1}</span><input name="pt${i}" maxlength="60" value="${esc(r[0]||'')}" placeholder="Ex. : 2018"></label><label class="field"><span>Détail</span><input name="pd${i}" maxlength="200" value="${esc(r[1]||'')}" placeholder="Ex. : certification entraîneur niveau 2"></label></div>`).join('')}`,
+    `<span class="actions"><button type="button" class="btn btn-sm btn-plain" data-a="nav" data-s="perso">Page À propos complète</button></span>`)}
+  ${step('identite',`<div class="grid2"><label class="field"><span>Nom affiché à vos clients <i>*</i></span><input name="nom" maxlength="80" value="${esc(c.nom_affiche||U.coach.name||'')}"></label><label class="field"><span>Sport <i>*</i></span><input name="sport" maxlength="60" value="${esc(c.sport||'Ski de fond')}"></label>
+    <label class="field"><span>Région <i>*</i></span><input name="region" maxlength="80" value="${esc(U.coach.region||'')}" placeholder="Ex. : Québec et environs"></label><label class="field"><span>Ville de départ (frais de déplacement)</span><input name="ville" maxlength="80" value="${esc(c.ville_depart||U.home.name||'')}"></label>
+    <label class="field"><span>Téléphone</span><input name="tel" type="tel" maxlength="30" value="${esc(U.coach.tel||'')}"></label><label class="field"><span>Courriel affiché</span><input name="email" type="email" maxlength="120" value="${esc(U.coach.email||'')}"></label></div>`)}
+  ${step('tarifs',`<p class="small">${stOk('tarifs')?'Au moins un type de cours est publié avec ses prix.':'Créez au moins un type de cours avec ses prix (individuel, duo, petit groupe) dans Cours et niveaux.'}</p>`,`<span class="actions"><button type="button" class="btn btn-sm ${stOk('tarifs')?'btn-plain':'btn-accent'}" data-a="nav" data-s="offre">Cours et niveaux</button><button type="button" class="btn btn-sm btn-plain" data-a="nav" data-s="abos">Forfaits mensuels</button></span>`)}
+  ${step('dispo',`<p class="small">${stOk('dispo')?'Vos disponibilités à venir sont publiées.':'Ajoutez au moins une plage de disponibilité à venir dans votre Calendrier (ou une disponibilité récurrente).'}</p>`,`<span class="actions"><button type="button" class="btn btn-sm ${stOk('dispo')?'btn-plain':'btn-accent'}" data-a="nav" data-s="cal">Calendrier</button></span>`)}
+  ${step('conditions',`<p class="small">Vos conditions de service, affichées à la création de compte et acceptées par vos clients. Un modèle est proposé : adaptez-le (un titre sur une ligne, puis le texte; une ligne vide entre les sections). Faites-le relire par un avocat avant le passage en réel.</p>
+    <label class="field"><span>Conditions de service <i>*</i></span><textarea name="terms" maxlength="12000" style="min-height:220px">${esc(s.terms||'')}</textarea></label>`,
+    `<span class="actions">${s.terms?'':'<button type="button" class="btn btn-sm btn-plain" data-a="fc9tpl" data-k="terms">Partir du modèle</button>'}</span>`)}
+  ${step('annulation',`<p class="small">Votre politique d'annulation, affichée sur votre vitrine et à la création de compte.</p>
+    <label class="field"><span>Politique d'annulation <i>*</i></span><textarea name="cancel" maxlength="4000">${esc(s.cancel||'')}</textarea></label>`,
+    `<span class="actions">${s.cancel?'':'<button type="button" class="btn btn-sm btn-plain" data-a="fc9tpl" data-k="cancel">Partir du modèle</button>'}</span>`)}
+  ${step('infolettre',`<label class="toggle"><span>Offrir une infolettre à mes clients<br><span class="muted small">Case à la création de compte et formulaire sur votre vitrine. Vos abonnés : Clients › Infolettre.</span></span><input type="checkbox" name="nlon" ${s.nl&&s.nl.on!==false?'checked':''}></label>
+    <label class="field"><span>Ce que vous y envoyez (une phrase)</span><input name="nltext" maxlength="200" value="${esc((s.nl&&s.nl.text)||'')}" placeholder="${esc(DEF9.nl.text)}"></label>`)}
+  ${step('commanditaires',`<label class="toggle"><span>Afficher mes commanditaires et partenaires sur ma vitrine<br><span class="muted small">Ajoutez-les dans Plateforme › Commanditaires (logo, niveau, lien).</span></span><input type="checkbox" name="spon" ${s.sponsorsOn?'checked':''}></label>`,
+    `<span class="actions"><button type="button" class="btn btn-sm btn-plain" data-a="nav" data-s="comman">Commanditaires</button></span>`)}
+  <div class="actions" style="position:sticky;bottom:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px"><button class="btn btn-accent" type="submit">Enregistrer et vérifier</button><button type="button" class="btn btn-plain" data-a="fc9preview">Voir ma vitrine</button></div></form>`}
+ASEC.setup9={l:'Mise en place',i:'guide',f:()=>setupV()};REL.setup9=['offre','cal','fcpay','marque'];
+AGROUPS=(old=>function(){const g=old();if(!R.on||g.some(x=>x[1].includes('setup9')))return g;const i=g.findIndex(x=>x[0]==='');if(i>=0)g[i]=[g[i][0],[...g[i][1],'setup9']];else g.unshift(['',['setup9']]);return g})(AGROUPS);
+A.fc9tpl=d=>{const F=document.getElementById('fc9setup');if(!F)return;if(d.k==='terms'&&!F.terms.value.trim())F.terms.value=coachify(terms9Default());if(d.k==='cancel'&&!F.cancel.value.trim())F.cancel.value=cancel9Default();const el=F[d.k];if(el){el.focus();el.scrollIntoView({block:'center'})}};
+A.fc9preview=()=>{const c=R.coachRow;if(!c)return;window.open(location.origin+location.pathname+'?entraineur='+encodeURIComponent(c.slug),'_blank')};
+A.fc9contract=async function(){busyOn('Enregistrement…');try{const {error}=await R.sb.rpc('coach_contract_accept',{p_coach:R.coachId});if(error)throw error;if(R.coachRow)R.coachRow.contrat_signe_at=new Date().toISOString();await loadSetup();flash('Contrat accepté. Merci!')}catch(e){flash(errTxt(e))}finally{busyOff();render()}};
+A.fc9rm=async function(d){const s=show9();delete s[d.k];const b=db.settings.brand||{};if(d.k==='logo'){delete b.color;if(!s.logoWhite){delete b.white;delete b.mark}}if(d.k==='logoWhite'){if(s.logo){b.white=s.logo;b.mark=s.logo}else{delete b.white;delete b.mark}}if(d.k==='photo'){const a=ui().about;if(a)a.photo=null}
+  R.snap.pub=null;save();await pushChanges();await loadSetup();render()};
+/* images : réduites dans le navigateur, puis déposées dans le compartiment public fc-brand */
+async function shrink9(file,max,png){const bmp=await createImageBitmap(file);const k=Math.min(1,max/Math.max(bmp.width,bmp.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(bmp.width*k));c.height=Math.max(1,Math.round(bmp.height*k));
+  const g=c.getContext('2d');if(!png){g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height)}g.drawImage(bmp,0,0,c.width,c.height);if(bmp.close)bmp.close();
+  return await new Promise(r=>c.toBlob(r,png?'image/png':'image/jpeg',png?undefined:.86))}
+async function upload9(k,file){if(!R.on||!R.coachId)return;const png=k!=='photo';let blob=file;let ext=png?'png':'jpg';let type=png?'image/png':'image/jpeg';
+  if(file.type==='image/svg+xml'&&png){blob=file;ext='svg';type='image/svg+xml'}else{try{blob=await shrink9(file,png?800:1600,png)}catch(e){blob=file;ext=(file.type.split('/')[1]||'png').replace('jpeg','jpg');type=file.type}}
+  const path=R.coachId+'/'+k+'.'+ext;busyOn('Téléversement…');
+  try{const {error}=await R.sb.storage.from(BUCKET9).upload(path,blob,{contentType:type,upsert:true});if(error)throw error;
+    const url=SB_URL+'/storage/v1/object/public/'+BUCKET9+'/'+path+'?v='+Date.now();const s=show9();s[k]=url;
+    /* le logo sert aussi aux factures et aux documents de cet appareil */
+    const b=db.settings.brand=db.settings.brand||{};const dataUrl=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob)});
+    if(k==='logo'){b.color=dataUrl;if(!s.logoWhite){b.white=dataUrl;b.mark=dataUrl}}if(k==='logoWhite'){b.white=dataUrl;b.mark=dataUrl}
+    if(k==='photo'){const a=ui().about||(ui().about={intro:'',parcours:[],photo:null,title:'Mon parcours'});a.photo=url}
+    R.snap.pub=null;save();await pushChanges();await loadSetup();flash(k==='photo'?'Photo publiée.':'Logo publié.')}
+  catch(e){flash('Téléversement impossible : '+(missing(e)||/bucket/i.test(String(e&&e.message))?'exécutez le script SQL de l\'étape 9 (compartiment fc-brand).':errTxt(e)))}
+  finally{busyOff();render()}}
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.fc9up)return;const f=t.files&&t.files[0];t.value='';if(!f)return;if(f.size>8*1048576){flash('Image trop lourde (8 Mo au plus).');return}upload9(t.dataset.fc9up,f)});
+addEventListener('submit',async e=>{const f=e.target;if(!f||f.id!=='fc9setup')return;e.preventDefault();e.stopImmediatePropagation();
+  const v=k=>f[k]?String(f[k].value||'').trim():'';const s=show9();const U=ui();const a=U.about||(U.about={intro:'',parcours:[],photo:null,title:'Mon parcours'});
+  a.intro=v('intro');a.title=v('title')||'Mon parcours';const rows=[];for(let i=0;i<8;i++){if(f['pt'+i]||f['pd'+i]){const t=v('pt'+i),d=v('pd'+i);if(t||d)rows.push([t,d])}}a.parcours=rows;
+  s.terms=v('terms');s.cancel=v('cancel');s.nl={on:!!f.nlon.checked,text:v('nltext')};s.sponsorsOn=!!f.spon.checked;
+  U.coach.name=v('nom')||U.coach.name;U.coach.region=v('region');U.coach.tel=v('tel');U.coach.email=v('email');if(v('ville'))U.home.name=v('ville');
+  busyOn('Enregistrement et vérification…');
+  try{const upd={nom_affiche:v('nom')||undefined,sport:v('sport')||'Ski de fond',ville_depart:v('ville')||null};if(!upd.nom_affiche)delete upd.nom_affiche;
+    const {error}=await R.sb.from('coaches').update(upd).eq('id',R.coachId);if(error)throw error;if(R.coachRow)Object.assign(R.coachRow,upd);
+    R.snap.pub=null;save();await pushChanges();await loadSetup();
+    const miss=REQ9.filter(k=>!stOk(k));flash(miss.length?'Enregistré. Il reste '+miss.length+' étape'+(miss.length>1?'s':'')+' obligatoire'+(miss.length>1?'s':'')+'.':'Enregistré : votre mise en place est complète. Votre page est visible!')}
+  catch(err){flash('Enregistrement : '+errTxt(err))}finally{busyOff();render()}},true);
+/* premier passage d'un entraîneur invité : la mise en place s'ouvre; bandeau tant que la page n'est pas visible */
+loadMe=(old=>async function(){const r=await old();try{if(R.on&&R.realRole==='coach'&&R.setup&&!R.setup.off&&!R.setup.done)R.forceSetup=true}catch(e){}return r})(loadMe);
+function goSetup(){if(!R.forceSetup)return;R.forceSetup=false;st.view='admin';st.client=null;try{A.nav({s:'setup9'})}catch(e){}window.scrollTo(0,0);setTimeout(()=>flash('Bienvenue! Suivez la mise en place : votre page devient visible quand elle est terminée.'),300)}
+afterLogin=(old=>function(){old();setTimeout(goSetup,150)})(afterLogin);
+bootReal=(old=>async function(){await old();try{goSetup()}catch(e){}})(bootReal);
+decorate=(old=>function(){old();try{if(!R.on||R.role!=='admin'||st.view!=='admin')return;const app=document.getElementById('app');
+    if(R.setup&&!R.setup.off&&!R.setup.listed&&curSec()!=='setup9'){const m=app&&(app.querySelector('.admmain')||app.querySelector('main'));const miss=REQ9.filter(k=>!stOk(k)).length;
+      if(m&&!m.querySelector('.fc9ban'))m.insertAdjacentHTML('afterbegin',`<p class="fc9ban small" style="background:var(--warn-soft);border-radius:10px;padding:10px 14px;margin:0 0 14px">Votre page n'est pas encore visible dans « Trouver un entraîneur » : ${miss} étape${miss>1?'s':''} de la mise en place reste${miss>1?'nt':''} à faire. <button class="linkbtn" data-a="nav" data-s="setup9">Ouvrir la mise en place</button></p>`)}
+    const bar=document.querySelector('.fcreal');if(bar&&!bar.dataset.e9){bar.dataset.e9='1';bar.insertAdjacentHTML('beforeend',' <b>Étape 9 (phase 1) :</b> site FidjiCoach, vitrines, entraîneurs invités avec mise en place guidée, conditions et infolettre par entraîneur, rapports de cours en ligne.')}}
+  catch(e){console.warn(e)}})(decorate);
+
+/* ---------- 7. Administrateur : demandes d'invitation et visibilité des entraîneurs ---------- */
+function reqPanel(P){const L=(P.requests||[]);const nouv=L.filter(x=>x.status==='nouvelle'),old=L.filter(x=>x.status!=='nouvelle').slice(0,20);
+  const row=x=>`<div class="row"><span><b>${esc(x.nom)}</b> · ${esc(x.email)}<br><small class="muted">${esc(x.sport||'')}${x.region?' · '+esc(x.region):''} · reçue le ${esc(String(x.created).slice(0,10))}${x.status!=='nouvelle'?' · <b>'+(x.status==='approuvee'?'approuvée':'refusée')+'</b>'+(x.decided?' le '+esc(String(x.decided).slice(0,10)):''):''}</small>${x.message?`<br><small>${esc(x.message)}</small>`:''}</span>
+    ${x.status==='nouvelle'?`<span style="display:flex;gap:6px;align-items:end;flex-wrap:wrap"><label class="field" style="margin:0;width:110px"><span class="small">Frais (%)</span><input type="number" min="0" max="50" step="0.1" data-fc9fee="${esc(x.id)}" placeholder="${esc((P.settings||{}).fee_pct??10)}"></label><button class="btn btn-sm btn-accent" data-a="fc9ok" data-id="${esc(x.id)}">Approuver</button><button class="btn btn-sm btn-plain" data-a="fc9no" data-id="${esc(x.id)}">Refuser</button></span>`:''}</div>`;
+  return `<section class="panel fc8p fc9req"><span class="eyebrow">${nouv.length?nouv.length+' à traiter':'Aucune en attente'}</span><h3>Demandes d'invitation</h3>
+    <p class="small">Reçues par la page de création de compte (tuile « Entraîneur »). <b>Approuver</b> envoie automatiquement le courriel d'invitation : le lien crée directement le compte entraîneur, suivi de la mise en place guidée. <b>Refuser</b> envoie un courriel poli.</p>
+    ${nouv.map(row).join('')||'<p class="muted small">Aucune demande en attente.</p>'}${old.length?`<details style="margin-top:8px"><summary class="small muted">Demandes traitées (${old.length})</summary>${old.map(row).join('')}</details>`:''}</section>`}
+fcPayPage=(old=>function(){let h=old();if(!R.on||R.realRole!=='admin'||!R.pay.plat)return h;const P=R.pay.plat;
+  h=h.replace('<section class="panel fc8p"><span class="eyebrow">Sur invitation seulement</span>',reqPanel(P)+'<section class="panel fc8p"><span class="eyebrow">Sur invitation seulement</span>');
+  /* visibilité de chaque entraîneur */
+  const vis=(P.coaches||[]).filter(c=>c.role!=='admin');
+  if(vis.length)h+=`<section class="panel fc8p"><span class="eyebrow">Trouver un entraîneur</span><h3>Visibilité des entraîneurs</h3>${vis.map(c=>{const s=c.setup||{};const miss=REQ9.filter(k=>!s[k]);return `<div class="row"><span><b>${esc(c.nom)}</b> · ${esc(c.email)}<br><small class="muted">${c.listed?'<span class="fc8tag ok">Visible</span>':'<span class="fc8tag warn">Pas encore visible</span>'} ${miss.length&&!c.listed?'· à faire : '+miss.map(k=>esc((STEPS9.find(x=>x[0]===k)||[])[1]||k).toLowerCase()).join(', '):''}</small></span></div>`}).join('')}</section>`;
+  return h})(fcPayPage);
+A.fc9ok=d=>{const el=document.querySelector(`[data-fc9fee="${d.id}"]`);const x=el&&el.value.trim();const fee=x===''||x==null?null:Number(x.replace(',','.'));
+  if(!confirm('Approuver cette demande? L\'invitation part tout de suite par courriel.'))return;rpcDo('admin_request_decide',{p_id:d.id,p_ok:true,p_fee:fee},'Demande approuvée : invitation envoyée par courriel.')};
+A.fc9no=d=>{if(!confirm('Refuser cette demande? Un courriel poli sera envoyé.'))return;rpcDo('admin_request_decide',{p_id:d.id,p_ok:false,p_fee:null},'Demande refusée.')};
+/* avis « Plateforme » (demande d'invitation) : la rangée ouvre Paiements en ligne (déjà prévu par nTarget) */
+
+/* ---------- 8. Infolettre de l'entraîneur : abonnés en ligne ---------- */
+async function loadNl(){if(!R.on||R.role!=='admin'||!R.coachId)return;try{const {data,error}=await R.sb.rpc('coach_newsletter_list',{p_coach:R.coachId});if(error)throw error;R.nlList=data||[]}catch(e){R.nlList=missing(e)?false:[]}}
+nlPage=(old=>function(){let h=old();if(!R.on)return h;if(R.nlList===null){loadNl().then(()=>{if(curSec()==='nl')render()})}
+  const s=show9();const L=Array.isArray(R.nlList)?R.nlList:[];
+  const box=`<section class="panel" style="margin:0 0 16px"><span class="eyebrow">En ligne</span><h3>Abonnés de votre infolettre${L.length?' <small class="muted">'+L.filter(x=>!x.off).length+'</small>':''}</h3>
+    <p class="small">${s.nl&&s.nl.on!==false?'Vos clients cochent la case à la création de leur compte (ou dans Réglages), et les visiteurs s\'inscrivent sur votre vitrine.':'Votre infolettre est désactivée (Mise en place › Infolettre).'}</p>
+    ${R.nlList===false?'<p class="fcmsgoff">Exécutez le script SQL de l\'étape 9.</p>':R.nlList===null?'<p class="muted small">Chargement…</p>':L.length?`<div class="list" style="gap:6px;margin-top:8px">${L.map(x=>`<div class="invrow"><span><b>${esc(x.prenom||'')} ${esc(x.nom||'')}</b>${x.prenom||x.nom?'<br>':''}<small>${esc(x.email)} · ${x.source==='client'?'client':'vitrine'} · ${esc(String(x.at||'').slice(0,10))}${x.off?' · <b>désabonné</b>':''}</small></span></div>`).join('')}</div><p class="fc9note" style="margin-top:8px">Copiez les adresses dans votre outil d'envoi : <button class="linkbtn" data-a="fc9nlCopy">Copier les courriels</button></p>`:'<p class="muted small">Aucun abonné pour l\'instant.</p>'}</section>`;
+  const i=h.indexOf('<h3 class="sech">Abonnés</h3>');return i>=0?h.slice(0,i)+box+h.slice(i):h+box})(nlPage);
+A.fc9nlCopy=async()=>{const L=(Array.isArray(R.nlList)?R.nlList:[]).filter(x=>!x.off).map(x=>x.email);try{await navigator.clipboard.writeText(L.join(', '));flash(L.length+' courriel'+(L.length>1?'s':'')+' copié'+(L.length>1?'s':''))}catch(e){prompt('Copiez les courriels :',L.join(', '))}};
+
+/* ---------- 9. Rapports de cours : rédigés ou ignorés, en ligne ---------- */
+async function loadReports(){if(!R.sb||!R.uid||R.role!=='admin'||!R.coachId)return;try{const {data,error}=await R.sb.from('session_reports').select('session_id,report,ignored').eq('coach_id',R.coachId);if(error)throw error;R.reports={};(data||[]).forEach(r=>{R.reports[r.session_id]={report:r.report,ignored:!!r.ignored}})}catch(e){if(!missing(e))console.warn('Rapports',e.message)}}
+const repApply=()=>{if(!R.on||R.role!=='admin')return;(db.bookings||[]).forEach(b=>{if(!b.real)return;(b.sessions||[]).forEach(s=>{const r=R.reports[s.id];if(!r)return;if(r.report)s.report=r.report;else if(r.ignored)s.report={_ignored:1};s.repIgnored=r.ignored})})};
+loadBookings=(old=>async function(){await old();try{repApply()}catch(e){console.warn(e)}})(loadBookings);
+/* rapport rédigé : aussi en ligne */
+addEventListener('submit',e=>{const f=e.target;if(!f||f.id!=='repForm'||!R.on||R.role!=='admin'||!st.modal)return;const sid=st.modal.sid;const r={};f.querySelectorAll('[data-rp]').forEach(i=>{if(i.value.trim())r[i.dataset.rp]=i.value.trim()});
+  if(!Object.keys(r).length)return;R.reports[sid]={report:r,ignored:false};R.sb.rpc('session_report_set',{p_session:sid,p_report:r,p_ignored:false}).then(({error})=>{if(error)console.warn('Rapport en ligne',error.message)})},true);
+A.fcRepX=async function(d){const b=(db.bookings||[]).find(x=>(x.sessions||[]).some(s=>s.id===d.s));const s=b&&b.sessions.find(x=>x.id===d.s);if(!s)return;
+  s.report=s.report||{_ignored:1};s.repIgnored=true;R.reports[d.s]={report:s.report._ignored?null:s.report,ignored:true};save();render();flash('Rapport ignoré : il ne sera plus demandé.');
+  try{const {error}=await R.sb.rpc('session_report_set',{p_session:d.s,p_report:null,p_ignored:true});if(error)throw error}catch(e){flash(missing(e)?'Exécutez le script SQL de l\'étape 9 pour garder ce choix en ligne.':errTxt(e))}};
+decorate=(old=>function(){old();if(!R.on||R.role!=='admin')return;try{
+  document.querySelectorAll('button[data-a="report"][data-s]').forEach(b=>{const sid=b.dataset.s;const r=R.reports[sid];
+    if(r&&r.ignored&&!(r.report)){if(/Rédiger|Rapport/.test(b.textContent)&&!b.dataset.ig){b.dataset.ig='1';b.textContent='Rapport ignoré';b.classList.add('done')}return}
+    if(/^Rédiger$/.test(b.textContent.trim())&&!b.nextElementSibling?.classList?.contains('fc9x'))b.insertAdjacentHTML('afterend',`<button class="btn-xs fc9x" data-a="fcRepX" data-s="${esc(sid)}" title="Ignorer ce rapport" aria-label="Ignorer ce rapport">×</button>`)})}
+  catch(e){console.warn(e)}})(decorate);
+
+/* ---------- 10. Branchements ---------- */
+syncAll=(old=>async function(){await old();try{repApply()}catch(e){}})(syncAll);
+/* plateforme : « Trouver un entraîneur » et « À propos » depuis les liens #trouver / #apropos */
+{try{const hsh=(location.hash||'').replace('#','');if(platMode()&&(hsh==='trouver'||hsh==='apropos')){st.view='home';st.pubPage=hsh;history.replaceState(null,'',location.pathname+location.search)}}catch(e){}}
+
 if(msg)setTimeout(()=>flash(msg),300);
 try{render()}catch(e){console.error(e)}
 R.bootP=bootReal();R.bootP.then(stripeReturn).catch(e=>console.error(e));
@@ -22117,6 +22526,7 @@ const css=document.createElement('style');css.textContent=`
 .exbig.f3d-host.f3d-on:not(.f3d-2d){padding:0;background:none}
 .f3d-host.f3d-loading::after{content:"Chargement de la vue 3D…";position:absolute;right:8px;top:8px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--navy);color:var(--navy-ink);opacity:.85}
 .f3d-tog{all:unset;cursor:pointer;display:none;margin:6px auto 0;font-size:12px;font-weight:600;color:var(--muted);padding:4px 10px;border-radius:999px;border:1px solid var(--line)}
+.f3d-tog input{accent-color:var(--accent);vertical-align:-2px;margin:0 4px 0 0}
 .f3d-host.f3d-on .f3d-tog{display:table}
 .f3d-tog:focus-visible{outline:2px solid var(--accent)}
 .f3d-stage{position:relative;width:100%;aspect-ratio:4/5;max-height:58vh;margin:0 auto;background:#13325b;border-radius:16px;overflow:hidden;touch-action:none;color:#fff;font-family:var(--f-body)}
@@ -22412,12 +22822,21 @@ function cfgFor(host){const k=host.dataset.f3d;
   if(k.startsWith('rep:')){const[,pat,g]=k.split(':');const c=exAnimCfg(pat,(g||'').split(',').filter(Boolean));if(c&&window.fcRep)c.clock=()=>window.fcRep.clock();return c}
   if(k.startsWith('pose:')){const[,pat,g]=k.split(':');return exAnimCfg(pat,(g||'').split(',').filter(Boolean))}
   return null}
+/* Étape 9 : préférence 2D/3D par exercice et par utilisateur (gardée sur cet appareil) */
+const twoUser=()=>{try{return (window.fcReal&&window.fcReal.uid)||'local'}catch(e){return 'local'}};
+function twoPref(){try{return JSON.parse(localStorage.getItem('fc-2d:'+twoUser())||'{}')}catch(e){return {}}}
+function twoSet(k,v){try{const o=twoPref();if(v)o[k]=1;else delete o[k];localStorage.setItem('fc-2d:'+twoUser(),JSON.stringify(o))}catch(e){}}
 function mount(){
   const host=document.querySelector('[data-f3d^="rep:"]')||document.querySelector('[data-f3d]');
   if(!host){if(E.raf){cancelAnimationFrame(E.raf);E.raf=0}return}
-  if(!host.querySelector('.f3d-tog')){const b=document.createElement('button');b.type='button';b.className='f3d-tog';b.textContent=E.flat2d?'Voir en 3D':'Voir le schéma 2D (angles)';
-    b.addEventListener('click',e=>{e.stopPropagation();E.flat2d=!E.flat2d;host.classList.toggle('f3d-2d',E.flat2d);b.textContent=E.flat2d?'Voir en 3D':'Voir le schéma 2D (angles)';if(!E.flat2d){resize();if(!E.raf)E.raf=requestAnimationFrame(loop)}});
-    if(/^(ex|rep):/.test(host.dataset.f3d))host.appendChild(b)}
+  /* Étape 9 (F3) : case « Mannequin 2D » sous chaque exercice et étirement; choix mémorisé par exercice et par utilisateur */
+  const exKey=/^(ex|rep|pose):/.test(host.dataset.f3d)?host.dataset.f3d.replace(/^(ex|rep|pose):/,'').split(':')[0]:null;
+  if(exKey)E.flat2d=!!twoPref()[exKey];
+  if(exKey&&!host.querySelector('.f3d-tog')){const b=document.createElement('label');b.className='f3d-tog';
+    b.innerHTML=`<input type="checkbox" ${E.flat2d?'checked':''}> Mannequin 2D (schéma avec les angles)`;
+    b.addEventListener('click',e=>e.stopPropagation());
+    b.querySelector('input').addEventListener('change',e=>{E.flat2d=!!e.target.checked;twoSet(exKey,E.flat2d);host.classList.toggle('f3d-2d',E.flat2d);if(!E.flat2d){resize();if(!E.raf)E.raf=requestAnimationFrame(loop)}});
+    host.appendChild(b)}
   host.classList.toggle('f3d-2d',!!E.flat2d&&host.dataset.f3d!=='ruffier');
   if(E.state==='fail'){host.classList.add('f3d-fail');return}
   if(E.state!=='ready'){host.classList.add('f3d-loading');boot();return}
