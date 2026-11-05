@@ -8421,7 +8421,8 @@ ${JSON.stringify(aiCtx(uid))}
 Réponds seulement avec un objet JSON :
 {"message":"2 phrases pour l'athlète qui expliquent le choix","changements":[{"id":"...","action":"facile","raison":"..."}]}`}
 /* sans IA (aperçu hors de Claude) : règles de base */
-function ruleGen(uid){const u=userById(uid);const q=aiQ(u);const ty=TRTYPES();const t0=(q.types.find(t=>t!=='muscu')||ty[0][0]);const t1=(q.types.filter(t=>t!=='muscu')[1]||t0);const J=q.jours.slice().sort();const vol=Math.max(2,q.vol||4)*60;
+function ruleGen(uid){const r=ruleGen0(uid);return window.fcRuleHook?window.fcRuleHook(uid,r):r}
+function ruleGen0(uid){const u=userById(uid);const q=aiQ(u);const ty=TRTYPES();const t0=(q.types.find(t=>t!=='muscu')||ty[0][0]);const t1=(q.types.filter(t=>t!=='muscu')[1]||t0);const J=q.jours.slice().sort();const vol=Math.max(2,q.vol||4)*60;
   const wk=Math.min(4,q.horizon);const sem=[];for(let w=1;w<=wk;w++){const f=w===4?.7:1+.08*(w-1);const S=[];const free=J.filter(j=>j!==q.longue);const hard=free.length>=3?[free[0],free[Math.floor(free.length/2)+ (free.length>3?0:0)]]:[free[0]];
     J.forEach(j=>{if(j===q.longue)S.push({jour:j,int:'z2',type:t0,duree:Math.round(vol*.3*f/5)*5,titre:'Sortie longue en endurance',consigne:'Zone 2, rythme où l\'on peut parler'});
       else if(w<4&&hard.includes(j)&&hard.indexOf(j)===0)S.push({jour:j,int:'z4',type:t1,duree:Math.min(q.max,70),titre:(3+w)+' × 6 min au seuil, récup. 2 min',consigne:'Zone 4, régulier du début à la fin'});
@@ -22449,7 +22450,7 @@ bootReal=(old=>async function(){await old();try{goSetup()}catch(e){}})(bootReal)
 decorate=(old=>function(){old();try{if(!R.on||R.role!=='admin'||st.view!=='admin')return;const app=document.getElementById('app');
     if(R.setup&&!R.setup.off&&!R.setup.listed&&curSec()!=='setup9'){const m=app&&(app.querySelector('.admmain')||app.querySelector('main'));const miss=REQ9.filter(k=>!stOk(k)).length;
       if(m&&!m.querySelector('.fc9ban'))m.insertAdjacentHTML('afterbegin',`<p class="fc9ban small" style="background:var(--warn-soft);border-radius:10px;padding:10px 14px;margin:0 0 14px">Votre page n'est pas encore visible dans « Trouver un entraîneur » : ${miss} étape${miss>1?'s':''} de la mise en place reste${miss>1?'nt':''} à faire. <button class="linkbtn" data-a="nav" data-s="setup9">Ouvrir la mise en place</button></p>`)}
-    const bar=document.querySelector('.fcreal');if(bar&&!bar.dataset.e9){bar.dataset.e9='1';bar.insertAdjacentHTML('beforeend',' <b>Étape 9 (phase 1) :</b> site FidjiCoach, vitrines, entraîneurs invités avec mise en place guidée, conditions et infolettre par entraîneur, rapports de cours en ligne.')}}
+    const bar=document.querySelector('.fcreal');if(bar&&!bar.dataset.e9){bar.dataset.e9='1';bar.insertAdjacentHTML('beforeend',' <b>Étape 9 (phase 1) :</b> site FidjiCoach, vitrines, entraîneurs invités avec mise en place guidée, conditions et infolettre par entraîneur, rapports de cours en ligne. <b>Phase 2 :</b> programmes adaptés aux blessures et aux objectifs, Trouver un entraîneur pour les clients, suppression de compte, mots de passe.')}}
   catch(e){console.warn(e)}})(decorate);
 
 /* ---------- 7. Administrateur : demandes d'invitation et visibilité des entraîneurs ---------- */
@@ -22509,6 +22510,256 @@ coachify=(old=>function(h){const u=me();if(!u||!R.on)return old(h);const d=UI0.c
 {try{const m=(location.hash||'').match(/error_code=([^&]+)/);if(m){const code=decodeURIComponent(m[1]);history.replaceState(null,'',location.pathname+location.search);
   setTimeout(()=>{R.info=code==='otp_expired'?'Ce lien d\'activation a expiré ou a déjà été utilisé. Si vous venez de créer votre compte, il est probablement déjà activé : connectez-vous avec votre courriel et votre mot de passe. Sinon, utilisez « Mot de passe oublié? » pour recevoir un nouveau lien.':'Ce lien n\'est plus valide ('+code+'). Connectez-vous ou demandez un nouveau lien.';
     if(!me()){st.view='auth';st.authMode='login';st.authErr='';render()}else flash(R.info)},400)}}catch(e){}}
+
+
+/* ================= Étape 9 · phase 2 (5 nov. 2026) =================
+   P.  Mots de passe : confirmation à la création du compte (client et entraîneur), bouton « voir » sur tous les champs.
+   G1. Client suivi par plusieurs entraîneurs : « Trouver un entraîneur » dans son menu, « Me retirer de cet entraîneur ».
+   G2. Supprimer son compte depuis l'app (client ou entraîneur), confirmation en écrivant SUPPRIMER.
+   G3. Lien d'activation et de mot de passe oublié en format « token_hash » (insensible aux scanneurs de courriel).
+   E.  Programme de musculation, routine d'étirements et plan bâtis selon les blessures, les objectifs et les données
+       probantes (approche physio-kinésiologue et entraîneur d'élite; aucun avis médical). */
+const E9B_VER='Étape 9 · phase 2 · 5 nov. 2026';
+document.head.insertAdjacentHTML('beforeend',`<style>
+.pwwrap{position:relative;display:block}.pwwrap input{padding-right:46px!important;width:100%}
+.pweye{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--muted);cursor:pointer;padding:6px;border-radius:8px;line-height:0}
+.pweye:hover,.pweye:focus-visible{color:var(--ink);outline:none;background:var(--surface-2)}.pweye svg{width:20px;height:20px}
+.fc9leave{margin:6px 10px 10px;display:block;text-align:left}
+.g9{display:grid;gap:14px}.g9 .zone{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;gap:8px;background:var(--surface)}
+.g9 .zone.on{border-color:var(--accent)}.g9 .zone .zh{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.g9 .zone .zh label{font-weight:700;display:flex;gap:8px;align-items:center}.g9 .zopt{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.g9 .zopt label{font-size:.85rem;display:grid;gap:3px}.g9 .zopt select,.g9 .zopt input{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.g9warn{background:var(--warn-soft);border-radius:10px;padding:10px 12px;font-size:.9rem}
+.g9why{font-size:.9rem;line-height:1.5}.g9why li{margin-bottom:6px}.g9why small{color:var(--muted)}
+.g9res{display:grid;gap:10px}.g9res .card{padding:12px 14px}
+.g9pain{display:flex;gap:6px;align-items:center}.g9pain input{width:100%}
+.fc9del{border:1px solid var(--bad);border-radius:12px;padding:12px 14px;display:grid;gap:8px;background:var(--surface)}
+</style>`);
+
+/* ---------- P. Mots de passe : voir / confirmer ---------- */
+const EYE=(on)=>on?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10 10 0 0 1 2 12s3-7 10-7a9.8 9.8 0 0 1 5.3 1.5M22 12s-1 2.3-3 4.1M3 3l18 18"/><circle cx="12" cy="12" r="3"/></svg>':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+function pwEyes(root){(root||document).querySelectorAll('input[type=password]:not([data-eye]),input[data-eye="1"]:not(.pwwrap input)').forEach(i=>{if(i.closest('.pwwrap'))return;i.dataset.eye='1';
+  const w=document.createElement('span');w.className='pwwrap';i.parentNode.insertBefore(w,i);w.appendChild(i);
+  const b=document.createElement('button');b.type='button';b.className='pweye';b.setAttribute('aria-label','Afficher le mot de passe');b.title='Afficher le mot de passe';b.innerHTML=EYE(false);
+  b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const show=i.type==='password';i.type=show?'text':'password';b.innerHTML=EYE(show);b.setAttribute('aria-label',show?'Masquer le mot de passe':'Afficher le mot de passe');b.title=b.getAttribute('aria-label');i.focus()});
+  w.appendChild(b)})}
+new MutationObserver(()=>{try{pwEyes(document)}catch(e){}}).observe(document.body,{childList:true,subtree:true});
+try{pwEyes(document)}catch(e){}
+/* confirmation du mot de passe à la création d'un compte client (et dans la fenêtre de l'entraîneur invité) */
+authV=(old=>function(){let h=old();if(me()||st.authMode==='login')return h;
+  return h.replace(/(<label class="field"><span>Mot de passe<\/span><input id="aPass"[^>]*><\/label>)/,'$1<label class="field"><span>Confirmer le mot de passe</span><input id="aPass2" type="password" autocomplete="new-password" required></label>')})(authV);
+{const F=iv9.querySelector('form');const p=F.querySelector('[name=pass]');if(p){p.closest('label').insertAdjacentHTML('afterend','<label class="field"><span>Confirmer le mot de passe</span><input name="pass2" type="password" autocomplete="new-password" required></label>')}}
+addEventListener('submit',e=>{const f=e.target;if(!f)return;
+  if(f===iv9.querySelector('form')){const a=f.pass.value,b=f.pass2;if(b&&a!==b.value){e.preventDefault();e.stopImmediatePropagation();const er=f.querySelector('[data-err]');er.textContent='Les deux mots de passe ne sont pas identiques.';er.hidden=false}}},true);
+bootReal=(old=>async function(){await old();try{if(R.sb&&R.sb.auth&&!R.sb.auth.fc9b){const o=R.sb.auth.signUp.bind(R.sb.auth);R.sb.auth.fc9b=true;
+  /* le formulaire de création de compte : les deux mots de passe doivent être identiques (vérifié ici, car le formulaire
+     original arrête les autres écouteurs) */
+  R.sb.auth.signUp=async function(a){const p1=document.getElementById('aPass'),p2=document.getElementById('aPass2');
+    if(p1&&p2&&p1.value!==p2.value){setTimeout(()=>{st.authErr='Les deux mots de passe ne sont pas identiques.';render()},30);throw new Error('Les deux mots de passe ne sont pas identiques.')}return o(a)}}}catch(e){console.warn(e)}})(bootReal);
+
+/* ---------- G3. Lien d'activation / mot de passe oublié en format token_hash ---------- */
+R.tokenHash=null;
+{try{const q=new URLSearchParams(location.search);const th=q.get('token_hash'),ty=q.get('type');if(th&&ty){R.tokenHash={th,ty};q.delete('token_hash');q.delete('type');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash)}}catch(e){}}
+async function verifyHash9(){const t=R.tokenHash;if(!t||!R.sb)return;R.tokenHash=null;busyOn('Vérification du lien…');
+  try{const {error}=await R.sb.auth.verifyOtp({token_hash:t.th,type:t.ty});if(error)throw error;
+    if(t.ty==='recovery'){busyOff();pw.hidden=false;document.body.style.overflow='hidden';return}
+    if(await loadMe()){busyOff();afterLogin();flash(t.ty==='email_change'?'Votre courriel est confirmé.':'Compte activé : bienvenue!');return}
+    busyOff();st.view='auth';st.authMode='login';R.info='Compte activé. Connectez-vous avec votre courriel et votre mot de passe.';render()}
+  catch(e){busyOff();st.view='auth';st.authMode='login';st.authErr='';R.info='Ce lien a expiré ou a déjà été utilisé. Si vous venez de créer votre compte, il est probablement déjà activé : connectez-vous. Sinon, utilisez « Mot de passe oublié? » pour recevoir un nouveau lien.';render()}}
+bootReal=(old=>async function(){await old();try{await verifyHash9()}catch(e){console.warn(e)}})(bootReal);
+
+/* ---------- G1. Trouver un entraîneur depuis le compte client; me retirer d'un entraîneur ---------- */
+NI.search=NI.search||NI.pin;
+PSUB.trouver=['p.trouver','search','Tous les entraîneurs de FidjiCoach'];
+MENU.push(['p.trouver','Trouver un entraîneur','Find a coach','Sous-menu Mon profil',true]);
+{const g=PGROUPS.find(x=>x[0]==='Autres');if(g&&!g[1].includes('trouver'))g[1].push('trouver')}
+pOk=(old=>function(p){return p==='trouver'?!!R.on:old(p)})(pOk);
+CLIENT_TABS.push('trouver','vie');
+profileSub=(old=>function(u){if(st.ptab!=='trouver')return old(u);const inner=findV().replace(/^<main class="wrap app fc9plat">/,'<div class="fc9plat">').replace(/<\/main>$/,'</div>');
+  return `<div class="subhead"><button class="backbtn" data-a="pHub">‹ ${esc(LB('tab.profil'))}</button><h2>Trouver un entraîneur</h2></div><p class="muted small" style="margin-bottom:10px">Vous pouvez être suivi par plusieurs entraîneurs : en ouvrant la page d'un autre entraîneur, vous y êtes relié et vous acceptez ses conditions à votre première réservation chez lui. Le sélecteur « Mon entraîneur » du menu ☰ permet ensuite de passer de l'un à l'autre.</p>${inner}`})(profileSub);
+/* « Voir sa page et réserver » depuis le compte : on reste connecté (fcCoachPick → fcSwitch) */
+/* bouton « Me retirer de cet entraîneur » sous le sélecteur Mon entraîneur */
+A.fcLeave=async function(){const c=R.coachRow;if(!c)return;const L=R.myCoaches||[];if(L.length<2){flash('Vous n\'avez qu\'un entraîneur : utilisez « Trouver un entraîneur » pour en ajouter un avant de vous retirer de celui-ci.');return}
+  if(!confirm('Vous retirer de '+c.nom_affiche+'? Vous ne verrez plus ses tarifs ni vos échanges avec lui dans votre compte (votre historique de réservations est conservé chez lui). Vous pourrez revenir par sa page.'))return;
+  busyOn('Retrait…');try{const {error}=await R.sb.rpc('leave_coach',{p_coach:c.id});if(error)throw error;const other=L.find(x=>x.id!==c.id);fcSwitch(other.slug)}
+  catch(e){busyOff();flash(missing(e)?'Exécutez d\'abord le script SQL de l\'étape 9 (phase 2).':errTxt(e))}};
+decorate=(old=>function(){old();try{if(!R.on||R.role!=='client')return;const box=document.querySelector('.v5side .fcmc');if(box&&!box.nextElementSibling?.classList?.contains('fc9leave'))box.insertAdjacentHTML('afterend','<button class="linkbtn small fc9leave" data-a="fcLeave">Me retirer de cet entraîneur</button>')}catch(e){}})(decorate);
+
+/* ---------- G2. Supprimer mon compte ---------- */
+const DEL_TXT='Tout est effacé : fiche, réservations, messages, documents, programmes, abonnements. Les factures déjà émises sont conservées par l\'entraîneur pour ses obligations fiscales. Cette action est définitive.';
+MOD3.fcDel9=function(u,m){const coach=R.realRole==='coach';
+  return [`<span class="eyebrow">Loi 25 · droit à l'effacement</span><h3>${coach?'Fermer mon espace entraîneur et supprimer mon compte':'Supprimer mon compte'}</h3>
+  <div class="fc9del"><p class="small">${coach?'Votre vitrine, vos tarifs, vos clients, vos réservations, vos messages et vos documents seront effacés définitivement. Vos clients ne vous verront plus. Annulez et remboursez d\'abord les cours payés à venir et les abonnements actifs.':DEL_TXT}</p>
+  <p class="small">Pour confirmer, écrivez <b>SUPPRIMER</b> :</p><input id="fc9delTxt" type="text" autocomplete="off" placeholder="SUPPRIMER"></div>
+  <div class="actions" style="margin-top:12px"><button class="btn btn-accent" data-a="fcDel9Go">${coach?'Fermer mon espace et supprimer mon compte':'Supprimer définitivement mon compte'}</button><button class="btn btn-plain" data-a="close">Annuler</button></div>`,false]};
+A.fcDel9=()=>{st.modal={kind:'fcDel9'};render();setTimeout(()=>{const i=document.getElementById('fc9delTxt');if(i)i.focus()},50)};
+A.fcDel9Go=async function(){const v=((document.getElementById('fc9delTxt')||{}).value||'').trim();if(v!=='SUPPRIMER'){flash('Écrivez SUPPRIMER (en majuscules) pour confirmer.');return}
+  if(!confirm('Dernière confirmation : supprimer définitivement ce compte?'))return;
+  busyOn('Suppression du compte…');try{const {error}=await R.sb.rpc('delete_my_account',{p_confirm:v});if(error)throw error;
+    try{await R.sb.auth.signOut()}catch(e){}try{localStorage.removeItem(RKEY);localStorage.removeItem(CKEY)}catch(e){}busyOff();alert('Votre compte est supprimé. Merci d\'avoir utilisé FidjiCoach.');location.replace(location.pathname)}
+  catch(e){busyOff();flash(missing(e)?'Exécutez d\'abord le script SQL de l\'étape 9 (phase 2).':errTxt(e))}};
+/* client : page Confidentialité et mes données */
+profileSub=(old=>function(u){let h=old(u);if(st.ptab!=='vie'||!R.on)return h;
+  return h.replace(/<button class="btn btn-plain btn-sm" data-a="myDel"[^>]*>[^<]*<\/button>/,'<button class="btn btn-plain btn-sm" data-a="fcDel9" style="justify-self:start;border-color:var(--bad);color:var(--bad)">Supprimer mon compte</button>')
+    .replace('retirer un consentement ou demander la suppression de votre compte.','retirer un consentement ou supprimer votre compte vous-même, immédiatement.')})(profileSub);
+/* entraîneur invité : Plateforme › Contrat et confidentialité */
+legalAdmin=(old=>function(){let h=old();if(!R.on||R.realRole!=='coach')return h;
+  return h+`<div class="panel" style="margin-top:14px;border-color:var(--bad)"><span class="eyebrow">Votre compte</span><h3>Fermer mon espace entraîneur</h3><p class="small muted">Efface votre vitrine, vos clients, vos réservations, vos messages, vos documents et votre compte. Annulez et remboursez d'abord les cours payés à venir et les abonnements actifs. Vos reçus et factures émis restent vos obligations fiscales : exportez votre comptabilité avant.</p><div class="actions"><button class="btn btn-sm btn-plain" data-a="fcDel9" style="border-color:var(--bad);color:var(--bad)">Fermer mon espace et supprimer mon compte</button></div></div>`})(legalAdmin);
+
+/* ---------- E. Programme, routine et plan bâtis selon les blessures, les objectifs et les données probantes ---------- */
+/* Zones de blessure : muscles touchés, patrons à éviter selon la phase, exercices à privilégier (réhabilitation),
+   étirements à éviter ou à privilégier. Les références sont indiquées pour l'entraîneur (pas d'avis médical). */
+const Z9=[
+ {id:'genou',l:'Genou',g:['qua'],avoid:{aigu:['jump','lunge','pistol','skater','bound','boxjump','hop','burpee','legext','stepup','squat','wallsit','thruster'],recup:['jump','pistol','bound','boxjump','hop','burpee','skater','legext']},
+  rehab:{aigu:['x_chaise_au_mur','x_pont_fessier','x_coquillage_avec_elastique','x_marche_laterale_avec_bande','x_abduction_couche_sur_le_cote'],recup:['x_squat_au_poids_du_corps','x_step_down_descente_controlee','x_montee_sur_banc','x_pont_sur_une_jambe','x_marche_laterale_avec_bande','x_souleve_sur_une_jambe_au_poids_du_corps'],ancien:['x_squat_gobelet','x_step_down_descente_controlee','x_squat_bulgare_au_poids_du_corps','x_marche_laterale_avec_bande','x_nordic_curl_assiste_a_l_elastique']},
+  stAvoid:['deepsquat','couch','quad'],stPlus:['hip','fig4','calf','ham','itb'],
+  why:'Douleur fémoro-patellaire et tendinopathie rotulienne : renforcer les quadriceps ET les hanches (abducteurs, fessiers) donne de meilleurs résultats que le genou seul (Lack et coll., 2015; Willy et coll., JOSPT 2019). Tendon : isométriques puis charge lourde et lente, descente contrôlée (Malliaras et coll., 2015; Rio et coll., 2015). Éviter les sauts et fentes profondes en phase douloureuse.'},
+ {id:'cheville',l:'Cheville, pied ou tendon d\'Achille',g:['mol','che'],avoid:{aigu:['jump','hop','bound','boxjump','skater','burpee','climber','jack','lunge','calf'],recup:['jump','hop','bound','boxjump','burpee','jack']},
+  rehab:{aigu:['x_equilibre_sur_une_jambe_yeux_fermes','x_extension_des_mollets_assis','x_pont_fessier','x_dead_bug'],recup:['x_extension_des_mollets_debout','x_extension_des_mollets_sur_une_jambe','x_extension_des_mollets_genoux_flechis','x_equilibre_sur_coussin_instable','x_mobilite_de_cheville_au_mur'],ancien:['x_extension_des_mollets_sur_une_jambe','x_equilibre_sur_coussin_instable','x_sautillements_pieds_joints','x_mobilite_de_cheville_au_mur']},
+  stAvoid:['calf','soleus','calfstep','dogpedal'],stPlus:['ankle','toes','shin','ham'],
+  why:'Tendinopathie d\'Achille : extensions de mollets lentes, lourdes et progressives, jambe tendue et genou fléchi (protocole Alfredson 1998; Beyer et coll., 2015 : la charge lourde et lente équivaut à l\'excentrique seul). Entorse : équilibre et proprioception réduisent les récidives (Doherty et coll., 2017). Pas d\'étirement statique agressif d\'un tendon d\'Achille douloureux.'},
+ {id:'lombaire',l:'Bas du dos (lombaires)',g:['dos','abs'],avoid:{aigu:['deadlift','swing','sldl','superman','crunch','legraise','twist','chop','hollow','thruster','jump','boxjump','hipthrust','hangknee','burpee','pullup','hang'],recup:['swing','crunch','legraise','jump','boxjump','burpee','twist','superman']},
+  rehab:{aigu:['x_bird_dog','x_dead_bug_lent','x_planche_laterale','x_pont_fessier','x_chat_vache'],recup:['x_bird_dog','x_dead_bug','x_planche_laterale','x_pont_fessier','x_marche_du_fermier','x_pallof_press_a_l_elastique','x_squat_gobelet'],ancien:['x_bird_dog_avec_elastique','x_planche_laterale_avec_levee_de_jambe','x_pallof_press_a_l_elastique','x_hip_thrust_aux_halteres','x_souleve_de_terre_au_kettlebell','x_marche_du_fermier_sur_une_main']},
+  stAvoid:['fold','seated','ham','cobra','twist','seattwist','sphinx'],stPlus:['catcow','child','knees','hip','fig4','pigeon'],
+  why:'Lombalgie commune : rester actif, renforcer le tronc en stabilité (« big 3 » de McGill : bird dog, planche latérale, curl-up modifié) et les hanches, progresser vers la charnière de hanche chargée (Owen et coll., BJSM 2020 : l\'entraînement en force et la stabilisation sont les plus efficaces). Éviter la flexion lombaire chargée et répétée en phase douloureuse.'},
+ {id:'epaule',l:'Épaule',g:['epa','pec'],avoid:{aigu:['ohpress','ohext','pullup','pushup','dip','bench','lateral','thruster','swing','dpole','hang','hangknee','facepull','burpee','bear','climber','plank','crunch'],recup:['ohpress','pullup','dip','thruster','swing','hang','hangknee','burpee']},
+  rehab:{aigu:['x_rotation_externe_a_la_bande','x_ecartement_de_bande_elastique','x_rowing_avec_bande_elastique','x_glissement_au_mur_wall_slide'],recup:['x_rotation_externe_a_la_bande','x_rotation_externe_couche_sur_le_cote','x_face_pull_a_l_elastique','x_rowing_poitrine_appuyee','x_pompes_inclinees','x_elevations_en_y_incline'],ancien:['x_face_pull_a_l_elastique','x_rotation_externe_couche_sur_le_cote','x_rowing_a_un_bras_avec_haltere','x_developpe_landmine','x_double_poussee_a_l_elastique']},
+  stAvoid:['dog','puppy','tri','lat','chest','wallpec'],stPlus:['book','thread','neck','side','armcircle'],
+  why:'Douleur d\'épaule liée à la coiffe des rotateurs : exercices progressifs de rotation externe et de stabilisation de l\'omoplate, charge graduelle et tolérée (Littlewood et coll., 2015; Lewis, 2016). Éviter les poussées au-dessus de la tête et les tractions tant que la douleur dépasse 3/10. La double poussée revient en dernier, avec l\'élastique avant la poulie.'},
+ {id:'coude',l:'Coude, poignet ou main',g:['avb','bic','tri'],avoid:{aigu:['pullup','hang','curl','pushdown','ohext','pushup','dip','row','bench','dpole','walk','swing','bear','plank','climber'],recup:['pullup','hang','dip','pushup','swing','bear']},
+  rehab:{aigu:['x_flexion_des_poignets','x_rotation_externe_a_la_bande','x_squat_au_poids_du_corps','x_pont_fessier'],recup:['x_flexion_des_poignets','x_enroulement_du_poignet_corde','x_rowing_avec_bande_elastique','x_pompes_inclinees'],ancien:['x_enroulement_du_poignet_corde','x_pince_avec_disques','x_marche_du_fermier','x_rowing_a_un_bras_avec_haltere']},
+  stAvoid:['wrist','dog','puppy'],stPlus:['neck','side','book'],
+  why:'Épicondylalgie (coude du skieur) : renforcement progressif des extenseurs et fléchisseurs du poignet, excentrique puis isotonique, charge tolérée (Coombes et coll., 2015). Les appuis sur les mains (pompes, planche) et les tractions sont réintroduits graduellement.'},
+ {id:'hanche',l:'Hanche ou aine (adducteurs)',g:['fes','add','hip'],avoid:{aigu:['skater','copen','lunge','pistol','jump','bound','swing','sldl','hipthrust','deadlift','clam','walk'],recup:['skater','copen','jump','bound','pistol']},
+  rehab:{aigu:['x_pont_fessier','x_dead_bug','x_bird_dog','x_chaise_au_mur'],recup:['x_pont_sur_une_jambe','x_coquillage_avec_elastique','x_marche_laterale_avec_bande','x_planche_copenhague_genou_flechi','x_squat_gobelet'],ancien:['x_planche_copenhague','x_planche_copenhague_genou_flechi','x_fente_laterale','x_hip_thrust_aux_halteres','x_cossack_squat']},
+  stAvoid:['butter','frog','straddle','sidelunge','lizard','pigeon'],stPlus:['hip','catcow','knees','child'],
+  why:'Douleur à l\'aine chez le skieur (adducteurs, très sollicités en patin) : la planche de Copenhague, introduite progressivement, réduit les blessures aux adducteurs de 41 % (Harøy et coll., BJSM 2019). Pas d\'étirement forcé des adducteurs en phase douloureuse; renforcement d\'abord.'},
+ {id:'ischio',l:'Ischio-jambiers',g:['isc'],avoid:{aigu:['nordic','sldl','deadlift','swing','legcurl','jump','bound','skater','lunge','hop','burpee'],recup:['nordic','jump','bound','hop','swing']},
+  rehab:{aigu:['x_pont_fessier','x_bird_dog','x_chaise_au_mur','x_dead_bug'],recup:['x_pont_sur_une_jambe','x_flexion_des_jambes_au_ballon','x_souleve_roumain_avec_elastique','x_souleve_sur_une_jambe_au_poids_du_corps'],ancien:['x_nordic_curl_assiste_a_l_elastique','x_nordic_curl_descente_seulement','x_souleve_de_terre_roumain_aux_halteres','x_souleve_sur_une_jambe_au_kettlebell']},
+  stAvoid:['fold','ham','hamstand','seated','straddle','dog'],stPlus:['hip','quad','fig4','calf'],
+  why:'Claquage ou tendinopathie des ischio-jambiers : charge progressive en allongement (pont, levées, soulevé roumain léger), puis nordic curl excentrique quand la douleur est partie : il réduit les récidives de plus de moitié (van der Horst et coll., 2015; Askling et coll., 2013). Pas d\'étirement statique intense tant que la zone est sensible.'},
+ {id:'cou',l:'Cou ou haut du dos',g:['cou','dos'],avoid:{aigu:['ohpress','ohext','deadlift','swing','pullup','hang','hangknee','thruster','dpole','jump','boxjump','burpee','crunch','hollow','superman'],recup:['ohpress','swing','hang','hangknee','jump','burpee']},
+  rehab:{aigu:['x_glissement_au_mur_wall_slide','x_ecartement_de_bande_elastique','x_chat_vache','x_bird_dog'],recup:['x_face_pull_a_l_elastique','x_rowing_avec_bande_elastique','x_superman_avec_rotation_des_bras_y_t_w','x_rotation_thoracique'],ancien:['x_face_pull_poulie_corde','x_rowing_poitrine_appuyee','x_superman_avec_rotation_des_bras_y_t_w','x_marche_en_serveur']},
+  stAvoid:['neck','dog','cobra','sphinx'],stPlus:['book','thread','child','side','catcow'],
+  why:'Cervicalgie : exercices de contrôle et de renforcement des fléchisseurs profonds et des muscles de l\'omoplate, mobilité thoracique (Gross et coll., Cochrane 2015). Éviter les charges au-dessus de la tête et les chocs en phase douloureuse.'}];
+const Z9BY=Object.fromEntries(Z9.map(z=>[z.id,z]));
+const GOALS9=[['sante','Santé, forme et plaisir'],['endurance','Endurance pour mes sorties de ski'],['force','Force et puissance (poussée, montées)'],['course','Une course ou un objectif précis'],['retour','Revenir après une blessure'],['perte','Perdre du poids'],['equilibre','Équilibre et prévention des chutes']];
+const PH9=[['aigu','Douloureux maintenant (ou blessure récente, moins de 3 semaines)'],['recup','En récupération (ça va mieux, encore sensible)'],['ancien','Ancienne blessure, plus de douleur (prévenir)']];
+const EQ9=[['pdc','Poids du corps seulement'],['maison','Élastiques et haltères à la maison'],['gym','Salle d\'entraînement complète']];
+const PROF9=u=>Object.assign({zones:[],goals:['sante'],days:2,min:40,eq:'maison',level:'inter',cleared:false,notes:''},(((db.programs||[]).find(p=>p.gen9&&p.userId===u.id)||{}).gen9)||{},(u.fiche||{}).inj9||{});
+function g9Form(u,coach){const P=PROF9(u);const zs=P.zones||[];const zOf=id=>zs.find(z=>z.id===id);
+  const zoneRow=z=>{const s=zOf(z.id)||{};const on=!!s.id;return `<div class="zone ${on?'on':''}"><div class="zh"><label><input type="checkbox" data-g9z="${z.id}" ${on?'checked':''}> ${esc(z.l)}</label>${on?`<span class="small muted">${esc((PH9.find(p=>p[0]===(s.phase||'recup'))||[])[1]||'')}</span>`:''}</div>
+    ${on?`<div class="zopt"><label><span>Côté</span><select data-g9zo="${z.id}:side"><option value="" ${!s.side?'selected':''}>Les deux ou sans objet</option><option value="D" ${s.side==='D'?'selected':''}>Droit</option><option value="G" ${s.side==='G'?'selected':''}>Gauche</option></select></label>
+    <label><span>Où en êtes-vous?</span><select data-g9zo="${z.id}:phase">${PH9.map(([k,l])=>`<option value="${k}" ${(s.phase||'recup')===k?'selected':''}>${l}</option>`).join('')}</select></label>
+    <label><span>Douleur habituelle (0 à 10)</span><span class="g9pain"><input type="range" min="0" max="10" data-g9zo="${z.id}:pain" value="${esc(s.pain??2)}"><b class="num">${esc(s.pain??2)}</b></span></label>
+    <label><span>Précision (facultatif)</span><input type="text" maxlength="80" data-g9zo="${z.id}:note" value="${esc(s.note||'')}" placeholder="Ex. : tendinite rotulienne, entorse en mars"></label></div>`:''}</div>`};
+  return `<div class="g9"><p class="small muted">Cochez les zones à ménager et précisez où vous en êtes. Le programme évite ce qui irrite, ajoute ce qui aide à guérir et à prévenir, et progresse avec vous.</p>
+  ${Z9.map(zoneRow).join('')}
+  <div class="g9warn">Ce programme n'est pas un avis médical. Pour une blessure récente, une douleur qui dépasse 3/10 pendant l'exercice ou qui augmente le lendemain, une douleur la nuit, des engourdissements ou une articulation enflée, consultez un médecin ou un physiothérapeute avant de commencer.<label class="check2" style="margin-top:8px"><input type="checkbox" data-g9="cleared" ${P.cleared?'checked':''}> <span>Un professionnel de la santé m'a donné le feu vert pour m'entraîner (recommandé pour une zone douloureuse maintenant).</span></label></div>
+  <div class="step"><span class="lbl">Objectifs (un ou plusieurs)</span><div class="chips">${GOALS9.map(([k,l])=>`<label class="chip ${P.goals.includes(k)?'on':''}"><input type="checkbox" class="sr" data-g9g="${k}" ${P.goals.includes(k)?'checked':''}>${l}</label>`).join('')}</div></div>
+  <div class="grid2"><label class="field"><span>Séances de musculation par semaine</span><select data-g9="days">${[2,3].map(n=>`<option value="${n}" ${P.days==n?'selected':''}>${n}</option>`).join('')}</select></label>
+  <label class="field"><span>Durée d'une séance</span><select data-g9="min">${[25,40,55].map(n=>`<option value="${n}" ${P.min==n?'selected':''}>${n} min</option>`).join('')}</select></label>
+  <label class="field"><span>Équipement</span><select data-g9="eq">${EQ9.map(([k,l])=>`<option value="${k}" ${P.eq===k?'selected':''}>${l}</option>`).join('')}</select></label>
+  <label class="field"><span>Expérience en musculation</span><select data-g9="level"><option value="debut" ${P.level==='debut'?'selected':''}>Débutant</option><option value="inter" ${P.level==='inter'?'selected':''}>Intermédiaire</option><option value="avance" ${P.level==='avance'?'selected':''}>Avancé</option></select></label></div>
+  <label class="field"><span>Autres précisions (facultatif)</span><textarea data-g9="notes" rows="2" maxlength="400" placeholder="Ex. : opération au genou en 2024, je préfère m'entraîner le matin">${esc(P.notes||'')}</textarea></label>
+  <div class="actions"><button class="btn btn-accent" data-a="g9Build" data-u="${u.id}">Bâtir mon programme, ma routine et mes repères</button>${coach?'':'<span class="small muted">Votre entraîneur voit le résultat et peut l\'ajuster.</span>'}</div></div>`}
+function g9Read(u){const P=PROF9(u);P.zones=[...document.querySelectorAll('[data-g9z]:checked')].map(i=>{const id=i.dataset.g9z;const o=P.zones.find(z=>z.id===id)||{id,phase:'recup',pain:2};const v=k=>{const el=document.querySelector(`[data-g9zo="${id}:${k}"]`);return el?el.value:o[k]};return {id,side:v('side')||'',phase:v('phase')||'recup',pain:Number(v('pain')??o.pain)||0,note:String(v('note')||'').trim()}});
+  P.goals=[...document.querySelectorAll('[data-g9g]:checked')].map(i=>i.dataset.g9g);if(!P.goals.length)P.goals=['sante'];
+  document.querySelectorAll('[data-g9]').forEach(i=>{const k=i.dataset.g9;P[k]=i.type==='checkbox'?i.checked:(['days','min'].includes(k)?Number(i.value):i.value.trim())});return P}
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset)return;
+  if(t.dataset.g9z!==undefined||t.dataset.g9zo!==undefined){const u=st.g9u?userById(st.g9u):me();if(!u)return;u.fiche=u.fiche||{};u.fiche.inj9=g9Read(u);if(t.dataset.g9zo&&t.type==='range'){const b=t.parentNode.querySelector('b');if(b)b.textContent=t.value;return}render()}
+  if(t.dataset.g9g!==undefined){const l=t.closest('.chip');if(l)l.classList.toggle('on',t.checked)}});
+document.addEventListener('input',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.g9zo&&t.type==='range'){const b=t.parentNode.querySelector('b');if(b)b.textContent=t.value}});
+/* --- moteur --- */
+const EQSET={pdc:['pdc'],maison:['pdc','elastique','halteres','kettlebell','banc','ballon'],gym:null};
+function g9Pick(cands,used,n,eqs){const out=[];for(const id of cands){if(out.length>=n)break;const x=exById(id);if(!x||used.has(id))continue;if(eqs&&!eqs.includes(x.eq))continue;used.add(id);out.push(id)}return out}
+function g9Engine(u,P){const eqs=EQSET[P.eq]||null;const acute=P.zones.filter(z=>z.phase==='aigu'),recup=P.zones.filter(z=>z.phase==='recup'),old=P.zones.filter(z=>z.phase==='ancien');
+  const hasAcute=acute.length>0,lower=P.zones.some(z=>['genou','cheville','hanche','ischio'].includes(z.id)),upper=P.zones.some(z=>['epaule','coude','cou'].includes(z.id)),back=P.zones.some(z=>z.id==='lombaire');
+  const avoidPat=new Set(),avoidG=new Set();P.zones.forEach(z=>{const Z=Z9BY[z.id];if(!Z)return;const ph=z.phase==='ancien'?[]:(Z.avoid[z.phase]||Z.avoid.recup||[]);ph.forEach(p=>avoidPat.add(p));if(z.phase==='aigu'&&!['lombaire','cou','hanche'].includes(z.id))Z.g.forEach(g=>avoidG.add(g))});
+  const ok=x=>x&&!avoidPat.has(x.pat)&&!x.g.some(g=>avoidG.has(g))&&(!eqs||eqs.includes(x.eq));
+  const G=P.goals;const force=G.includes('force'),endu=G.includes('endurance')||G.includes('course'),perte=G.includes('perte'),bal=G.includes('equilibre')||G.includes('retour');
+  const lvl=P.level;
+  /* dosage : force = lourd et lent; endurance/santé = 2-3 × 10-15; tendon en récup = lent (tempo 3-0-3) */
+  const sets=lvl==='debut'?2:3;const main=k=>k==='force'?{sets:lvl==='debut'?3:4,reps:lvl==='debut'?'8':'5-6',rest:120,tempo:'2-0-1'}:k==='endu'?{sets,reps:'12-15',rest:60,tempo:''}:{sets,reps:'10-12',rest:75,tempo:''};
+  const rehabDose=ph=>ph==='aigu'?{sets:3,reps:'10',rest:60,tempo:'3-2-3',note:'Très lent, amplitude sans douleur (3/10 au plus). Si le mouvement fait mal : tenir la position 30 à 45 s (isométrique) à la place.'}:ph==='recup'?{sets:3,reps:'15',rest:90,tempo:'3-0-3',note:'Lent et contrôlé (3 s de descente, 3 s de montée). Douleur acceptable : 3/10 au plus, revenue à la normale le lendemain.'}:{sets:3,reps:'8-10',rest:90,tempo:'3-0-1',note:'Prévention : charge progressive, descente lente.'};
+  const used=new Set();const S=[];
+  const warm=()=>{const w=[];const c=['x_chat_vache','x_cercles_de_bras','x_squat_profond_tenu','x_rotation_thoracique','x_mobilite_de_cheville_au_mur','x_glissement_au_mur_wall_slide','x_ouverture_de_hanche_90_90'].filter(id=>ok(exById(id)));return c.slice(0,2)};
+  const core=['x_dead_bug','x_bird_dog','x_planche_laterale','x_planche','x_pallof_press_a_l_elastique','x_position_creuse_hollow_hold','x_planche_avec_toucher_d_epaule'];
+  const legsPush=['x_squat_gobelet','x_squat_au_poids_du_corps','x_squat_arriere_a_la_barre','x_presse_a_cuisses','x_squat_bulgare_au_poids_du_corps','x_fentes_arriere','x_montee_sur_banc','x_squat_avec_elastique'];
+  const legsHinge=['x_souleve_de_terre_roumain_aux_halteres','x_souleve_roumain_avec_elastique','x_hip_thrust_aux_halteres','x_pont_sur_une_jambe','x_souleve_sur_une_jambe_au_poids_du_corps','x_souleve_de_terre_au_kettlebell','x_kettlebell_swing','x_pont_fessier'];
+  const hips=['x_marche_laterale_avec_bande','x_coquillage_avec_elastique','x_abduction_couche_sur_le_cote','x_planche_copenhague_genou_flechi','x_fente_laterale'];
+  const push=['x_pompes','x_pompes_inclinees','x_developpe_couche_aux_halteres','x_developpe_landmine','x_pompes_sur_les_genoux','x_developpe_epaules_a_l_elastique','x_developpe_au_sol_aux_halteres'];
+  const pull=['x_rowing_a_un_bras_avec_haltere','x_rowing_avec_bande_elastique','x_rowing_inverse','x_tirage_horizontal_a_la_poulie','x_rowing_poitrine_appuyee','x_tractions_assistees_avec_bande','x_face_pull_a_l_elastique'];
+  const ski=['x_double_poussee_a_l_elastique','x_tirage_bras_tendus_a_l_elastique','x_double_poussee_a_la_poulie_haute','x_tirage_triceps_baton_a_un_bras','x_pas_alternatif_a_l_elastique','x_ski_erg_continu'];
+  const calves=['x_extension_des_mollets_sur_une_jambe','x_extension_des_mollets_debout','x_extension_des_mollets_genoux_flechis'];
+  const balance=['x_equilibre_sur_une_jambe_yeux_fermes','x_equilibre_sur_coussin_instable','x_equilibre_avec_mouvements_de_bras','x_souleve_sur_une_jambe_au_poids_du_corps'];
+  const power=['x_bonds_lateraux_du_patineur','x_squat_saute_avec_pause','x_saut_sur_boite','x_double_poussee_explosive_a_l_elastique','x_bonds_en_montee_imitation','x_sautillements_pieds_joints'];
+  const pk=(c,n)=>g9Pick(c.filter(id=>ok(exById(id))),used,n,null);
+  const item=(id,d)=>{const it=newItem(id);Object.assign(it,{sets:d.sets,reps:d.reps||it.reps,rest:d.rest!=null?d.rest:it.rest,tempo:d.tempo||'',note:d.note||''});if(d.mode){it.mode=d.mode;it.time=d.time||45}return it};
+  const rehabItems=()=>{const out=[];P.zones.forEach(z=>{const Z=Z9BY[z.id];if(!Z)return;const d=rehabDose(z.phase);const ids=g9Pick(Z.rehab[z.phase]||Z.rehab.recup,used,2,eqs);ids.forEach(id=>{const it=item(id,d);it.note=(z.side?'Côté '+(z.side==='D'?'droit':'gauche')+' d\'abord. ':'')+it.note;out.push(it)})});return out};
+  const n=P.days;const budget=P.min>=55?7:P.min>=40?6:4;
+  for(let i=0;i<n;i++){const items=[];used.clear();const nm=n===2?['Séance A · jambes, tronc et poussée','Séance B · haut du corps, ski et équilibre'][i]:['Séance A · jambes et tronc','Séance B · haut du corps et ski','Séance C · corps entier et équilibre'][i];
+    warm().forEach(id=>items.push(item(id,{sets:1,reps:'10',rest:0,note:'Échauffement, sans forcer.'})));
+    const reh=rehabItems();
+    const dose=force&&!hasAcute?main('force'):endu||perte?main('endu'):main('sante');
+    const blocks=n===2?(i===0?[legsPush,legsHinge,hips,core]:[push,pull,ski,core,calves]):[[legsPush,legsHinge,hips,core],[push,pull,ski,core,calves],[legsHinge,push,pull,balance,core]][i];
+    const nMain=Math.max(2,budget-Math.min(2,reh.length));
+    blocks.forEach(c=>{if(items.filter(x=>!x.note.startsWith('Échauffement')).length>=nMain+reh.length)return;pk(c,1).forEach(id=>{const x=exById(id);const d=Object.assign({},dose);if(d.reps==='5-6'&&x.eq==='pdc'){d.reps='8-10';d.sets=3}if(c===core){d.mode='time';d.time=lvl==='debut'?30:45;d.reps='';d.rest=45;d.tempo=''}if(c===hips||c===calves){d.reps='12-15';d.tempo=c===calves?'3-1-3':''}if(c===balance){d.mode='time';d.time=30;d.reps='';d.rest=30}items.push(item(id,d))})});
+    reh.slice(0,3).forEach(it=>items.push(it));
+    if((bal||old.length)&&!items.some(x=>balance.includes(x.ex))&&items.length<budget+3)pk(balance,1).forEach(id=>items.push(item(id,{sets:2,mode:'time',time:30,reps:'',rest:30,note:'Équilibre : regard fixe, puis yeux fermés si facile.'})));
+    if((force||G.includes('course'))&&!hasAcute&&!lower&&lvl!=='debut'&&i===n-1)pk(power,1).forEach(id=>items.push(item(id,{sets:3,reps:'6',rest:120,note:'Puissance : qualité avant quantité, arrêt dès que la technique se dégrade.'})));
+    S.push({id:'s'+uid(),name:nm,items})}
+  if(perte){S.forEach(s=>{s.fmt='circuit';s.rounds=3;s.exRest=15;s.roundRest=90;s.mini=0})}
+  /* routine d'étirements */
+  const stAvoid=new Set(),stPlus=[];P.zones.forEach(z=>{const Z=Z9BY[z.id];if(!Z)return;if(z.phase!=='ancien')Z.stAvoid.forEach(s=>stAvoid.add(s));Z.stPlus.forEach(s=>stPlus.push(s))});
+  const base=['calf','quad','hip','fig4','child','catcow','book','neck','ham','pigeon','twist','shoulder'];const stl=[];[...stPlus,...base].forEach(s=>{if(stl.length>=9||stAvoid.has(s)||stl.includes(s))return;if(window.ST5.stById(s))stl.push(s)});
+  const routine={id:'sr'+uid()+uid(),n:'Routine adaptée · '+(u.fiche.prenom||'moi'),d:P.zones.length?'Bâtie selon vos zones à ménager : mobilité douce, sans étirement forcé des zones sensibles':'Récupération complète après l\'entraînement',c:'#2f8f4e',items:stl.map(s=>[s,P.zones.length&&['aigu','recup'].some(ph=>P.zones.some(z=>z.phase===ph))?30:40]),userId:u.id,by:R.role==='admin'?'coach':'client',gen9:1};
+  /* repères pour le plan (ski) */
+  const plan={noHard:hasAcute||P.zones.some(z=>z.phase==='recup'&&z.pain>=4),noHills:lower&&hasAcute,noPole:upper&&(hasAcute||recup.length>0),muscuDays:n,goal:G[0]};
+  /* explications */
+  const why=[];P.zones.forEach(z=>{const Z=Z9BY[z.id];if(Z)why.push({t:Z.l+(z.side?' ('+(z.side==='D'?'droit':'gauche')+')':'')+' · '+(PH9.find(p=>p[0]===z.phase)||[])[1],d:Z.why})});
+  if(force)why.push({t:'Force et puissance',d:'Charges lourdes, peu de répétitions (4 à 6), repos complets : c\'est ce qui améliore le plus l\'économie de mouvement et la puissance de poussée des skieurs de fond (Hoff et coll., 2002; Rønnestad et Mujika, 2014). Pliométrie seulement sans blessure active.'});
+  if(endu)why.push({t:'Endurance et course',d:'En saison, 2 séances de force par semaine suffisent pour maintenir les gains; la musculation complète l\'entraînement polarisé (environ 80 % facile, 20 % intense) qui donne les meilleurs résultats en endurance (Seiler, 2010; Stöggl et Sperlich, 2014).'});
+  if(perte)why.push({t:'Perte de poids',d:'Circuit à repos courts pour une dépense plus élevée et le maintien de la masse musculaire; c\'est le volume total d\'activité et l\'alimentation qui font la différence, pas l\'intensité seule (ACSM, 2009; Donnelly et coll.).'});
+  if(bal)why.push({t:'Équilibre et prévention',d:'Équilibre sur une jambe et exercices unilatéraux : moins de chutes et d\'entorses, meilleure glisse sur un ski (Hübscher et coll., 2010; Doherty et coll., 2017).'});
+  if(G.includes('sante'))why.push({t:'Santé et forme',d:'Deux séances de renforcement par semaine, tous les grands groupes musculaires, 2 à 3 séries de 8 à 15 répétitions : la recommandation de l\'OMS (2020) et de l\'ACSM pour la santé des adultes.'});
+  why.push({t:'Règle de la douleur',d:'Pendant l\'exercice, une gêne jusqu\'à 3/10 est acceptable si elle revient à la normale dans les 24 heures (Silbernagel et coll., 2007). Au-delà, on réduit la charge ou on remplace l\'exercice. Progression : +5 à 10 % de charge ou de répétitions par semaine quand tout se passe bien.'});
+  const notes=`Programme bâti le ${dfmt(today())} selon vos blessures et vos objectifs (approche physio-kinésiologue et entraîneur d'élite). ${P.zones.length?'Zones à ménager : '+P.zones.map(z=>Z9BY[z.id].l.toLowerCase()).join(', ')+'. ':''}${hasAcute?'Zone douloureuse en ce moment : charges légères, mouvements lents; la force lourde et les sauts reviendront quand la douleur sera passée. ':''}Douleur acceptable : 3/10 au plus pendant l'exercice, revenue à la normale le lendemain. Ce programme ne remplace pas un avis médical.`;
+  const prog={id:'pg'+uid(),name:'Programme adapté · '+(u.fiche.prenom||'moi'),userId:u.id,goal:G.map(k=>(GOALS9.find(x=>x[0]===k)||[])[1]).filter(Boolean).join(', '),weeks:6,notes,created:today(),sessions:S,gen9:JSON.parse(JSON.stringify(P)),why};
+  return {prog,routine,plan,why}}
+A.g9Build=function(d){const u=userById(d.u)||me();if(!u)return;const P=g9Read(u);u.fiche=u.fiche||{};u.fiche.inj9=P;
+  if(P.zones.some(z=>z.phase==='aigu'&&z.pain>=5)&&!P.cleared){if(!confirm('Une zone est très douloureuse en ce moment (5/10 ou plus) et vous n\'avez pas le feu vert d\'un professionnel. Le programme restera très prudent sur cette zone, mais nous vous recommandons une consultation. Continuer quand même?'))return}
+  const r=g9Engine(u,P);const coach=R.role==='admin';
+  db.programs=db.programs||[];db.programs=db.programs.filter(p=>!(p.gen9&&p.userId===u.id));db.programs.push(r.prog);
+  db.stRoutines=db.stRoutines||[];db.stRoutines=db.stRoutines.filter(x=>!(x.gen9&&x.userId===u.id));db.stRoutines.push(r.routine);
+  if(coach){r.prog.sent=today();u.stAssign=[...(u.stAssign||[]).filter(id=>(db.stRoutines||[]).some(x=>x.id===id)),r.routine.id];try{if(typeof notifyContent==='function')notifyContent(u.id,'programme',r.prog.name)}catch(e){}}
+  else{r.prog.self=0;u.stAssign=[...(u.stAssign||[]).filter(id=>(db.stRoutines||[]).some(x=>x.id===id)),r.routine.id]}
+  /* repères pour le plan d'entraînement : blessures reportées dans le questionnaire du plan */
+  u.aiq=Object.assign({},u.aiq||{},{bless:[P.zones.map(z=>Z9BY[z.id].l+(z.side?' '+z.side:'')+' ('+(PH9.find(p=>p[0]===z.phase)||[])[1].split(' (')[0].toLowerCase()+', douleur '+z.pain+'/10)').join('; '),P.notes].filter(Boolean).join(' · ')});
+  u.gen9plan=r.plan;st.g9done=u.id;st.g9open=false;if(!coach)st.g9u=null;save();render();window.scrollTo(0,0);flash('Programme, routine et repères prêts.')};
+function g9Panel(u,coach){const P=PROF9(u);const p=(db.programs||[]).find(x=>x.gen9&&x.userId===u.id);const open=st.g9open===u.id||(!p&&st.g9open!==false);
+  const res=p?`<div class="g9res"><div class="card" style="display:block"><p><b>${esc(p.name)}</b></p><p class="small muted">${p.sessions.length} séances par semaine · ${p.weeks} semaines · bâti le ${esc(dfmt(p.created))}${coach?' · envoyé au client, routine assignée':''}</p><p class="small">${p.sessions.map(s=>esc(s.name.split(' · ')[0])+' : '+s.items.length+' exercices').join(' · ')}</p>
+      <div class="actions" style="margin-top:8px">${coach?`<button class="btn btn-sm btn-plain" data-a="progEdit" data-p="${p.id}">Ouvrir et ajuster</button><button class="btn btn-sm btn-plain" data-a="nav" data-s="stretch">Routines d'étirements</button>`:`<button class="btn btn-sm btn-plain" data-a="cProgGo" data-p="${p.id}">Voir le programme</button><button class="btn btn-sm btn-plain" data-a="ptab" data-p="stretch">Voir ma routine d'étirements</button>`}</div></div>
+    <details class="card" ${st.g9done===u.id?'open':''}><summary><b>Pourquoi ces choix</b> <small class="muted">(données probantes, pour l'entraîneur et l'athlète)</small></summary><ul class="g9why">${(p.why||[]).map(w=>`<li><b>${esc(w.t)}</b><br>${esc(w.d)}</li>`).join('')}</ul>${u.gen9plan&&(u.gen9plan.noHard||u.gen9plan.noHills||u.gen9plan.noPole)?`<p class="small"><b>Repères pour le plan de ski :</b> ${[u.gen9plan.noHard?'pas d\'intervalles intenses tant qu\'une zone est douloureuse (endurance facile et technique)':'',u.gen9plan.noHills?'éviter les montées en bondissant et les descentes raides':'',u.gen9plan.noPole?'limiter la double poussée intense; privilégier le pas alternatif léger et le travail des jambes':''].filter(Boolean).join('; ')}.</p>`:''}</details></div>`:'';
+  return `<section class="panel" style="margin:0 0 16px"><div class="row" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><div><span class="eyebrow">Selon vos blessures et vos objectifs</span><h3 style="margin:2px 0">Programme adapté</h3></div><button class="btn btn-sm btn-plain" data-a="g9Toggle" data-u="${u.id}">${open?'Fermer le questionnaire':(p?'Refaire le questionnaire':'Remplir le questionnaire')}</button></div>
+   <p class="small muted">Musculation, étirements et repères pour le plan de ski, bâtis à partir de vos zones à ménager (phase, douleur), de vos objectifs et des données probantes. Pas d'avis médical.</p>${res}${open?g9Form(u,coach):''}</section>`}
+A.g9Toggle=d=>{st.g9open=st.g9open===d.u?false:d.u;st.g9u=d.u;render()};
+A.cProgGo=d=>{st.cProg=d.p;st.cSess=0;render();window.scrollTo(0,0)};
+/* client : en tête de Musculation (abonnés) */
+muscuClient=(old=>function(u){const h=old(u);if(!R.on||R.role!=='client')return h;if(!(window.fcHasInc&&(fcHasInc(u.id,'muscu')||fcHasInc(u.id,'stretch'))))return h;return g9Panel(u,false)+h})(muscuClient);
+/* entraîneur : Programmes muscu, choix du client */
+muscuAdmin=(old=>function(){let h=old();if(!R.on||(st.mtab||'prog')!=='prog'||st.progId)return h;const cl=db.users.filter(x=>x.role==='client'&&!x.pending&&x.fiche&&x.sid);const sel=st.g9u&&userById(st.g9u)?userById(st.g9u):null;
+  const box=`<section class="panel" style="margin:0 0 18px"><span class="eyebrow">Selon les blessures et les objectifs</span><h3>Programme adapté pour un client</h3><p class="small muted">À privilégier quand le client a une zone à ménager. Questionnaire des zones à ménager et des objectifs; le programme, la routine d'étirements et les repères du plan sont bâtis selon les données probantes, puis envoyés au client. Vous pouvez tout ajuster ensuite.</p>
+    <label class="field" style="max-width:360px"><span>Client</span><select id="g9client"><option value="">Choisir…</option>${cl.map(x=>`<option value="${x.id}" ${sel&&sel.id===x.id?'selected':''}>${esc(name(x))}</option>`).join('')}</select></label>${sel?g9Panel(sel,true).replace('<section class="panel" style="margin:0 0 16px">','<div>').replace(/<\/section>$/,'</div>'):''}</section>`;
+  let k=h.indexOf('<details class="panel aipanel mqpanel"');if(k<0)k=h.indexOf('<div class="panel fs" style="margin:0 0 18px"><span class="eyebrow">Nouveau programme</span>');return k>=0?h.slice(0,k)+box+h.slice(k):h+box})(muscuAdmin);
+document.addEventListener('change',e=>{const t=e.target;if(t&&t.id==='g9client'){st.g9u=t.value||null;st.g9open=t.value||false;render()}});
+/* plan d'entraînement : les repères des blessures s'appliquent aux règles de base */
+window.fcRuleHook=function(uid,r){try{const u=userById(uid);const K=u&&u.gen9plan;if(!K||!r||!r.semaines)return r;
+  r.semaines.forEach(w=>w.seances.forEach(s=>{if(K.noHard&&(s.int==='z4'||s.int==='z5')){s.int='z2';s.titre='Endurance facile et technique (remplace l\'intensité : zone à ménager)';s.consigne='Zone 1 à 2; arrêt si la douleur dépasse 3/10'}
+    if(K.noHills&&/mont|bond/i.test(s.titre+s.consigne)){s.consigne='Terrain plat ou vallonné doux; pas de bondissements'}
+    if(K.noPole&&s.int!=='muscu'){s.consigne=(s.consigne?s.consigne+'. ':'')+'Double poussée légère seulement; travail des jambes'}}));
+  if(K.noHard)r.conseils=['Tant qu\'une zone est douloureuse, le plan reste en endurance facile : réintroduisez l\'intensité quand la douleur est sous 3/10 pendant deux semaines.'].concat(r.conseils||[]);
+  r.resume=(r.resume||'')+' Repères des blessures appliqués (programme adapté).';return r}catch(e){return r}};
 
 /* ---------- 10. Branchements ---------- */
 syncAll=(old=>async function(){await old();try{repApply()}catch(e){}})(syncAll);
