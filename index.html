@@ -5685,7 +5685,7 @@ function muscuClient(u){const ps=(db.programs||[]).filter(p=>p.userId===u.id);if
   const lastLoad=it=>{for(let i=logs.length-1;i>=0;i--){const v=(logs[i].loads||{})[it.id];if(v!==''&&v!=null)return [logVal(v),logs[i].date]}return null};const U=curU();
   return `${ps.length>1?`<label class="field" style="max-width:340px"><span>Programme</span><select data-cprog="1">${ps.map(x=>`<option value="${x.id}" ${x.id===p.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`:''}
   <div class="unitbar"><span class="small">Afficher les charges en</span><div class="seg mini">${['kg','lb'].map(x=>`<button class="${U===x?'on':''}" data-a="uUnitSet" data-v="${x}">${x}</button>`).join('')}</div></div>
-  <div class="panel fs" style="margin:0 0 14px"><h3>${esc(p.name)}</h3>${p.goal?`<p><b>Objectif :</b> ${esc(p.goal)}</p>`:''}<p class="muted small">${p.sessions.length} séance${p.sessions.length>1?'s':''}${p.weeks?' · '+p.weeks+' semaines':''}${logs.length?' · '+logs.length+' séance'+(logs.length>1?'s':'')+' faite'+(logs.length>1?'s':''):''}</p>${p.notes?`<p class="small">${esc(p.notes)}</p>`:''}</div>
+  <div class="panel fs" id="cProgTop" style="margin:0 0 14px"><h3>${esc(p.name)}</h3>${p.goal?`<p><b>Objectif :</b> ${esc(p.goal)}</p>`:''}<p class="muted small">${p.sessions.length} séance${p.sessions.length>1?'s':''}${p.weeks?' · '+p.weeks+' semaines':''}${logs.length?' · '+logs.length+' séance'+(logs.length>1?'s':'')+' faite'+(logs.length>1?'s':''):''}</p>${p.notes?`<p class="small">${esc(p.notes)}</p>`:''}</div>
   <div class="sesstabs">${p.sessions.map((x,i)=>`<button class="chip ${i===si?'on':''}" data-a="cSess" data-i="${i}">${esc(x.name)}</button>`).join('')}</div>
   ${isCirc(s)?`<p class="info circinfo">🔁 ${esc(circTxt(s))}</p>`:''}
   <div class="list" style="gap:12px">${s.items.map((it,k)=>{const x=exById(it.ex);if(!x)return '';const ll=lastLoad(it);return gHead(s,k)+`<article class="card cex"><button class="cexanim" data-a="exView" data-x="${x.id}" aria-label="Consignes : ${esc(x.n)}">${exAnim(x.pat,x.eq)}</button>
@@ -5754,7 +5754,7 @@ function wkNextWork(){const w=st.wk;w.i++;if(w.i>=wkSteps().length){wkPhase('don
 function wkAdvance(){const w=st.wk,t=wkStep();if(w.phase==='work'){w.done++;if(t&&t.rest>0){w.restLen=t.rest;w.roundRest=!!t.roundRest;w.groupRest=!!t.groupRest;wkPhase('rest')}else wkNextWork()}else if(w.phase==='rest')wkNextWork();render()}
 function wkTick(){const w=st.wk;if(!w||!w.running||st.modal?.kind!=='wk')return;const tEl=document.getElementById('wkT');
   if(wkTimed()){const l=wkLeft();if(l<=0){wkAdvance();return}const c=Math.ceil(l);if(c<=3&&c!==w.beeped){w.beeped=c;beep(660,.12)}if(tEl)tEl.textContent=fmtSec(c);
-    const ring=document.getElementById('wkRing');if(ring&&w.dur){ring.style.strokeDashoffset=String(289*(1-l/w.dur))}}
+    const ring=document.getElementById('wkRing');if(ring&&w.dur){ring.style.strokeDashoffset=String(-289*(1-l/w.dur))}}
   else if(tEl)tEl.textContent=fmtSec(wkElapsed());
   const tot=document.getElementById('wkTot');if(tot)tot.textContent=fmtSec((Date.now()-w.started-w.pausedMs-(w.pauseAt?Date.now()-w.pauseAt:0))/1000)}
 const startTick=()=>{if(!WKI)WKI=setInterval(wkTick,200)};const stopTick=()=>{if(WKI){clearInterval(WKI);WKI=null}};
@@ -5774,7 +5774,7 @@ MOD3.wk=function(){const w=st.wk;if(!w)return ['',false];const its=wkItems();con
    <div class="wkbar"><i style="width:${Math.round(doneSets/totSets*100)}%"></i></div>
    <div class="wkmain"><div class="wkanim">${exAnim(shown.x.pat,shown.x.eq,'lg')}</div>
     <div class="wkinfo">${rest?`<span class="eyebrow">Prochain</span>`:''}<h3>${esc(shown.x.n)}</h3><p class="presc">${rest?(circ?'Tour '+shown.set+' / '+shown.of+' · ':'Série '+shown.set+' / '+shown.of+' · '):''}${esc(target)}${loadTxt(shown.it)?' · '+esc(loadTxt(shown.it)):''}${shown.it.tempo?' · tempo '+esc(shown.it.tempo):''}</p>${shown.it.note?`<p class="small">${esc(shown.it.note)}</p>`:''}
-     <div class="wkclock"><svg viewBox="0 0 100 100" class="wkring"><circle cx="50" cy="50" r="46" class="bg"/>${timed?`<circle id="wkRing" cx="50" cy="50" r="46" class="fg" style="stroke-dasharray:289;stroke-dashoffset:${w.dur?289*(1-wkLeft()/w.dur):0}"/>`:''}</svg><div><b id="wkT">${fmtSec(left)}</b><small>${rest?'de repos':timed?'restantes':'chronomètre'}</small></div></div>
+     <div class="wkclock"><svg viewBox="0 0 100 100" class="wkring"><circle cx="50" cy="50" r="46" class="bg"/>${timed?`<circle id="wkRing" cx="50" cy="50" r="46" class="fg" style="stroke-dasharray:289;stroke-dashoffset:${w.dur?-289*(1-wkLeft()/w.dur):0}"/>`:''}</svg><div><b id="wkT">${fmtSec(left)}</b><small>${rest?'de repos':timed?'restantes':'chronomètre'}</small></div></div>
      ${!rest?`<label class="field wkload"><span>Charge utilisée (${curU()})</span><input type="text" inputmode="decimal" data-wkld="${it.id}" value="${esc(w.loads[it.id]||'')}" placeholder="${esc(it.kg!=null&&it.kg!==''?numStr(rndW(toU(Number(it.kg),curU()),curU())):(it.load||'Ex. : 12'))}"></label>`:''}</div></div>
    <div class="wkctl">${w.running?`<button class="btn btn-plain wkbtn" data-a="wkPause">❚❚ Pause</button>`:`<button class="btn btn-accent wkbtn" data-a="wkGo">▶ ${w.started2?'Reprendre':'Démarrer'}</button>`}
     ${!rest&&!timed?`<button class="btn btn-accent wkbtn" data-a="wkNext">✓ Série terminée</button>`:''}${rest?`<button class="btn btn-plain" data-a="wkAdd">+15 s</button><button class="btn btn-plain" data-a="wkNext">Passer le repos</button>`:timed?`<button class="btn btn-plain" data-a="wkNext">Passer</button>`:''}</div>
@@ -7651,6 +7651,7 @@ function tick(){RP.raf=0;const c=RP.cfg;const box=document.querySelector('[data-
   else if(live&&c.mode==='reps'){
     if(s.rep!==L.rep&&!s.done&&c.beep&&beepOn()&&!(c.mute&&c.mute())){const sideStart=c.sides>1&&s.rep===c.per+1;const minHit=c.min&&c.min<c.n&&s.rep===c.min+1;tone(sideStart?520:minHit?880:740,.09)}
     if(s.done&&!L.done&&c.beep&&beepOn()&&!(c.mute&&c.mute())){tone(988,.25,.32)}
+    if(s.done&&!L.done&&typeof c.onDone==='function'){try{c.onDone()}catch(e){}}
     L.rep=s.rep;L.done=s.done}
   RP.raf=requestAnimationFrame(tick)}
 window.fcRep.start=()=>{if(!RP.raf)RP.raf=requestAnimationFrame(tick)};
@@ -7663,7 +7664,9 @@ function wkCfg(){const w=st.wk;if(!w||w.phase==='done')return null;const steps=(
   const R_=it.mode==='time'?{n:0,min:0,sides:1,per:0}:repsOf(it.reps);
   const base={key:'wk:'+w.i+':'+w.phase+':'+it.id,pat:x.pat,g:x.g,segs:tp.segs,tempo:tp,mute:()=>!!(st.wk&&st.wk.mute),beep:true};
   if(rest)return Object.assign(base,{mode:iso?'iso':'reps',n:0,min:0,sides:1,per:0,preview:true,t:()=>performance.now()/1000,live:()=>false});
-  return Object.assign(base,{mode:iso?'iso':'reps',n:R_.n,min:R_.sides>1?0:R_.min,sides:R_.sides,per:R_.per,t:()=>typeof wkElapsed==='function'?wkElapsed():0,live:wkLive})}
+  /* Corrections 4 : quand toutes les répétitions comptées sont faites, la série se termine d'elle-même (sauf si l'athlète a choisi « Séries manuelles ») */
+  const same=()=>RP.cfg&&RP.cfg.key===base.key;const onDone=()=>{try{const w2=st.wk;if(!w2||w2.autoOff||!w2.running||w2.phase!=='work'||!same())return;setTimeout(()=>{const w3=st.wk;if(w3&&w3.running&&w3.phase==='work'&&same()&&typeof A!=='undefined'&&A.wkNext)A.wkNext()},700)}catch(e){}};
+  const c0=Object.assign(base,{mode:iso?'iso':'reps',n:R_.n,min:R_.sides>1?0:R_.min,sides:R_.sides,per:R_.per,t:()=>typeof wkElapsed==='function'?wkElapsed():0,live:wkLive,onDone:R_.n>0?onDone:null});return c0}
 window.fcRep.wkCfg=wkCfg;
 MOD3.wk=(old=>function(){const r=old.apply(this,arguments);try{const c=wkCfg();if(!c||!r||!r[0])return r;RP.cfg=c;
   let h=r[0];const groups=(c.g||[]).filter(g=>g!=='mob').join(',');
@@ -8619,7 +8622,7 @@ const STR0=[['apres','Après le ski de fond','Récupération complète des jambe
 const routines=uid=>STR0.map(([id,n,d,c,items])=>({id,n,d,c,items:items.map(s=>[s,stById(s).sec])})).concat((db.stRoutines||[]).filter(r=>!r.userId||r.userId===uid||r.by==='coach'&&(r.for||[]).includes(uid)));
 const routById=(uid,id)=>routines(uid).find(r=>r.id===id);
 const stSteps=r=>r.items.flatMap(([sid,sec])=>{const s=stById(sid);return s.two?[{sid,sec,side:'gauche'},{sid,sec,side:'droit'}]:[{sid,sec}]});
-const rDur=r=>stSteps(r).reduce((s,x)=>s+x.sec+4,0);
+const rDur=r=>stSteps(r).reduce((s,x)=>s+x.sec+4,0);window.fcSt={routById,stSteps,stById};
 const stAnim=(pose,cls)=>exAnim(pose,'',cls).replace(/dur="2.4s"/g,'dur="5s"');
 const stLogs=uid=>(db.stLogs||[]).filter(l=>l.userId===uid);
 const stStreak=uid=>{const s=new Set(stLogs(uid).map(l=>l.date));let n=0,d=today();if(!s.has(d))d=addD(d,-1);while(s.has(d)){n++;d=addD(d,-1)}return n};
@@ -8642,19 +8645,19 @@ function sayMix(parts){if(st.stVoice===false)return;try{const s=window.speechSyn
   parts.filter(p=>p&&String(p[0]).trim()).forEach(([t,l])=>{const m=new SpeechSynthesisUtterance(String(t));m.lang=l==='en'?'en-US':'fr-CA';m.rate=1;s.speak(m)})}catch(e){}}
 window.fcSayMix=sayMix;
 function stPlayer(u){const P=st.stp;const r=routById(u.id,P.rid);const S=stSteps(r);const s=S[P.i];const x=stById(s.sid);const nx=S[P.i+1];const prep=P.phase==='prep';
-  return `<section class="panel stplay" style="--rc:${r.c||'var(--navy)'}"><div class="stph"><button class="btn-xs" data-a="stQuit">✕ Quitter</button><span class="small muted">${esc(r.n)} · ${P.i+1} / ${S.length}</span></div>
+  return `<section class="panel stplay${prep?' prep':''}" style="--rc:${r.c||'var(--navy)'}"><div class="stph"><button class="btn-xs" data-a="stQuit">✕ Quitter</button><span class="small muted">${esc(r.n)} · ${P.i+1} / ${S.length}</span></div>
    <div class="stprog"><i style="width:${P.i/S.length*100}%"></i></div>
    <h3 class="sttitle">${prep?'<span class="eyebrow">Préparez-vous</span> ':''}${esc(x.n)}${s.side?` <span class="stside">côté ${s.side}</span>`:''}</h3>
    <div class="stbig">${stAnim(x.pose,'lg'+(s.side==='droit'?' mirror':''))}<div class="string"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="stbg"/><circle cx="60" cy="60" r="52" class="stfg" id="stRing" style="stroke-dasharray:326.7;stroke-dashoffset:0"/></svg><b class="num" id="stSec">${prep?4:s.sec}</b></div></div>
    <div class="actions stctl"><button class="btn-xs" data-a="stPrev" aria-label="Précédent" ${P.i?'':'disabled'}>⏮</button><button class="btn btn-accent" data-a="stPause">${P.paused?'▶ Reprendre':'⏸ Pause'}</button><button class="btn-xs" data-a="stNext" aria-label="Suivant">⏭</button></div>
    <p class="stnext small muted">${nx?'Ensuite : '+esc(stById(nx.sid).n)+(nx.side?' (côté '+nx.side+')':''):'Dernier étirement'}</p>
    <details class="stins" ${P.i===0||prep?'open':''}><summary>Comment faire</summary><p>${esc(x.ins)}</p><p class="small muted">À sentir : ${esc(x.feel)}. Une tension confortable, jamais de douleur ni de rebond.</p></details></section>`}
-function stBegin(i){const P=st.stp;P.i=i;P.phase='prep';P.end=Date.now()+4000;P.paused=false;const u=me();const r=routById(st.stpU||u.id,P.rid);const s=stSteps(r)[i];const x=stById(s.sid);sayMix([[i===0?'':'Ensuite :','fr'],[x.n,'en'],[s.side?'côté '+s.side:'','fr']]);render()}
+function stBegin(i){const P=st.stp;P.i=i;P.phase='prep';P.end=Date.now()+4000;P.paused=false;try{window.fcStProg&&fcStProg(P.rid,i)}catch(e){}const u=me();const r=routById(st.stpU||u.id,P.rid);const s=stSteps(r)[i];const x=stById(s.sid);sayMix([[i===0?'':'Ensuite :','fr'],[x.n,'en'],[s.side?'côté '+s.side:'','fr']]);render()}
 setInterval(()=>{const P=st.stp;if(!P||P.paused)return;const u=me();if(!u)return;const r=routById(u.id,P.rid);if(!r)return;const S=stSteps(r);const s=S[P.i];const left=(P.end-Date.now())/1000;
-  const tot=P.phase==='prep'?4:s.sec;const ring=document.getElementById('stRing'),sec=document.getElementById('stSec');if(ring)ring.style.strokeDashoffset=String(326.7*(1-Math.max(0,left)/tot));if(sec)sec.textContent=String(Math.max(0,Math.ceil(left)));
+  const tot=P.phase==='prep'?4:s.sec;const ring=document.getElementById('stRing'),sec=document.getElementById('stSec');if(ring)ring.style.strokeDashoffset=String(-326.7*(1-Math.max(0,left)/tot));if(sec)sec.textContent=String(Math.max(0,Math.ceil(left)));
   if(left<=3&&left>2.75&&P.phase==='hold')beep(660,.08);
-  if(left<=0){if(P.phase==='prep'){P.phase='hold';P.end=Date.now()+s.sec*1000;beep(880,.15);say('Allez-y');render()}else if(P.i+1<S.length){beep(988,.2);stBegin(P.i+1)}else{beep(1046,.4);db.stLogs=db.stLogs||[];db.stLogs.push({id:'sl'+uid_(),userId:u.id,rid:r.id,name:r.n,date:today(),sec:rDur(r)});st.stp=null;save();say('Bravo, routine terminée');render();flash('Routine terminée : '+r.n+' · '+stStreak(u.id)+' jour'+(stStreak(u.id)>1?'s':'')+' de suite')}}},250);
-Object.assign(A,{stGo(d){st.stp={rid:d.r,i:0};stBegin(0);setTimeout(()=>{const e=document.querySelector('.stplay');const h=(document.querySelector('.top')||{offsetHeight:0}).offsetHeight;if(e)window.scrollTo(0,e.getBoundingClientRect().top+window.scrollY-h-8)},30)},stQuit(){st.stp=null;try{speechSynthesis.cancel()}catch(e){}render()},
+  if(left<=0){if(P.phase==='prep'){P.phase='hold';P.end=Date.now()+s.sec*1000;beep(880,.15);say('Allez-y');render()}else if(P.i+1<S.length){beep(988,.2);stBegin(P.i+1)}else{beep(1046,.4);db.stLogs=db.stLogs||[];db.stLogs.push({id:'sl'+uid_(),userId:u.id,rid:r.id,name:r.n,date:today(),sec:rDur(r)});st.stp=null;try{window.fcStProg&&fcStProg(r.id,-1)}catch(e){}save();say('Bravo, routine terminée');render();flash('Routine terminée : '+r.n+' · '+stStreak(u.id)+' jour'+(stStreak(u.id)>1?'s':'')+' de suite')}}},250);
+Object.assign(A,{stGo(d){st.stp={rid:d.r,i:0};stBegin(Math.max(0,Number(d.i)||0));setTimeout(()=>{const e=document.querySelector('.stplay');const h=(document.querySelector('.top')||{offsetHeight:0}).offsetHeight;if(e)window.scrollTo(0,e.getBoundingClientRect().top+window.scrollY-h-8)},30)},stQuit(){st.stp=null;try{speechSynthesis.cancel()}catch(e){}render()},
   stPause(){const P=st.stp;if(P.paused){P.end=Date.now()+P.left;P.paused=false}else{P.left=P.end-Date.now();P.paused=true}render()},
   stNext(){const P=st.stp;const S=stSteps(routById(me().id,P.rid));if(P.i+1<S.length)stBegin(P.i+1);else{P.end=Date.now();P.phase='hold'}},stPrev(){const P=st.stp;if(P.i)stBegin(P.i-1)},
   stZ(d){st.stZ=d.z;render()},stVoice(){st.stVoice=st.stVoice===false;render()},
@@ -10861,7 +10864,7 @@ function sideHTML(who,groups,closeAct){
 /* ---------- menu client ---------- */
 const CMAP=()=>{const u=me();const t=st.tab||'accueil';const p=st.ptab;const train=st.vol==='train';
   const T=(k,l,i,n)=>({k,l,i,n,on:!train&&t===k&&!(k==='profil'),attrs:`data-a="v5go" data-t="${k}"`});
-  const P=(k,i0)=>PSUB[k]&&pOk(k)?{k,l:LB(PSUB[k][0]),i:i0||PSUB[k][1],on:!train&&t==='profil'&&p===k,attrs:`data-a="v5go" data-p="${k}"`,n:k==='notifs'?unreadC(u):0}:null;
+  const P=(k,i0)=>PSUB[k]&&pOk(k)&&!(window.fcReal&&fcReal.on&&window.fcClientTabs&&!fcClientTabs.includes(k))?{k,l:LB(PSUB[k][0]),i:i0||PSUB[k][1],on:!train&&t==='profil'&&p===k,attrs:`data-a="v5go" data-p="${k}"`,n:k==='notifs'?unreadC(u):0}:null;
   const X=(x,l,i,on,extra)=>({l,i,on,attrs:`data-a="v5go" data-x="${x}" ${extra||''}`});
   const used=new Set(['abo']);const PP=k=>{used.add(k);return P(k)};
   const G=[
@@ -20377,7 +20380,7 @@ addEventListener('click',e=>{if(!R.on)return;const av=e.target.closest&&e.target
 
 addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-a]');if(!el||!R.on||R.role!=='client')return;
   const a=el.dataset.a,d=el.dataset;
-  const book=['aboGo','p3demo','demoOther','repOpen'].includes(a)||(a==='tab'&&!CLIENT_TABS.includes(d.t))||(a==='hub'&&d.k&&!CLIENT_TABS.includes(d.k)&&d.k!=='__ctr')||(a==='ptab'&&d.p&&!CLIENT_TABS.includes(d.p));
+  const book=['aboGo','p3demo','demoOther','repOpen'].includes(a)||(a==='tab'&&!CLIENT_TABS.includes(d.t))||(a==='hub'&&d.k&&!CLIENT_TABS.includes(d.k)&&!CLIENT_TABS.includes(String(d.k).replace(/^__/,''))&&!['__ctr','__rent','__pub'].includes(d.k))||(a==='ptab'&&d.p&&!CLIENT_TABS.includes(d.p));
   if(!book)return;e.preventDefault();e.stopImmediatePropagation();reqFor()},true);
 
 /* --- ajouts après chaque affichage --- */
@@ -22223,7 +22226,8 @@ function platAboutV(){
 async function loadList(){if(!R.sb||R.list==='loading')return;R.list='loading';
   try{const {data,error}=await R.sb.rpc('coaches_public');if(error)throw error;R.list=Array.isArray(data)?data:[]}
   catch(e){console.warn(e);R.list=missing(e)?'off':[]}
-  if(st.view==='home'&&st.pubPage==='trouver')render()}
+  /* Corrections 4 : redessiner aussi dans le compte client (onglet Trouver un entraîneur), pas seulement sur le site public */
+  if((st.view==='home'&&st.pubPage==='trouver')||document.getElementById('fc9q'))render()}
 function findV(){const F=st.fq||(st.fq={q:'',sport:''});
   if(R.list===null||R.list===undefined)loadList();
   const L=Array.isArray(R.list)?R.list:[];const q=deacc(String(F.q||'').toLowerCase());
@@ -22577,6 +22581,8 @@ MENU.push(['p.trouver','Trouver un entraîneur','Find a coach','Sous-menu Mon pr
 {const g=PGROUPS.find(x=>x[0]==='Autres');if(g&&!g[1].includes('trouver'))g[1].push('trouver')}
 pOk=(old=>function(p){return p==='trouver'?!!R.on:old(p)})(pOk);
 CLIENT_TABS.push('trouver','vie');
+/* Corrections 4 : chaque entrée du menu de gauche mène à sa page (ces sections restent locales à l'appareil, comme dans la V7) */
+CLIENT_TABS.push('compet','famille','charge','progres','video','appareils','tech','guide','club','music','res');window.fcClientTabs=CLIENT_TABS;
 profileSub=(old=>function(u){if(st.ptab!=='trouver')return old(u);const inner=findV().replace(/^<main class="wrap app fc9plat">/,'<div class="fc9plat">').replace(/<\/main>$/,'</div>');
   return `<div class="subhead"><button class="backbtn" data-a="pHub">‹ ${esc(LB('tab.profil'))}</button><h2>Trouver un entraîneur</h2></div><p class="muted small" style="margin-bottom:10px">Vous pouvez être suivi par plusieurs entraîneurs : en ouvrant la page d'un autre entraîneur, vous y êtes relié et vous acceptez ses conditions à votre première réservation chez lui. Le sélecteur « Mon entraîneur » du menu ☰ permet ensuite de passer de l'un à l'autre.</p>${inner}`})(profileSub);
 /* « Voir sa page et réserver » depuis le compte : on reste connecté (fcCoachPick → fcSwitch) */
@@ -23230,6 +23236,162 @@ todayV=(old=>function(){let h=old();const s=h.indexOf('<h3 class="sech">À trait
   const seg=h.slice(s,a);const close=seg.lastIndexOf('</div>');if(close<0)return h;
   h=h.slice(0,s)+seg.slice(close)+h.slice(a);
   return h.replace('<div class="book"><div>','<div class="book"><div>'+todoPanel())})(todayV);
+})();
+</script>
+<script>
+/* ================= Corrections 4 (5 nov. 2026) =================
+   1. Trouver un entraîneur depuis le compte client : la liste s'affiche d'emblée (correction dans loadList)
+   2. Création de compte : X rouge / crochet vert à côté du deuxième mot de passe, pendant la frappe
+   3. Bandeau du bas (flash) : plus visible, plus longtemps; les erreurs en rouge, avec un bouton pour fermer
+   4. Abonnements : pas de programme de musculation ni de routine d'étirements pour un client sans l'abonnement requis
+   5. Menu de gauche : chaque entrée mène à sa page (CLIENT_TABS complété; voir aussi le menu client)
+   6. « Voir le programme » descend jusqu'au programme adapté
+   7. Repos : le bonhomme du prochain exercice est bien en vue, avec l'étiquette « Prochain exercice »; la voix annonce le prochain exercice
+   8. Les séries se terminent d'elles-mêmes après la dernière répétition comptée (« Séries manuelles » pour revenir au bouton)
+   9. Compte à rebours du repos en bleu, du temps d'exercice en orange; « Préparez-vous » des étirements en gris-bleu
+  10. Les compteurs circulaires tournent dans le sens horaire (musculation et étirements)
+  11. Séance ou routine quittée à mi-chemin : au retour, reprendre où on était ou recommencer du début */
+(function(){
+const R=window.fcReal||{};
+const uid4=()=>{try{return (R.on&&R.uid)||(typeof me==='function'&&me()&&me().id)||'local'}catch(e){return 'local'}};
+const lsGet=k=>{try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}};
+const lsSet=(k,v)=>{try{if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const hasInc4=(id,k)=>{try{return !!(window.fcHasInc&&fcHasInc(id,k))}catch(e){return false}};
+const isSelf=u=>{try{const m=me();return !!(u&&m&&(u.id===m.id||u.role==='admin'))}catch(e){return false}};
+/* un client peut recevoir un programme de musculation / une routine d'étirements seulement avec l'abonnement requis (l'entraîneur lui-même : toujours) */
+const canMuscu=u=>!!u&&(isSelf(u)||hasInc4(u.id,'muscu'));
+const canStretch=u=>!!u&&(isSelf(u)||hasInc4(u.id,'stretch'));
+const NO_MUSCU='Ce client n\'a pas d\'abonnement qui inclut la musculation : il ne peut pas recevoir de programme. Il peut s\'abonner dans Forfaits et options.';
+const NO_STRETCH='Ce client n\'a pas d\'abonnement qui inclut les étirements : il ne peut pas recevoir de routine. Il peut s\'abonner dans Forfaits et options.';
+
+document.head.insertAdjacentHTML('beforeend',`<style id="fc-corr4">
+/* 2. confirmation du mot de passe */
+html .pwwrap{position:relative;display:block}html .pwwrap input{width:100%}
+html .pwwrap .pwmatch{position:absolute;right:44px;top:50%;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;display:grid;place-items:center;pointer-events:none}
+html .pwwrap .pwmatch svg{width:14px;height:14px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+html .pwwrap .pwmatch.ok{background:var(--ok)}html .pwwrap .pwmatch.ko{background:var(--bad)}
+html .pwwrap.haspm input{padding-right:76px!important}
+html .pwhint{font-size:.82rem;margin:4px 0 0;font-weight:600}html .pwhint.ok{color:var(--ok)}html .pwhint.ko{color:var(--bad)}
+/* 3. bandeau du bas */
+html .flash{font-size:1.02rem;padding:14px 46px 14px 20px;border-radius:16px;box-shadow:0 10px 30px rgba(10,25,50,.35);border:2px solid rgba(255,255,255,.35);line-height:1.35;max-width:min(560px,calc(100% - 24px));text-align:left;z-index:400}
+html .flash.err{background:var(--bad);color:#fff;border-color:#fff}
+html .flash .flashx{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:rgba(255,255,255,.18);color:inherit;width:30px;height:30px;border-radius:50%;font-size:1.2rem;line-height:1;cursor:pointer;display:grid;place-items:center}
+html .flash .flashx:hover{background:rgba(255,255,255,.3)}
+/* 7. repos : le prochain exercice bien en vue */
+html .wk.rest .wkanim{opacity:1;position:relative}
+html .wk.rest .wkanim::before{content:"Prochain";position:absolute;right:8px;top:8px;z-index:4;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:4px 9px;border-radius:999px;background:var(--wk-rest,#2f6fc0);color:#fff;pointer-events:none}
+html .wk.rest .wkinfo h3{font-size:1.5rem}
+html .wkauto{font-size:.82rem;color:var(--muted);margin:2px 0 6px}
+/* 9. couleurs des compteurs */
+:root{--wk-rest:#2f6fc0;--st-prep:#7d8ba3}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--wk-rest:#5aa0f2;--st-prep:#a9b6c8}}
+:root[data-theme="dark"]{--wk-rest:#5aa0f2;--st-prep:#a9b6c8}
+html .wk.work .wkring .fg{stroke:var(--accent)}html .wk.rest .wkring .fg{stroke:var(--wk-rest)}
+html .wk.rest .wkclock b{color:var(--wk-rest)}html .wk.work .wkclock svg:has(.fg)+div b{color:var(--accent)}
+html .wk.rest .wktop .pill{background:var(--wk-rest);color:#fff}
+html .stplay.prep .stfg{stroke:var(--st-prep)}html .stplay.prep .string b{color:var(--st-prep)}
+/* 11. reprise */
+html .wkresume{display:grid;gap:10px}html .wkresume .card{display:block;padding:12px 14px}
+</style>`);
+
+/* ---------- 2. Deuxième mot de passe : X rouge ou crochet vert pendant la frappe ---------- */
+const PW_OK='<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',PW_KO='<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+function pwPair(t){if(!t||!t.form&&!t.id)return null;
+  if(t.id==='aPass'||t.id==='aPass2')return [document.getElementById('aPass'),document.getElementById('aPass2')];
+  const f=t.form;if(!f)return null;
+  if(t.name==='pass'||t.name==='pass2')return [f.querySelector('[name=pass]'),f.querySelector('[name=pass2]')];
+  if(t.name==='p1'||t.name==='p2')return [f.querySelector('[name=p1]'),f.querySelector('[name=p2]')];
+  return null}
+function pwMark(pair){const [a,b]=pair||[];if(!a||!b)return;let w=b.closest('.pwwrap');if(!w){w=document.createElement('span');w.className='pwwrap';b.parentNode.insertBefore(w,b);w.appendChild(b)}let m=w.querySelector('.pwmatch');
+  const lab=b.closest('label');let hint=lab&&lab.parentNode&&lab.nextElementSibling&&lab.nextElementSibling.classList&&lab.nextElementSibling.classList.contains('pwhint')?lab.nextElementSibling:null;
+  if(!b.value){if(m)m.remove();w.classList.remove('haspm');if(hint)hint.remove();return}
+  if(!m){m=document.createElement('span');m.className='pwmatch';m.setAttribute('aria-hidden','true');w.appendChild(m);w.classList.add('haspm')}
+  const ok=a.value===b.value;m.className='pwmatch '+(ok?'ok':'ko');m.innerHTML=ok?PW_OK:PW_KO;
+  if(lab){if(!hint){hint=document.createElement('p');hint.className='pwhint';hint.setAttribute('aria-live','polite');lab.insertAdjacentElement('afterend',hint)}hint.className='pwhint '+(ok?'ok':'ko');hint.textContent=ok?'Les deux mots de passe sont identiques.':'Les deux mots de passe ne sont pas identiques.'}}
+document.addEventListener('input',e=>{const t=e.target;if(!t||t.tagName!=='INPUT')return;const pr=pwPair(t);if(pr)pwMark(pr)});
+/* le champ de confirmation vient d'être redessiné : on remet la marque s'il y a déjà du texte */
+const pwRefresh=()=>{try{['#aPass2','[name=pass2]','[name=p2]'].forEach(sel=>document.querySelectorAll(sel).forEach(b=>{if(b.value&&!(b.closest('.pwwrap')||b.parentNode).querySelector('.pwmatch'))pwMark(pwPair(b))}))}catch(e){}};
+
+/* ---------- 3. Bandeau du bas : plus longtemps, plus visible, erreurs en rouge ---------- */
+const ERR_RX=/erreur|impossible|échec|echec|échou|refus|invalide|expir|introuvable|non autoris|probl[eè]me|réessayez|indisponible|manquant|incorrect|pas identiques|failed|error|quota|réseau/i;
+flash=(old=>function(t){const err=ERR_RX.test(String(t||''));st.flashErr=err;old(t);clearTimeout(flash.t);flash.t=setTimeout(()=>{st.flash=null;st.flashErr=false;render()},err?15000:8000);try{flashDeco()}catch(e){}})(flash);
+function flashDeco(){const f=document.querySelector('.flash');if(!f||f.dataset.c4)return;f.dataset.c4='1';if(st.flashErr){f.classList.add('err');f.setAttribute('role','alert')}
+  f.insertAdjacentHTML('beforeend','<button class="flashx" type="button" aria-label="Fermer ce message">×</button>')}
+document.addEventListener('click',e=>{const x=e.target.closest&&e.target.closest('.flash .flashx');if(!x)return;e.preventDefault();clearTimeout(flash.t);st.flash=null;st.flashErr=false;render()});
+
+/* ---------- 4. Abonnements : programmes et routines réservés aux clients abonnés ---------- */
+A.progNewFor=(old=>function(d){const u=userById(d.u);if(u&&!canMuscu(u)){flash(NO_MUSCU);return}return old(d)})(A.progNewFor);
+A.progNew=(old=>function(d){const sel=document.getElementById('npClient');const u=sel&&sel.value?userById(sel.value):null;if(u&&!canMuscu(u)){flash(NO_MUSCU);return}return old(d)})(A.progNew);
+A.progSend=(old=>function(d){const p=st.progId&&progById(st.progId);const u=p&&p.userId?userById(p.userId):null;if(u&&!canMuscu(u)){flash(NO_MUSCU);return}return old(d)})(A.progSend);
+A.stAssign=(old=>function(d){const u=userById(d.u);const adding=!!(u&&!(u.stAssign||[]).includes(d.r));if(u&&adding&&!canStretch(u)){flash(NO_STRETCH);return}return old(d)})(A.stAssign);
+A.stSave=(old=>function(d){try{const m=me();if(m&&m.role==='admin'&&st.stFor){const u=userById(st.stFor);if(u&&!canStretch(u)){flash(NO_STRETCH);return}}}catch(e){}return old(d)})(A.stSave);
+A.g9Build=(old=>function(d){const u=userById(d.u)||me();const m=me();if(u&&m&&m.role==='admin'&&u.id!==m.id&&!canMuscu(u)&&!canStretch(u)){flash('Ce client n\'a pas d\'abonnement qui inclut la musculation ou les étirements : le programme adapté ne peut pas lui être envoyé.');return}return old(d)})(A.g9Build);
+/* le choix du client dans l'éditeur de programme : les clients sans abonnement sont grisés */
+function gateSelect(h,sel){return h.replace(new RegExp('(<select '+sel+'>)([\\s\\S]*?)(</select>)'),(m,a,opts,z)=>a+opts.replace(/<option value="([^"]+)"([^>]*)>([^<]*)<\/option>/g,(o,id,attrs,txt)=>{const u=userById(id);if(!u||canMuscu(u))return o;return `<option value="${id}"${attrs}${/selected/.test(attrs)?'':' disabled'}>${txt} · pas d'abonnement musculation</option>`})+z)}
+muscuAdmin=(old=>function(){let h=old();try{h=gateSelect(h,'data-pg="userId"');h=gateSelect(h,'id="npClient"');
+  h=h.replace(/(<select id="g9client">)([\s\S]*?)(<\/select>)/,(m,a,opts,z)=>a+opts.replace(/<option value="([^"]+)"([^>]*)>([^<]*)<\/option>/g,(o,id,attrs,txt)=>{const u=userById(id);if(!u||canMuscu(u)||canStretch(u))return o;return `<option value="${id}"${attrs} disabled>${txt} · pas d'abonnement</option>`})+z)}catch(e){console.warn(e)}return h})(muscuAdmin);
+document.addEventListener('change',e=>{const t=e.target;if(!t||t.tagName!=='SELECT'||t.dataset.pg!=='userId')return;const u=t.value?userById(t.value):null;
+  if(u&&!canMuscu(u)){e.stopImmediatePropagation();const p=st.progId&&progById(st.progId);t.value=p&&p.userId||'';flash(NO_MUSCU)}},true);
+/* fiche client : le bouton « Nouveau programme » devient un avis quand l'abonnement manque */
+adminClient=(old=>function(u){let h=old(u);try{if(u&&u.role==='client'&&!canMuscu(u))h=h.replace(new RegExp('<button class="btn btn-sm btn-accent" data-a="progNewFor" data-u="'+u.id+'">Nouveau programme</button>'),'<span class="pill neutral" title="'+esc(NO_MUSCU)+'">Pas d\'abonnement musculation</span>')}catch(e){}return h})(adminClient);
+/* client : sans abonnement, les programmes déjà reçus restent fermés (l'accès dure jusqu'à la fin du mois payé) */
+muscuClient=(old=>function(u){if(R.on&&R.role==='client'&&u&&!canMuscu(u)&&!st.inSelf){const ps=(db.programs||[]).filter(p=>p.userId===u.id);if(ps.length)return old(u).replace(/(<label class="field" style="max-width:340px"><span>Programme<\/span>[\s\S]*?<\/label>)?\s*<div class="unitbar">[\s\S]*$/,'<div class="empty"><p>Vos programmes de musculation seront de nouveau accessibles avec un abonnement qui inclut la musculation (Forfaits et options).</p></div>')}return old(u)})(muscuClient);
+
+/* ---------- 6. « Voir le programme » : descendre jusqu'au programme adapté ---------- */
+A.cProgGo=function(d){st.cProg=d.p;st.cSess=0;render();setTimeout(()=>{const e=document.getElementById('cProgTop');if(!e){window.scrollTo(0,0);return}const h=(document.querySelector('.top')||{offsetHeight:0}).offsetHeight;window.scrollTo({top:e.getBoundingClientRect().top+window.scrollY-h-12,behavior:'smooth'})},40)};
+
+/* ---------- 7 et 8. Mode entraînement : prochain exercice annoncé, séries automatiques ---------- */
+if(typeof wkSay==='function')wkSay=(old=>function(ph){const w=st.wk;if(ph!=='rest'||!w||w.mute||typeof window.fcSayMix!=='function')return old(ph);
+  try{const N=wkSteps()[w.i+1];const x=N&&exById(N.it.ex);const same=N&&wkSteps()[w.i]&&N.it.id===wkSteps()[w.i].it.id;
+    if(!x||same)return old(ph);fcSayMix([[`Repos ${Math.round(w.restLen||0)} secondes. Ensuite :`,'fr'],[x.n,'en']])}catch(e){old(ph)}})(wkSay);
+A.wkAuto=function(){const w=st.wk;if(!w)return;w.autoOff=!w.autoOff;render();flash(w.autoOff?'Séries manuelles : pressez « Série terminée » à la fin de chaque série.':'Séries automatiques : la série se termine d\'elle-même après la dernière répétition.')};
+MOD3.wk=(old=>function(u,m){const r=old(u,m);try{const w=st.wk;if(!w||w.phase==='done'||!r||!r[0])return r;let h=r[0];
+  h=h.replace('<span class="eyebrow">Prochain</span>','<span class="eyebrow">Prochain exercice</span>');
+  if(w.phase==='work'){const T=wkSteps()[w.i];const it=T&&T.it;const counted=it&&it.mode!=='time'&&typeof fcRep==='object'&&fcRep.repsOf&&(fcRep.repsOf(it.reps)||{}).n>0;
+    if(counted)h=h.replace('<div class="wkctl">',`<p class="wkauto">${w.autoOff?'Séries manuelles : pressez « Série terminée » à la fin de chaque série.':'La série se termine d\'elle-même après la dernière répétition comptée; « Série terminée » si vous finissez plus tôt.'}</p><div class="wkctl">`);
+    h=h.replace('<button class="btn-xs" data-a="wkMute">',`<button class="btn-xs" data-a="wkAuto" title="Séries automatiques ou manuelles">${w.autoOff?'Séries manuelles':'Séries auto'}</button><button class="btn-xs" data-a="wkMute">`)}
+  return [h,r[1]]}catch(e){console.warn(e);return r}})(MOD3.wk);
+
+/* ---------- 11. Séance de musculation quittée à mi-chemin : reprendre ou recommencer ---------- */
+const WK=()=>'fc-wkresume:'+uid4();
+function wkKeep(){const w=st.wk;if(!w)return;if(w.phase==='done'||!w.started2||!(w.i>0||w.done>0)){return}
+  lsSet(WK(),{pid:w.pid,sid:w.sid,i:w.phase==='rest'?w.i+1:w.i,done:w.done,loads:w.loads||{},autoOff:!!w.autoOff,at:Date.now()})}
+const wkSaved=(p,s)=>{const v=lsGet(WK());return v&&v.pid===p&&v.sid===s&&(v.i>0||v.done>0)&&Date.now()-v.at<14*86400e3?v:null};
+if(typeof wkPhase==='function')wkPhase=(old=>function(ph){const r=old(ph);try{if(ph==='done')lsSet(WK(),null);else wkKeep()}catch(e){}return r})(wkPhase);
+A.wkPause=(old=>function(d){const r=old(d);try{wkKeep()}catch(e){}return r})(A.wkPause);
+A.wkQuit=(old=>function(d){try{const w=st.wk;if(w&&w.phase==='done')lsSet(WK(),null);else wkKeep()}catch(e){}return old(d)})(A.wkQuit);
+A.wkSave=(old=>function(d){try{lsSet(WK(),null)}catch(e){}return old(d)})(A.wkSave);
+addEventListener('pagehide',()=>{try{if(st.wk&&st.modal&&st.modal.kind==='wk')wkKeep()}catch(e){}});
+const wkOpen0=A.wkOpen;
+A.wkOpen=function(d){const v=wkSaved(d.p,d.s);if(v&&!d.fresh&&!d.resume){st.modal={kind:'wkResume',p:d.p,s:d.s,v};render();return}
+  if(d.fresh)lsSet(WK(),null);wkOpen0.call(A,d);
+  if(d.resume&&v&&st.wk){const w=st.wk;const n=wkSteps().length;w.i=Math.min(Math.max(0,v.i),Math.max(0,n-1));w.done=Math.min(v.done||0,n);w.loads=Object.assign({},v.loads||{},w.loads||{});w.autoOff=!!v.autoOff;w.phase='work';const dd=wkDur();w.dur=dd;w.remain=dd;render()}};
+MOD3.wkResume=function(u,m){const v=m.v;const p=progById(m.p);const s=p&&p.sessions.find(x=>x.id===m.s);const steps=s?stepsOf(s):[];const T=steps[Math.min(v.i,steps.length-1)];const x=T&&exById(T.it.ex);
+  const when=v.at?new Date(v.at):null;const whenTxt=when?when.toLocaleDateString('fr-CA',{weekday:'long',day:'numeric',month:'long'})+' à '+when.toLocaleTimeString('fr-CA',{hour:'2-digit',minute:'2-digit'}):'';
+  return [`<div class="wkresume"><span class="eyebrow">Séance commencée</span><h3>${esc(s?s.name:'Séance')}</h3>
+   <div class="card"><p><b>Arrêtée ${whenTxt?'le '+esc(whenTxt):'récemment'}</b></p><p class="small muted">${v.done} ${T&&T.circ?'exercice':'série'}${v.done>1?'s':''} ${T&&T.circ?'fait':'faite'}${v.done>1?'s':''} sur ${steps.length}${x?' · prochaine étape : <b>'+esc(x.n)+'</b>'+(T.circ?' (tour '+T.set+' / '+T.of+')':' (série '+T.set+' / '+T.of+')'):''}</p></div>
+   <p class="small">Voulez-vous reprendre là où vous vous étiez arrêté, ou recommencer la séance du début?</p>
+   <div class="actions"><button class="btn btn-accent" data-a="wkOpen" data-p="${esc(m.p)}" data-s="${esc(m.s)}" data-resume="1">▶ Reprendre où j'étais</button><button class="btn btn-plain" data-a="wkOpen" data-p="${esc(m.p)}" data-s="${esc(m.s)}" data-fresh="1">Recommencer du début</button><button class="btn btn-plain" data-a="close">Annuler</button></div></div>`,false]};
+/* le bouton de la page du programme le dit quand une séance est à reprendre */
+muscuClient=(old=>function(u){let h=old(u);try{h=h.replace(/<button class="btn btn-accent bigbtn" data-a="wkOpen" data-p="([^"]+)" data-s="([^"]+)"/,(m,p,s)=>wkSaved(p,s)?m+' data-c4r="1"':m).replace(/(<button class="btn btn-accent bigbtn" data-a="wkOpen"[^>]*data-c4r="1"[^>]*>)▶ Commencer la séance/,'$1▶ Reprendre la séance')}catch(e){}return h})(muscuClient);
+
+/* ---------- 11 (suite). Routine d'étirements quittée à mi-chemin ---------- */
+const SK=()=>'fc-stresume:'+uid4();
+window.fcStProg=function(rid,i){if(i<0){const v=lsGet(SK());if(v&&v.rid===rid)lsSet(SK(),null);return}lsSet(SK(),{rid,i,at:Date.now()})};
+const stSaved=rid=>{const v=lsGet(SK());return v&&v.rid===rid&&v.i>0&&Date.now()-v.at<14*86400e3?v:null};
+A.stGo=(old=>function(d){const v=stSaved(d.r);if(v&&d.i==null&&!d.fresh){st.modal={kind:'stResume',r:d.r,v};render();return}
+  if(d.fresh){lsSet(SK(),null);d={r:d.r,i:0}}st.modal=null;return old(d)})(A.stGo);
+MOD3.stResume=function(u,m){const v=m.v;let r=null,S=[],x=null,s=null;try{r=fcSt.routById(u.id,m.r);S=r?fcSt.stSteps(r):[];s=S[Math.min(v.i,S.length-1)];x=s&&fcSt.stById(s.sid)}catch(e){}
+  const when=v.at?new Date(v.at):null;const whenTxt=when?when.toLocaleDateString('fr-CA',{weekday:'long',day:'numeric',month:'long'})+' à '+when.toLocaleTimeString('fr-CA',{hour:'2-digit',minute:'2-digit'}):'';
+  return [`<div class="wkresume"><span class="eyebrow">Routine commencée</span><h3>${esc(r?r.n:'Routine')}</h3>
+   <div class="card"><p><b>Arrêtée ${whenTxt?'le '+esc(whenTxt):'récemment'}</b></p><p class="small muted">${v.i} étirement${v.i>1?'s':''} fait${v.i>1?'s':''} sur ${S.length}${x?' · prochain : <b>'+esc(x.n)+'</b>'+(s.side?' (côté '+s.side+')':''):''}</p></div>
+   <p class="small">Voulez-vous reprendre là où vous vous étiez arrêté, ou recommencer la routine du début?</p>
+   <div class="actions"><button class="btn btn-accent" data-a="stGo" data-r="${esc(m.r)}" data-i="${v.i}">▶ Reprendre où j'étais</button><button class="btn btn-plain" data-a="stGo" data-r="${esc(m.r)}" data-fresh="1">Recommencer du début</button><button class="btn btn-plain" data-a="close">Annuler</button></div></div>`,false]};
+
+/* ---------- branchements après chaque affichage ---------- */
+render=(old=>function(){const r=old.apply(this,arguments);try{flashDeco();pwRefresh();
+  if(R.on&&R.role==='admin'&&st.view==='admin'){const bar=document.querySelector('.fcreal');if(bar&&!bar.dataset.c4){bar.dataset.c4='1';bar.insertAdjacentHTML('beforeend',' <b>Corrections 4 :</b> menu client, séries automatiques, reprise des séances, compteurs horaires.')}}}catch(e){}return r})(render);
+if(typeof EN5==='object')Object.assign(EN5,{'Prochain exercice':'Next exercise','Séries auto':'Auto sets','Séries manuelles':'Manual sets','▶ Reprendre où j\'étais':'▶ Resume where I was','Recommencer du début':'Start over','▶ Reprendre la séance':'▶ Resume workout','Séance commencée':'Workout started','Routine commencée':'Routine started'});
 })();
 </script>
 </body></html>
