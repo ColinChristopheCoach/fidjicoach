@@ -22844,6 +22844,244 @@ syncAll=(old=>async function(){await old();try{repApply()}catch(e){}})(syncAll);
 
 if(msg)setTimeout(()=>flash(msg),300);
 try{render()}catch(e){console.error(e)}
+/* ================= Tarification des entraîneurs (6 nov. 2026) =================
+   Modèle hybride : forfait mensuel Solo ou Pro + 1 % de commission par paiement reçu, plus les frais de Stripe
+   (2,9 % + 0,30 $) à la charge de l'entraîneur, même lors d'un remboursement. Plafond de 2 $ sur le 1 % : activable.
+   - Administrateur : Finances › Tarification des entraîneurs (réglages, forfait de chaque entraîneur).
+   - Entraîneur     : Finances › Mon forfait FidjiCoach, et nouvelle étape « Forfait FidjiCoach » de la mise en place.
+   - Solo           : jusqu'à 40 clients actifs; location, abonnements, vidéo et musculation réservés au forfait Pro.
+   - Paiements réels (textes) : article 7 du contrat, Paiements en ligne, relevé « FIDJICOACH » dans la fenêtre de paiement. */
+const TARIF_VER='Tarification · 6 nov. 2026';
+R.pricing=null;R.bill=null;R.billBusy=false;R.abill=null;R.abillAt=0;R.abillErr='';R.abillBusy=false;
+const PRO_SECS=['abos','inv','scan','loc','prix','codes','video','muscu'];
+const DEFP={commission_pct:1,fee_cap_on:false,fee_cap_cents:200,stripe_pct:2.9,stripe_fixed_cents:30,billing_pct:0.7,solo:2900,pro:4900,pause:900,activation:9900,trial_on:true,trial_days:30,activation_on:true,pause_on:true,founder_pct:30,founder_max:10,solo_max:40};
+const c2=c=>money((Number(c)||0)/100);
+const rulesOf=P=>({commission_pct:Number(P.commission_pct??1),cap_on:!!(P.cap_on??P.fee_cap_on),cap_cents:Number(P.cap_cents??P.fee_cap_cents??200),stripe_pct:Number(P.stripe_pct??2.9),stripe_fixed_cents:Number(P.stripe_fixed_cents??30),billing_pct:Number(P.billing_pct??0.7)});
+const feeOf=(cents,F)=>{let com=Math.round(cents*F.commission_pct/100);if(F.cap_on)com=Math.min(com,F.cap_cents);const strp=Math.round(cents*F.stripe_pct/100)+F.stripe_fixed_cents;return {com,strp,fee:Math.max(0,Math.min(cents-1,com+strp))}};
+const subPctOf=(cents,F)=>{let com=Math.round(cents*F.commission_pct/100);if(F.cap_on)com=Math.min(com,F.cap_cents);const strp=Math.round(cents*(F.stripe_pct+F.billing_pct)/100)+F.stripe_fixed_cents;return Math.min(99,Math.ceil((com+strp)*10000/cents)/100)};
+const feeTxt9=F=>`<b>${pct(F.commission_pct)}</b> de commission${F.cap_on?` (au plus ${c2(F.cap_cents)} par paiement)`:''} + les frais de Stripe (<b>${pct(F.stripe_pct)} + ${c2(F.stripe_fixed_cents)}</b>)`;
+const PLANS9={solo:'Solo',pro:'Pro'};
+const STAT9={aucun:['Aucun forfait',''],incomplet:['Paiement à terminer','warn'],essai:['Essai gratuit','ok'],actif:['Actif','ok'],en_retard:['Paiement refusé','warn'],pause:['En pause hors saison','warn'],annule:['Terminé','']};
+const stTag9=s=>{const t=STAT9[s]||[s,''];return `<span class="fc8tag ${t[1]}">${esc(t[0])}</span>`};
+const ymd9=t=>t?String(t).slice(0,10):'';
+const day9=t=>t?dfmt(ymd9(t))+' '+ymd9(t).slice(0,4):'';
+const featsOf=(k,P)=>k==='pro'?['Tout le forfait Solo','Clients illimités','Location d\'équipement','Abonnements mensuels de vos clients','Analyse vidéo','Musculation','Votre nom de domaine']
+  :[`Jusqu'à ${P.solo_max??40} clients actifs`,'Réservations, calendrier et paiements en ligne','Fiches clients, messages et documents','Facturation et comptabilité'];
+
+document.head.insertAdjacentHTML('beforeend',`<style id="fc-tarif">
+.fctplans{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:0 0 16px}
+.fctplan{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:8px;align-content:start}
+.fctplan.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.fctplan h3{margin:0}.fctplan ul{margin:0;padding-left:1.1rem;display:grid;gap:3px;font-size:.92rem}
+.fctprice{font-family:var(--f-display,inherit);font-size:1.6rem;font-weight:700;margin:0;color:var(--ink)}
+.fctprice small{font-size:.9rem;font-weight:500;color:var(--muted)}.fctprice s{font-size:1rem;color:var(--muted);font-weight:500;margin-right:6px}
+.fctex{background:var(--surface-2);border-radius:12px;padding:10px 14px;font-size:.9rem;display:grid;gap:4px;margin:10px 0 0}
+.fctex b{color:var(--ink)}
+.fctbar{height:8px;border-radius:999px;background:var(--line);overflow:hidden;margin:6px 0 2px}.fctbar i{display:block;height:100%;background:var(--ok)}.fctbar i.warn{background:var(--warn)}
+.fctc{border-top:1px solid var(--line);padding:10px 0}.fctc:first-of-type{border-top:0}
+.fctc>summary{cursor:pointer;list-style:none;display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.fctc>summary::-webkit-details-marker{display:none}
+.fctc>summary .nm{min-width:0;overflow-wrap:anywhere}
+.fctc>summary .tags{display:flex;gap:6px;flex-wrap:wrap}
+.fctc .grid{margin-top:10px}
+.fctopts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}
+.fctopt{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;gap:8px;background:var(--surface)}
+.fctopt .check2{font-weight:600}
+.fctinv{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:.9rem}.fctinv:first-child{border-top:0}
+.fctlock{max-width:40rem}
+</style>`);
+
+/* ---------- Chargement ---------- */
+async function loadPricing(){if(!R.sb)return;try{const {data,error}=await R.sb.rpc('platform_pricing');if(error)throw error;R.pricing=data||null}catch(e){R.pricing=missing(e)?false:R.pricing}}
+async function loadBill(){if(!R.sb||!R.coachId||R.realRole!=='coach')return;R.billBusy=true;
+  try{const {data,error}=await R.sb.rpc('coach_billing_info',{p_coach:R.coachId});if(error)throw error;R.bill=data||{}}
+  catch(e){R.bill=missing(e)?false:(R.bill||null);console.warn('Forfait',e.message)}finally{R.billBusy=false}}
+async function loadABill(){try{const {data,error}=await R.sb.rpc('admin_billing');if(error)throw error;R.abill=data;R.abillErr=''}
+  catch(e){R.abillErr=missing(e)?'Exécutez d\'abord le script SQL « Tarification » dans Supabase.':errTxt(e)}finally{R.abillAt=Date.now()}}
+/* l'étape « Forfait » n'existe que si le script de la Tarification a été exécuté */
+function setupSteps9(){try{if(R.setup&&Object.prototype.hasOwnProperty.call(R.setup,'forfait')){if(!STEPS9.some(x=>x[0]==='forfait'))STEPS9.splice(1,0,['forfait','Forfait FidjiCoach']);if(!REQ9.includes('forfait'))REQ9.splice(1,0,'forfait')}}catch(e){console.warn(e)}}
+loadSetup=(old=>async function(){const r=await old();setupSteps9();return r})(loadSetup);
+bootReal=(old=>async function(){await old();try{await loadPricing()}catch(e){console.warn(e)}})(bootReal);
+loadCoachSide=(old=>async function(){await old();try{if(R.realRole==='coach')await loadBill()}catch(e){console.warn(e)}try{await fctReturn()}catch(e){console.warn(e)}})(loadCoachSide);
+resetLocal=(old=>function(){old();R.bill=null;R.abill=null;R.abillAt=0})(resetLocal);
+
+/* retour de la page de paiement Stripe du forfait : ?forfait=ok | annule | portail */
+const FKEY='fc-forfait-ret';
+{const q=new URLSearchParams(location.search);const v=q.get('forfait');if(v){try{sessionStorage.setItem(FKEY,v)}catch(e){}q.delete('forfait');history.replaceState(history.state,'',location.pathname+(q.toString()?'?'+q:'')+location.hash)}}
+async function fctReturn(){let v=null;try{v=sessionStorage.getItem(FKEY);sessionStorage.removeItem(FKEY)}catch(e){}
+  if(!v||R.realRole!=='coach'||!R.coachId)return;
+  if(v==='ok'||v==='portail'){try{await fcInvoke('coach-billing',{action:'sync',coach_id:R.coachId})}catch(e){console.warn('sync forfait',e)}await loadBill();try{await loadSetup()}catch(e){}}
+  setTimeout(()=>{st.view='admin';st.client=null;try{A.nav({s:R.setup&&!R.setup.done?'setup9':'fcforfait'})}catch(e){}
+    flash(v==='ok'?'Merci! Votre forfait FidjiCoach est en place.':v==='annule'?'Paiement du forfait annulé : rien n\'a été prélevé.':'Forfait à jour.')},250)}
+
+/* ---------- Contrat, article 7 (paiements réels + tarification) ---------- */
+function art7(P0){const P=Object.assign({},DEFP,P0||{});const F=rulesOf(P);const o=[];
+  if(P.trial_on)o.push(`un essai gratuit de ${P.trial_days} jours, offert une seule fois`);
+  if(P.activation_on)o.push(`des frais d'activation de ${c2(P.activation)}, non remboursables, payés avec le premier mois payé`);
+  if(P.pause_on)o.push(`hors saison, une pause à ${c2(P.pause)} par mois`);
+  return `<p>L'Entraîneur paie à FidjiCoach un forfait mensuel, au choix : <b>Solo</b>, ${c2(P.solo)} par mois (jusqu'à ${P.solo_max} clients actifs, fonctions de base), ou <b>Pro</b>, ${c2(P.pro)} par mois (clients illimités, location d'équipement, abonnements mensuels, analyse vidéo, musculation et nom de domaine), plus les taxes applicables.${o.length?' Options : '+o.join('; ')+'.':''}${Number(P.founder_max)>0&&Number(P.founder_pct)>0?` Les ${P.founder_max} premiers entraîneurs peuvent recevoir le statut de fondateur : ${pct(P.founder_pct)} de rabais à vie sur le forfait.`:''} Le forfait est facturé au mois, par carte, à part des paiements des clients; un mois commencé n'est pas remboursé.</p>
+<p>Sur chaque paiement reçu par carte, FidjiCoach garde une commission de ${pct(F.commission_pct)}${F.cap_on?` (au plus ${c2(F.cap_cents)} par paiement)`:''}, plus les frais de traitement de Stripe (${pct(F.stripe_pct)} + ${c2(F.stripe_fixed_cents)} par paiement), qui sont à la charge de l'Entraîneur. Les deux sont retenus au moment du paiement. Pour les abonnements mensuels de ses clients, le même principe s'applique (commission et frais de Stripe, y compris ceux de Stripe Billing), exprimé en pourcentage du prix de l'abonnement.</p>
+<p>Les paiements par carte des clients sont traités par Stripe et encaissés par FidjiCoach (le relevé de carte du client indique FIDJICOACH), qui les transfère au compte Stripe de l'Entraîneur, moins ces frais. Un remboursement ou une contestation de paiement est repris sur le compte de l'Entraîneur. Lors d'un remboursement, FidjiCoach rend sa commission dans la même proportion, mais les frais de traitement de Stripe ne sont pas rendus et restent à la charge de l'Entraîneur. Si son solde ne suffit pas, FidjiCoach peut lui réclamer le montant.</p>`}
+contractDoc=(old=>function(){const S=old();if(!R.on)return S;return S.map(([h,b])=>h.startsWith('7.')?[h,art7(R.pricing)]:[h,b])})(contractDoc);
+
+/* ---------- Fenêtre de paiement : nom sur le relevé ---------- */
+decorate=(old=>function(){old();if(!R.on)return;try{const sb=document.querySelector('[data-a="stripeOk"]');const box=sb&&sb.closest('.actions');const info=box&&box.previousElementSibling;
+  if(info&&info.classList.contains('info')&&!info.querySelector('.fctrel'))info.insertAdjacentHTML('beforeend','<br><span class="fctrel">Sur votre relevé de carte, le paiement paraîtra sous le nom <b>FIDJICOACH</b>.</span>')}catch(e){console.warn(e)}})(decorate);
+
+/* ---------- Paiements en ligne : textes corrigés, frais déplacés dans « Tarification des entraîneurs » ---------- */
+fcPayPage=(old=>function(){let h=old();if(!R.on||R.pay.err||!R.pay.at)return h;
+  if(R.realRole==='admin'){const S=(R.pay.plat&&R.pay.plat.settings)||{};
+    h=h.replace(/<p class="small">Les paiements de vos clients arrivent directement[\s\S]*?<\/p>/,`<p class="small">Les paiements de vos clients arrivent dans votre compte Stripe, sans commission ni forfait. Les autres entraîneurs connectent leur compte Stripe : FidjiCoach encaisse les paiements de leurs clients (relevé de carte : <b>FIDJICOACH</b>), garde sa commission et les frais de Stripe, puis transfère le reste à leur compte. Leur forfait mensuel se paie à part.</p><div class="actions" style="margin-top:8px"><button class="btn btn-sm btn-accent" data-a="nav" data-s="fctarif">Tarification des entraîneurs</button></div>`);
+    h=h.replace(/<section class="panel fc8p"><span class="eyebrow">Frais de la plateforme<\/span>[\s\S]*?<\/section>/,`<section class="panel fc8p"><span class="eyebrow">Location d'équipement</span><h3>Frais de bris ou de non-retour</h3>
+      <form id="fctrent" class="grid" novalidate><label class="field"><span>Maximum par facture ($)</span><input name="rent_fee_max" type="number" min="10" max="5000" step="1" value="${esc((S.rent_fee_max_cents||150000)/100)}"></label>
+      <div class="actions" style="grid-column:1/-1"><button class="btn btn-accent" type="submit">Enregistrer</button></div></form>
+      <p class="fc8note">Les autres entraîneurs et clubs n'ont pas accès à Interac : leurs clients paient par carte seulement, ce qui garantit les frais de FidjiCoach. Interac reste offert à vos propres clients. Forfaits, commission et frais de Stripe : <button class="linkbtn" data-a="nav" data-s="fctarif">Tarification des entraîneurs</button>.</p></section>`);
+    h=h.replace(/<label class="field"><span>Frais propres \(%, facultatif\)<\/span><input[^>]*><\/label>/,'<input type="hidden" name="fee" value="">');
+    h=h.replace(/ · frais [0-9][0-9,]* %/g,'');
+    h=h.replace(/<span style="display:flex;gap:6px;align-items:end;flex-wrap:wrap"><label class="field" style="margin:0;width:110px"><span class="small">Frais \(%\)<\/span><input[^>]*data-fc8c=[\s\S]*?data-a="fcCoachSave"[^>]*>Enregistrer<\/button><\/span>/g,'<span><button class="btn btn-sm btn-plain" data-a="nav" data-s="fctarif">Forfait et frais</button></span>');
+    h=h.replace(/<label class="field" style="margin:0;width:110px"><span class="small">Frais \(%\)<\/span><input[^>]*data-fc9fee=[^>]*><\/label>/g,'');
+    return h}
+  const I=R.pay.info||{};if(I.commission_pct==null)return h;const F=rulesOf(I);const ex=feeOf(9000,F);
+  return h.replace(/<p class="small" style="margin-top:8px">Vos clients paient par carte sur FidjiCoach;[\s\S]*?<\/p>/,`<p class="small" style="margin-top:8px">Vos clients paient par carte sur FidjiCoach. Le paiement est encaissé par FidjiCoach (sur le relevé de carte : <b>FIDJICOACH</b>), puis transféré à <b>votre</b> compte Stripe et versé dans votre compte bancaire (versements automatiques). Sur chaque paiement, FidjiCoach garde ${feeTxt9(F)}. Les frais de Stripe sont à votre charge, même lors d'un remboursement : FidjiCoach vous rend alors sa commission, mais pas les frais de Stripe.</p>
+    <div class="fctex"><span>Exemple, un cours à <b>90,00 $</b> : vous recevez <b>${c2(9000-ex.fee)}</b> (frais de ${c2(ex.fee)}, dont ${c2(ex.strp)} pour Stripe).</span><span>Abonnements mensuels de vos clients : même principe (commission et frais de Stripe, y compris ${pct(F.billing_pct)} de Stripe Billing), soit ${pct(subPctOf(2500,F))} d'un abonnement à 25 $.</span><span>Votre forfait FidjiCoach se paie à part : <button class="linkbtn" data-a="nav" data-s="fcforfait">Mon forfait FidjiCoach</button>.</span></div>`)})(fcPayPage);
+addEventListener('submit',async e=>{const f=e.target;if(!f||f.id!=='fctrent')return;e.preventDefault();e.stopImmediatePropagation();
+  await rpcDo('admin_set_fees',{p:{rent_fee_max:f.rent_fee_max.value}},'Maximum des frais de location enregistré.')},true);
+
+/* ---------- Administrateur : Finances › Tarification des entraîneurs ---------- */
+const num9=v=>{const s=String(v??'').trim().replace(',','.');return s===''?null:Number(s)};
+function tarifPage(){if(!R.on||R.realRole!=='admin')return '<div class="empty">Réservé à l\'administrateur de FidjiCoach.</div>';
+  if(!R.abillAt&&!R.abillBusy){R.abillBusy=true;loadABill().then(()=>{R.abillBusy=false;render()})}
+  if(!R.abillAt)return '<div class="empty">Chargement…</div>';
+  if(R.abillErr)return `<p class="fcmsgoff">${esc(R.abillErr)}</p>`;
+  const P=Object.assign({},DEFP,(R.abill&&R.abill.settings)||{});const F=rulesOf(P);const L=(R.abill&&R.abill.coaches)||[];const nf=Number(R.abill&&R.abill.founders||0);
+  const ex=feeOf(9000,F),ex3=feeOf(30000,F);
+  const opt=(on,k,label,body)=>`<div class="fctopt"><label class="check2"><input type="checkbox" name="${k}" ${on?'checked':''}><span>${label}</span></label>${body}</div>`;
+  const fld=(n,l,v,a)=>`<label class="field"><span>${l}</span><input name="${n}" type="number" ${a} value="${esc(v)}"></label>`;
+  let h=`<section class="panel fc8p"><span class="eyebrow">Modèle hybride · facturation au mois</span><h3>Réglages de la tarification</h3>
+    <p class="small">Chaque entraîneur paie un forfait mensuel (Solo ou Pro), plus une commission sur chaque paiement reçu. Les frais de Stripe sont ajoutés à la commission, à sa charge, même lors d'un remboursement. Vous (la plateforme) ne payez ni forfait ni commission.</p>
+    <form id="fctset" novalidate>
+      <h4 style="margin:14px 0 6px">Commission et frais de Stripe</h4>
+      <div class="grid">${fld('commission_pct','Commission par paiement reçu (%)',P.commission_pct,'min="0" max="20" step="0.1"')}${fld('stripe_pct','Frais de Stripe (%)',P.stripe_pct,'min="0" max="10" step="0.01"')}${fld('stripe_fixed','Frais de Stripe, montant fixe ($)',(P.stripe_fixed_cents/100).toFixed(2),'min="0" max="2" step="0.01"')}${fld('billing_pct','Stripe Billing, abonnements (%)',P.billing_pct,'min="0" max="5" step="0.01"')}</div>
+      <div class="fctopts">${opt(P.fee_cap_on,'fee_cap_on','<b>Plafond de la commission</b>',fld('fee_cap','Maximum par paiement ($)',(P.fee_cap_cents/100).toFixed(2),'min="0.5" max="100" step="0.01"')+'<span class="fc8note">Pour tous les entraîneurs. Chacun peut aussi avoir son propre réglage, plus bas.</span>')}</div>
+      <h4 style="margin:16px 0 6px">Forfaits mensuels</h4>
+      <div class="grid">${fld('solo','Solo ($ par mois)',P.solo/100,'min="1" max="1000" step="1"')}${fld('solo_max','Solo : clients actifs au plus',P.solo_max,'min="1" max="10000" step="1"')}${fld('pro','Pro ($ par mois)',P.pro/100,'min="1" max="1000" step="1"')}</div>
+      <h4 style="margin:16px 0 6px">Options</h4>
+      <div class="fctopts">${opt(P.trial_on,'trial_on','<b>Essai gratuit</b>',fld('trial_days','Durée (jours)',P.trial_days,'min="1" max="90" step="1"'))}
+        ${opt(P.activation_on,'activation_on','<b>Frais d\'activation</b>',fld('activation','Montant ($)',P.activation/100,'min="1" max="2000" step="1"')+'<span class="fc8note">Avec l\'essai : ajoutés au premier mois payé. Sans essai : payés tout de suite.</span>')}
+        ${opt(P.pause_on,'pause_on','<b>Pause hors saison</b>',fld('pause','Prix en pause ($ par mois)',P.pause/100,'min="1" max="1000" step="1"'))}
+        <div class="fctopt"><b>Fondateurs</b>${fld('founder_pct','Rabais à vie (%)',P.founder_pct,'min="0" max="100" step="1"')}${fld('founder_max','Nombre de places',P.founder_max,'min="0" max="1000" step="1"')}<span class="fc8note">${nf} place${nf>1?'s':''} prise${nf>1?'s':''} sur ${P.founder_max}.</span></div></div>
+      <div class="actions" style="margin-top:12px"><button class="btn btn-accent" type="submit">Enregistrer les réglages</button></div></form>
+    <div class="fctex"><span>Cours à <b>90,00 $</b> : l'entraîneur reçoit <b>${c2(9000-ex.fee)}</b>; FidjiCoach retient ${c2(ex.fee)}, Stripe en prend ${c2(ex.strp)} sur votre compte, il vous reste <b>${c2(ex.com)}</b>.</span>
+      <span>Paiement de <b>300,00 $</b> : commission de ${c2(ex3.com)}${F.cap_on?' (plafonnée)':''} + ${c2(ex3.strp)} de Stripe = ${c2(ex3.fee)}.</span>
+      <span>Abonnement d'un client à <b>25,00 $</b> par mois : ${pct(subPctOf(2500,F))} retenus (Stripe Billing compris).</span>
+      <span>Les prix des forfaits s'appliquent aux nouveaux forfaits; pour un forfait déjà en cours, ouvrez l'entraîneur et touchez <b>Enregistrer</b>.</span></div></section>`;
+  h+=`<section class="panel fc8p"><span class="eyebrow">${L.length} entraîneur${L.length>1?'s':''}</span><h3>Forfait de chaque entraîneur</h3>
+    ${L.map(c=>{const pr=c.price||{};const disc=Number(pr.discount_pct||0);const base=Number(pr.base_cents||0);
+      const isMax=c.max!=null&&c.active_clients>=c.max;
+      return `<details class="fctc" ${st.fctOpen===c.id?'open':''} data-fctd="${esc(c.id)}"><summary><span class="nm"><b>${esc(c.nom)}</b> · <span class="small muted">${esc(c.email||'')}</span></span>
+        <span class="tags"><span class="fc8tag ${c.plan?'ok':''}">${c.plan?PLANS9[c.plan]:'Forfait à choisir'}</span>${stTag9(c.status)}${c.founder?'<span class="fc8tag ok">Fondateur</span>':''}${disc>0&&c.plan?`<span class="fc8tag">${c2(Math.round(base*(1-disc/100)))} / mois</span>`:''}</span></summary>
+        <p class="small" style="margin:8px 0 0">${c.active_clients} client${c.active_clients>1?'s':''} actif${c.active_clients>1?'s':''}${c.max!=null?' sur '+c.max+(isMax?' · <b>limite atteinte</b>':''):''} · frais retenus sur 12 mois : ${c2(c.fees_season)}${c.trial_end&&c.status==='essai'?' · essai jusqu\'au '+day9(c.trial_end):''}${c.period_end&&c.status!=='essai'?' · '+(c.cancel_at_period_end?'se termine le ':'prochain prélèvement le ')+day9(c.period_end):''}${c.activation_paid_at?' · activation payée':c.activation_waived?' · activation offerte':''}${c.charges?'':' · compte Stripe pas prêt'}</p>
+        <form class="grid" data-fctc="${esc(c.id)}" novalidate>
+          <label class="field"><span>Forfait</span><select name="plan"><option value="" ${c.plan?'':'selected'} disabled>À choisir</option><option value="solo" ${c.plan==='solo'?'selected':''}>Solo</option><option value="pro" ${c.plan==='pro'?'selected':''}>Pro</option></select></label>
+          <label class="field"><span>Rabais donné (%)</span><input name="discount_pct" type="number" min="0" max="100" step="1" value="${esc(c.discount_pct||0)}"></label>
+          <label class="field"><span>Commission (%), vide = plateforme</span><input name="commission_pct" type="number" min="0" max="20" step="0.1" value="${c.commission_pct??''}" placeholder="${esc(P.commission_pct)}"></label>
+          <label class="field"><span>Plafond de la commission</span><select name="fee_cap"><option value="" ${!c.fee_cap?'selected':''}>Plateforme (${P.fee_cap_on?'oui':'non'})</option><option value="oui" ${c.fee_cap==='oui'?'selected':''}>Oui, ${c2(P.fee_cap_cents)} au plus</option><option value="non" ${c.fee_cap==='non'?'selected':''}>Non</option></select></label>
+          <label class="field"><span>Clients au plus (Solo), vide = plateforme</span><input name="max_clients" type="number" min="1" max="10000" step="1" value="${c.max_clients??''}" placeholder="${esc(P.solo_max)}"></label>
+          <label class="field"><span>Note (pour vous)</span><input name="note" type="text" maxlength="300" value="${esc(c.note||'')}"></label>
+          <label class="check2"><input type="checkbox" name="founder" ${c.founder?'checked':''}><span>Fondateur (${pct(P.founder_pct)} à vie)</span></label>
+          <label class="check2"><input type="checkbox" name="paused" ${c.paused?'checked':''}><span>En pause hors saison (${c2(P.pause)} / mois)</span></label>
+          <label class="check2"><input type="checkbox" name="activation_waived" ${c.activation_waived?'checked':''}><span>Frais d'activation offerts</span></label>
+          <div class="actions" style="grid-column:1/-1"><button class="btn btn-accent" type="submit">Enregistrer</button>${c.has_sub?`<button type="button" class="btn btn-plain" data-a="fctSyncA" data-c="${esc(c.id)}">Relire chez Stripe</button><button type="button" class="btn btn-plain" data-a="fctEnd" data-c="${esc(c.id)}" data-on="${c.cancel_at_period_end?'0':'1'}">${c.cancel_at_period_end?'Garder le forfait':'Mettre fin au forfait'}</button>`:''}</div>
+          <p class="fc8note" style="grid-column:1/-1">${c.has_sub?'Un changement de forfait, de pause ou de rabais vaut à partir du prochain mois (pas de prorata).':'Pas encore de forfait payé chez Stripe : ces réglages s\'appliqueront quand l\'entraîneur choisira son forfait.'}</p></form></details>`}).join('')||'<p class="muted small">Aucun autre entraîneur pour l\'instant.</p>'}</section>`;
+  return h}
+ASEC.fctarif={l:'Tarification des entraîneurs',i:'money',f:()=>tarifPage()};REL.fctarif=['fcpay','compta'];
+addEventListener('toggle',e=>{const d=e.target;if(d&&d.dataset&&d.dataset.fctd){st.fctOpen=d.open?d.dataset.fctd:(st.fctOpen===d.dataset.fctd?null:st.fctOpen)}},true);
+addEventListener('submit',async e=>{const f=e.target;if(!f||(f.id!=='fctset'&&!(f.dataset&&f.dataset.fctc)))return;e.preventDefault();e.stopImmediatePropagation();
+  const v=k=>f[k]?f[k].value:'';const ck=k=>!!(f[k]&&f[k].checked);
+  if(f.id==='fctset'){busyOn('Enregistrement…');
+    try{const p={commission_pct:num9(v('commission_pct')),fee_cap_on:ck('fee_cap_on'),fee_cap:num9(v('fee_cap')),stripe_pct:num9(v('stripe_pct')),stripe_fixed:num9(v('stripe_fixed')),billing_pct:num9(v('billing_pct')),
+        solo:num9(v('solo')),pro:num9(v('pro')),solo_max:num9(v('solo_max')),trial_on:ck('trial_on'),trial_days:num9(v('trial_days')),activation_on:ck('activation_on'),activation:num9(v('activation')),
+        pause_on:ck('pause_on'),pause:num9(v('pause')),founder_pct:num9(v('founder_pct')),founder_max:num9(v('founder_max'))};
+      const {data,error}=await R.sb.rpc('admin_billing_set',{p});if(error)throw error;R.pricing=data||R.pricing;await loadABill();flash('Réglages de la tarification enregistrés.')}
+    catch(err){flash(errTxt(err))}finally{busyOff();render()}return}
+  const id=f.dataset.fctc;st.fctOpen=id;busyOn('Enregistrement…');
+  try{const p={discount_pct:num9(v('discount_pct'))||0,commission_pct:num9(v('commission_pct')),fee_cap:v('fee_cap'),max_clients:num9(v('max_clients')),note:v('note'),
+      founder:ck('founder'),paused:ck('paused'),activation_waived:ck('activation_waived')};if(v('plan'))p.plan=v('plan');
+    const {data,error}=await R.sb.rpc('admin_coach_billing_set',{p_coach:id,p});if(error)throw error;
+    let msg='Forfait de l\'entraîneur enregistré.';
+    if(data&&data.has_sub){try{busyOn('Mise à jour chez Stripe…');await fcInvoke('coach-billing',{action:'apply',coach_id:id});msg+=' Stripe est à jour (prochain mois).'}
+      catch(x){msg='Enregistré, mais Stripe n\'a pas suivi : '+await errMsg(x)}}
+    await loadABill();flash(msg)}
+  catch(err){flash(errTxt(err))}finally{busyOff();render()}},true);
+A.fctSyncA=async d=>{busyOn('Lecture chez Stripe…');try{await fcInvoke('coach-billing',{action:'sync',coach_id:d.c});await loadABill();flash('Forfait relu chez Stripe.')}
+  catch(e){flash('Stripe : '+await errMsg(e))}finally{busyOff();render()}};
+A.fctEnd=async d=>{const on=d.on==='1';if(on&&!confirm('Mettre fin à ce forfait à la fin du mois payé? L\'entraîneur ne sera plus facturé ensuite.'))return;
+  busyOn('Mise à jour chez Stripe…');try{await fcInvoke('coach-billing',{action:'cancel',coach_id:d.c,on});await loadABill();flash(on?'Le forfait se terminera à la fin du mois payé.':'Le forfait continue.')}
+  catch(e){flash('Stripe : '+await errMsg(e))}finally{busyOff();render()}};
+
+/* ---------- Entraîneur : Finances › Mon forfait FidjiCoach ---------- */
+const SUBD9=['essai','actif','pause','en_retard'];
+function forfaitPage(){if(!R.on)return '<div class="empty">Connectez-vous.</div>';
+  if(R.realRole==='admin')return `<section class="panel fc8p"><h3>Vous êtes la plateforme</h3><p class="small">Aucun forfait ni commission pour vous. Les forfaits des autres entraîneurs se règlent dans <button class="linkbtn" data-a="nav" data-s="fctarif">Tarification des entraîneurs</button>.</p></section>`;
+  if(R.bill===null&&!R.billBusy){loadBill().then(()=>render())}
+  if(R.bill===null)return '<div class="empty">Chargement…</div>';
+  if(R.bill===false)return '<p class="fcmsgoff">Le forfait FidjiCoach n\'est pas encore offert. Réessayez plus tard.</p>';
+  const B=R.bill;const P=Object.assign({},DEFP,B.prices||{});const F=rulesOf(B.fees||{});const subd=SUBD9.includes(B.status);const disc=Number(B.total_discount_pct||0);
+  const price=c=>disc>0?`<s>${c2(c)}</s>${c2(Math.round(c*(1-disc/100)))}`:c2(c);
+  const card=k=>`<div class="fctplan ${B.plan===k&&subd?'on':''}"><span class="eyebrow">${B.plan===k&&subd?'Votre forfait':'Forfait'}</span><h3>${PLANS9[k]}</h3><p class="fctprice">${price(P[k])}<small> / mois</small></p><ul>${featsOf(k,P).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+    ${subd?'':`<div class="actions"><button class="btn ${k==='pro'?'btn-accent':'btn-plain'}" data-a="fctChoose" data-p="${k}">Choisir ${PLANS9[k]}</button></div>`}</div>`;
+  const notes=[];if(!subd){if(P.trial_on&&!B.trial_used)notes.push(`<b>Essai gratuit de ${P.trial_days} jours</b> : rien n'est prélevé avant la fin de l'essai.`);
+    if(B.activation_due)notes.push(`Frais d'activation de ${c2(P.activation)}, une seule fois, ${P.trial_on&&!B.trial_used?'avec le premier mois payé':'avec le premier mois'}.`);
+    if(B.founder)notes.push(`Vous êtes <b>fondateur</b> : ${pct(P.founder_pct)} de rabais à vie sur le forfait.`);else if(disc>0)notes.push(`Rabais de ${pct(disc)} sur le forfait.`);
+    notes.push('Payé par carte chaque mois, à part des paiements de vos clients. Facturation au mois seulement.')}
+  let h='';
+  if(subd){const solo=B.plan==='solo';const n=Number(B.active_clients||0),mx=B.max_clients==null?null:Number(B.max_clients);const w=mx?Math.min(100,Math.round(n/mx*100)):0;
+    const when=B.status==='essai'?`Essai gratuit jusqu'au <b>${day9(B.trial_end)}</b>; premier prélèvement à cette date.`:B.status==='pause'?`En pause hors saison : <b>${c2(Math.round(P.pause*(1-disc/100)))}</b> par mois. Écrivez à FidjiCoach pour reprendre.`
+      :B.status==='en_retard'?'<b>Le dernier paiement a été refusé.</b> Mettez votre carte à jour pour garder votre forfait.':B.cancel_at_period_end?`Votre forfait se termine le <b>${day9(B.period_end)}</b>.`:B.period_end?`Prochain prélèvement le <b>${day9(B.period_end)}</b>.`:'';
+    h+=`<section class="panel fc8p"><span class="eyebrow">Votre forfait FidjiCoach</span><h3>${PLANS9[B.plan]||'Forfait'} ${stTag9(B.status)} ${B.founder?'<span class="fc8tag ok">Fondateur</span>':''}</h3>
+      <p class="fctprice">${price(B.paused?P.pause:P[B.plan]||0)}<small> / mois${B.paused?' (pause)':''}</small></p><p class="small">${when}</p>
+      ${solo&&mx?`<p class="small" style="margin-top:8px"><b>${n}</b> client${n>1?'s':''} actif${n>1?'s':''} sur ${mx}</p><div class="fctbar"><i class="${w>=90?'warn':''}" style="width:${w}%"></i></div><p class="fc8note">Client actif : réservation dans les 12 derniers mois, cours à venir ou abonnement en cours. ${n>=mx?'<b>Limite atteinte : vos nouveaux clients ne peuvent plus réserver.</b> ':''}Le forfait Pro n'a pas de limite.</p>`:''}
+      <div class="actions" style="margin-top:10px"><button class="btn ${B.status==='en_retard'?'btn-accent':'btn-plain'}" data-a="fctPortal">Changer de carte ou voir mes reçus</button><button class="btn btn-plain" data-a="fctSync">Actualiser</button></div>
+      <p class="fc8note">Pour changer de forfait, le mettre en pause hors saison ou y mettre fin, écrivez à FidjiCoach. Un changement vaut à partir du mois suivant.</p></section>`}
+  else h+=`<section class="panel fc8p"><span class="eyebrow">${B.status==='annule'?'Forfait terminé':'Étape de la mise en place'}</span><h3>Choisissez votre forfait FidjiCoach</h3><div class="fc8note" style="display:grid;gap:4px">${notes.map(x=>`<span>${x}</span>`).join('')}</div></section>`;
+  h+=`<div class="fctplans">${card('solo')}${card('pro')}</div>`;
+  h+=`<section class="panel fc8p"><span class="eyebrow">Sur chaque paiement de vos clients</span><h3>Commission de la plateforme</h3><p class="small">FidjiCoach garde ${feeTxt9(F)}, à votre charge, même lors d'un remboursement (FidjiCoach rend alors sa commission, pas les frais de Stripe). Abonnements mensuels de vos clients : même principe, Stripe Billing compris.</p>
+    <div class="fctex"><span>Cours à 90,00 $ : vous recevez <b>${c2(9000-feeOf(9000,F).fee)}</b>.</span></div></section>`;
+  const inv=(B.invoices||[]).slice().reverse();
+  if(inv.length)h+=`<section class="panel fc8p"><span class="eyebrow">Historique</span><h3>Paiements de votre forfait</h3>${inv.map(x=>`<div class="fctinv"><span>${esc(x.date?day9(x.date):'')}</span><b>${money(Number(x.amount)||0)}</b></div>`).join('')}</section>`;
+  return h}
+ASEC.fcforfait={l:'Mon forfait FidjiCoach',i:'repeat',f:()=>forfaitPage()};REL.fcforfait=['fcpay','setup9'];
+A.fctChoose=async d=>{const k=d.p;if(!PLANS9[k])return;const B=R.bill||{};const P=Object.assign({},DEFP,B.prices||{});
+  const trial=P.trial_on&&!B.trial_used;
+  if(!confirm(`Choisir le forfait ${PLANS9[k]} (${c2(P[k])} par mois${Number(B.total_discount_pct)>0?', avant rabais':''})?${trial?`\n\nEssai gratuit de ${P.trial_days} jours : rien n'est prélevé aujourd'hui.`:''}\n\nVous serez dirigé vers la page de paiement sécurisée de Stripe.`))return;
+  busyOn('Ouverture de Stripe…');try{const r=await fcInvoke('coach-billing',{action:'checkout',coach_id:R.coachId,plan:k});if(r&&r.url){location.href=r.url;return}busyOff();flash('Réessayez dans un instant.')}
+  catch(e){busyOff();flash(missing(e)?'Le forfait n\'est pas encore offert (fonction « coach-billing » à créer dans Supabase).':'Forfait : '+await errMsg(e))}};
+A.fctPortal=async()=>{busyOn('Ouverture de Stripe…');try{const r=await fcInvoke('coach-billing',{action:'portal',coach_id:R.coachId});if(r&&r.url){location.href=r.url;return}busyOff()}
+  catch(e){busyOff();flash('Stripe : '+await errMsg(e))}};
+A.fctSync=async()=>{busyOn('Vérification chez Stripe…');try{await fcInvoke('coach-billing',{action:'sync',coach_id:R.coachId})}catch(e){console.warn(e)}
+  await loadBill();try{await loadSetup()}catch(e){}busyOff();render();flash('Forfait à jour.')};
+
+/* ---------- Mise en place guidée : étape « Forfait FidjiCoach » ---------- */
+setupV=(old=>function(){let h=old();if(!R.on||!h.includes('id="fc9-stripe"'))return h;setupSteps9();if(!REQ9.includes('forfait'))return h;
+  const owner=R.realRole==='admin';const B=R.bill||{};const P=Object.assign({},DEFP,B.prices||R.pricing||{});const ok=stOk('forfait');
+  const body=owner?'Vous êtes la plateforme : aucun forfait ni commission.':ok?`Forfait <b>${PLANS9[B.plan]||''}</b> · ${(STAT9[B.status]||[''])[0].toLowerCase()}${B.status==='essai'&&B.trial_end?' jusqu\'au '+day9(B.trial_end):''}.`
+    :`Choisissez votre forfait : <b>Solo</b>, ${c2(P.solo)} par mois (jusqu'à ${P.solo_max} clients actifs, fonctions de base), ou <b>Pro</b>, ${c2(P.pro)} par mois (clients illimités, location d'équipement, abonnements, vidéo, musculation, nom de domaine).${P.trial_on&&!B.trial_used?` Essai gratuit de ${P.trial_days} jours.`:''} Payé par carte, à part des paiements de vos clients. En plus : ${pct(rulesOf(B.fees||R.pricing||{}).commission_pct)} de commission et les frais de Stripe sur chaque paiement reçu.`;
+  const act=owner?'':ok?`<span class="actions"><button type="button" class="btn btn-sm btn-plain" data-a="nav" data-s="fcforfait">Mon forfait</button></span>`
+    :`<span class="actions"><button type="button" class="btn btn-sm btn-plain" data-a="fctChoose" data-p="solo">Solo</button><button type="button" class="btn btn-sm btn-accent" data-a="fctChoose" data-p="pro">Pro</button><button type="button" class="btn btn-sm btn-plain" data-a="nav" data-s="fcforfait">Comparer</button></span>`;
+  h=h.replace('<section class="fc9step" id="fc9-stripe">',`<section class="fc9step" id="fc9-forfait"><div class="hd"><h3>${okTag('forfait')} Forfait FidjiCoach</h3>${act}</div><p class="small">${body}</p></section><section class="fc9step" id="fc9-stripe">`);
+  h=h.replace(/quand les \d+ étapes obligatoires seront faites/,'quand les '+REQ9.length+' étapes obligatoires seront faites');
+  return h})(setupV);
+
+/* ---------- Menus : Tarification (administrateur), Mon forfait (entraîneur), forfait Solo ---------- */
+const isSolo9=()=>!!(R.on&&R.realRole==='coach'&&R.bill&&R.bill.plan==='solo');
+AGROUPS=(old=>function(){let g=old();if(!R.on)return g;
+  g=g.map(([n,ks])=>[n,ks.filter(k=>k!=='monplan'&&!(isSolo9()&&PRO_SECS.includes(k)))]).filter(([,ks])=>ks.length);
+  const add=R.realRole==='admin'?'fctarif':R.realRole==='coach'?'fcforfait':null;
+  if(add&&!g.some(([,ks])=>ks.includes(add))){const i=g.findIndex(([n])=>n==='Finances');if(i>=0)g[i]=[g[i][0],[...g[i][1],add]];else g.push(['Finances',[add]])}
+  return g})(AGROUPS);
+/* forfait Solo : une section Pro ouvre « Mon forfait » (avec les forfaits à comparer) */
+curSec=(old=>function(){const s=old();return isSolo9()&&PRO_SECS.includes(s)?'fcforfait':s})(curSec);
+
 /* PWA : fonctions internes dont l'app installable a besoin (notifications touchées, hors ligne) */
 window.fcPwaHooks={loadNotifs,nAny,syncAll,errTxt};
 R.bootP=bootReal();R.bootP.then(stripeReturn).catch(e=>console.error(e));
@@ -23846,6 +24084,14 @@ addEventListener('pointerdown',note,true);addEventListener('keydown',note,true);
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-fcback]');if(!b)return;e.preventDefault();e.stopImmediatePropagation();history.back()},true);
 window.fcNav=H;
 try{after()}catch(e){console.warn(e)}
+})();
+</script>
+<script>
+/* ================= Tarification (6 nov. 2026) : bandeau de l'administrateur =================
+   Ajouté en dernier pour que le bandeau finisse par « Paiements réels : prêt. » */
+(function(){
+const R=window.fcReal||{};
+render=(old=>function(){const r=old.apply(this,arguments);try{if(R.on&&R.role==='admin'&&st.view==='admin'){const b=document.querySelector('.fcreal');if(b&&!b.dataset.tarif){b.dataset.tarif='1';b.insertAdjacentHTML('beforeend',' <b>Tarification :</b> forfaits Solo et Pro, 1 % de commission + frais de Stripe à la charge de l\'entraîneur. <b>Paiements réels : prêt.</b>')}}}catch(e){}return r})(render);
 })();
 </script>
 </body></html>
