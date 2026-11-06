@@ -22778,6 +22778,60 @@ window.fcRuleHook=function(uid,r){try{const u=userById(uid);const K=u&&u.gen9pla
   if(K.noHard)r.conseils=['Tant qu\'une zone est douloureuse, le plan reste en endurance facile : réintroduisez l\'intensité quand la douleur est sous 3/10 pendant deux semaines.'].concat(r.conseils||[]);
   r.resume=(r.resume||'')+' Repères des blessures appliqués (programme adapté).';return r}catch(e){return r}};
 
+/* ================= Corrections 5 (5 nov. 2026) =================
+   1. Plages passées : le calendrier du client ne propose plus une heure déjà passée (le serveur n'envoie plus les plages terminées
+      et refuse toute heure passée : fc_check_free).
+   2. Réservation le jour même par un client : visible mais « Sur approbation de l'entraîneur » (téléphone affiché). La demande est
+      enregistrée (details.approval = pending), va dans « À traiter » chez l'entraîneur, et n'est confirmée ni payée qu'après Approuver
+      (booking_approve). Refuser annule la demande et libère l'heure.
+   3. Notifications poussées des messages : côté serveur (push-notify + fc_msg_after). 4. Verrou Face ID : script à la fin de la page. */
+document.head.insertAdjacentHTML('beforeend','<style>.fcsd{margin:6px 0 8px;padding:8px 10px;border-radius:10px;background:var(--warn-soft,#fff4d6);color:var(--ink);border:1px dashed var(--warn,#b7791f)}.fcsd a{font-weight:700}.fcsdnote{margin:8px 0;padding:10px 12px;border-radius:10px;background:var(--warn-soft,#fff4d6);border:1px solid var(--warn,#b7791f);display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:.92rem}.fcsdnote .actions{display:flex;gap:6px}.chip.fcsd-chip{border-style:dashed}</style>');
+const c5Now=()=>{const d=new Date();return d.getHours()*60+d.getMinutes()};
+const c5Client=()=>R.on&&R.role!=='admin';
+const c5Tel=()=>{try{return (R.coachInfo&&R.coachInfo.tel)||ui().coach.tel||''}catch(e){return ''}};
+const c5First=()=>{try{return ((R.coachRow&&R.coachRow.nom_affiche)||ui().coach.name||'votre entraîneur').split(' ')[0]}catch(e){return 'votre entraîneur'}};
+
+/* ---------- 1. Plus d'heure passée pour le client (aujourd'hui : seulement les heures encore à venir) ---------- */
+startsFor=(old=>function(slot,dur,ignore){const r=old(slot,dur,ignore);
+  if(!c5Client()||!slot||slot.date!==today())return r;const n=c5Now();return r.filter(t=>toMin(t)>n)})(startsFor);
+
+/* ---------- 2. Réservation le jour même : sur approbation ---------- */
+toLocal=(old=>function(row){const o=old(row);const d=(row&&row.details)||{};o.approval=d.approval||null;o.sameDay=!!d.sameDay;return o})(toLocal);
+const c5Pending=b=>!!(b&&b.real&&b.approval==='pending'&&!b.cancelled);
+bookingStatus=(old=>function(b){if(c5Pending(b))return ['Sur approbation de l\'entraîneur','warn'];return old(b)})(bookingStatus);
+/* chips d'aujourd'hui (nouvelle réservation seulement) : avis « sur approbation » + téléphone */
+startChips=(old=>function(date,p){let h=old(date,p);if(!c5Client()||!h||date!==today()||st.modal)return h;
+  const tel=c5Tel();h=h.replace(/class="chip /g,'class="chip fcsd-chip ');
+  return `<p class="small fcsd">Aujourd'hui : <b>sur approbation de ${esc(c5First())}</b>. Votre demande lui est envoyée tout de suite; elle n'est confirmée (et payée) qu'après son accord.${tel?` Pour une réponse rapide, appelez-le au <a href="tel:${esc(String(tel).replace(/[^\d+]/g,''))}">${esc(tel)}</a>.`:''}</p>`+h})(startChips);
+/* après la réservation : pas de fenêtre de paiement, un message clair */
+A.book=(old=>async function(){if(!c5Client())return old.apply(this,arguments);const r=await old.apply(this,arguments);
+  try{const b=db.bookings.filter(c5Pending).sort((a,c)=>String(c.created||'').localeCompare(String(a.created||'')))[0];
+    if(b&&Date.now()-Date.parse(b.created||0)<90000&&!b.c5Told){b.c5Told=true;st.modal=null;st.view='client';st.tab='resa';
+      const tel=c5Tel();flash('Demande envoyée à '+c5First()+' ('+b.ref+'). Un cours le jour même doit être approuvé : vous paierez après son accord.'+(tel?' Pour faire vite, appelez-le au '+tel+'.':''));render()}}catch(e){console.warn(e)}
+  return r})(A.book);
+/* carte de réservation : pas de paiement avant l'approbation; boutons Approuver / Refuser pour l'entraîneur */
+bookingCard=(old=>function(b,u,admin){let h=old(b,u,admin);if(!c5Pending(b))return h;
+  h=h.replace(/<button class="btn btn-sm btn-(?:accent|plain)" data-a="(?:payMine|showInterac|showShare|plan)"[^>]*>[^<]*<\/button>/g,'');
+  const tel=c5Tel();
+  const note=admin?`<div class="fcsdnote"><span><b>Réservation pour aujourd'hui : à approuver.</b><br><span class="muted small">Le client ne peut pas payer avant votre réponse. Refuser annule la demande et libère l'heure.</span></span><span class="actions"><button class="btn btn-sm btn-accent" data-a="fcApprove" data-b="${b.id}">Approuver</button><button class="btn btn-sm btn-plain" data-a="fcRefuse" data-b="${b.id}">Refuser</button></span></div>`
+    :`<div class="fcsdnote"><span><b>En attente de l'approbation de ${esc(c5First())}.</b><br><span class="muted small">Un cours le jour même doit être approuvé. Vous paierez après son accord${tel?` — pour faire vite, appelez-le au <a href="tel:${esc(String(tel).replace(/[^\d+]/g,''))}">${esc(tel)}</a>`:''}.</span></span></div>`;
+  return h.includes('<div class="sess">')?h.replace('<div class="sess">',note+'<div class="sess">'):h.replace('</article>',note+'</article>')})(bookingCard);
+/* « À traiter » de l'entraîneur */
+todoAdmin=(old=>function(){const o=old();if(!R.on||R.role!=='admin')return o;const add=[];
+  db.bookings.filter(c5Pending).forEach(b=>{const when=(b.sessions||[]).map(s=>dfmt(s.date)+' · '+hfmt(s.start)).join(', ')||'heure à préciser';
+    add.push({k:'warn',t:'Réservation pour aujourd\'hui à approuver',d:esc(name(userById(b.owner)))+' · '+b.ref+' · '+esc(b.lieu||'')+'<br><b>'+when+'</b> · '+bDesc(b)+' <span class="muted">(rien n\'est payé avant votre réponse)</span>',
+      btn:`<span class="actions"><button class="btn btn-sm btn-accent" data-a="fcApprove" data-b="${b.id}">Approuver</button><button class="btn btn-sm btn-plain" data-a="fcRefuse" data-b="${b.id}">Refuser</button></span>`})});
+  return add.concat(o)})(todoAdmin);
+async function c5Decide(id,ok){const b=realB(id);if(!b)return;
+  if(!ok&&!confirm('Refuser cette réservation d\'aujourd\'hui? Elle sera annulée (rien n\'a été payé) et le client sera avisé.'))return;
+  busyOn(ok?'Approbation…':'Refus…');
+  try{const {error}=await R.sb.rpc('booking_approve',{p_booking:b.sid,p_ok:!!ok});if(error)throw error;await syncAll();
+    flash(ok?'Réservation approuvée : le client reçoit sa confirmation et peut payer.':'Demande refusée : la réservation est annulée et le client est avisé.')}
+  catch(e){console.error(e);flash(errTxt(e))}finally{busyOff();render()}}
+A.fcApprove=d=>c5Decide(d.b,true);
+A.fcRefuse=d=>c5Decide(d.b,false);
+if(typeof EN5==='object')Object.assign(EN5,{'Sur approbation de l\'entraîneur':'Pending coach approval','Approuver':'Approve','Refuser':'Decline','Réservation pour aujourd\'hui à approuver':'Same-day booking to approve'});
+
 /* ---------- 10. Branchements ---------- */
 syncAll=(old=>async function(){await old();try{repApply()}catch(e){}})(syncAll);
 /* plateforme : « Trouver un entraîneur » et « À propos » depuis les liens #trouver / #apropos */
@@ -23609,8 +23663,103 @@ document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!t.da
 
 /* ---------- 10. Après chaque affichage ---------- */
 if(typeof render==='function')render=(old=>function(){const r=old.apply(this,arguments);try{cardRefresh();stateRefresh(false);
-  if(R.on&&R.role==='admin'&&st.view==='admin'){const b=document.querySelector('.fcreal');if(b&&!b.dataset.pwa){b.dataset.pwa='1';b.insertAdjacentHTML('beforeend',' <b>PWA :</b> application installable et notifications poussées.')}}}catch(e){}return r})(render);
+  if(R.on&&R.role==='admin'&&st.view==='admin'){const b=document.querySelector('.fcreal');if(b&&!b.dataset.pwa){b.dataset.pwa='1';b.insertAdjacentHTML('beforeend',' <b>PWA :</b> application installable et notifications poussées. <b>Corrections 5.</b>')}}}catch(e){}return r})(render);
 if(typeof EN5==='object')Object.assign(EN5,{'Application et notifications':'App and notifications','Installer':'Install','Comment installer':'How to install','Activer sur cet appareil':'Turn on on this device','Couper sur cet appareil':'Turn off on this device','Envoyer un essai':'Send a test','Plus tard':'Later','Actualiser':'Refresh','Rappels de cours':'Lesson reminders'});
+})();
+</script>
+<style>
+/* ================= Corrections 5 (5 nov. 2026) : verrou Face ID / Touch ID / empreinte ================= */
+#fclock{position:fixed;inset:0;z-index:300;background:var(--navy,#13325b);color:#fff;display:grid;place-items:center;padding:24px;text-align:center}
+#fclock .box{max-width:360px;width:100%}
+#fclock img{width:150px;max-width:70%;height:auto;margin:0 auto 14px;display:block;background:#fff;border-radius:16px;padding:10px}
+#fclock h2{color:#fff;margin:0 0 6px;font-family:var(--f-display,inherit)}
+#fclock p{color:rgba(255,255,255,.85);min-height:1.4em;margin:0 0 16px}
+#fclock .btn{margin:4px}
+#fclock .btn-plain{background:transparent;color:#fff;border-color:rgba(255,255,255,.5)}
+.fclockrow .small{display:block;margin-top:3px}
+</style>
+<script>
+/* ================= Corrections 5 (5 nov. 2026) : verrou à l'ouverture (Face ID, Touch ID, empreinte, Windows Hello) =================
+   - Réglage PAR APPAREIL (gardé dans ce navigateur ou cette app installée), proposé dans « Application et notifications ».
+   - À l'ouverture de FidjiCoach (et après 5 minutes en arrière-plan), un voile demande la vérification biométrique de l'appareil (WebAuthn,
+     authentificateur de la plateforme). Rien ne change à la connexion Supabase : la session reste la même; le verrou s'ajoute par-dessus.
+   - Sans capteur ou si la vérification échoue : « Se déconnecter » ramène à la page de connexion (mot de passe). */
+(function(){
+const R=window.fcReal||{};
+const KEY='fc-lock',RELOCK_MS=5*60000;
+const LS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return null}};
+const cfg=()=>{try{const c=JSON.parse(LS(KEY)||'null');return c&&c.id?c:null}catch(e){return null}};
+const b64u=buf=>btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const unb64=s=>{const t=String(s||'').replace(/-/g,'+').replace(/_/g,'/');const p=t+'='.repeat((4-t.length%4)%4);return Uint8Array.from(atob(p),c=>c.charCodeAt(0))};
+const rnd=n=>crypto.getRandomValues(new Uint8Array(n));
+const can=()=>!!(window.PublicKeyCredential&&navigator.credentials&&navigator.credentials.get&&location.protocol==='https:');
+const ua=navigator.userAgent;
+const isIOS=/iP(hone|ad|od)/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const bioName=()=>isIOS?'Face ID ou Touch ID':/Android/i.test(ua)?'l\'empreinte ou le visage':/Mac/.test(ua)?'Touch ID':/Windows/.test(ua)?'Windows Hello':/CrOS/.test(ua)?'l\'empreinte ou le NIP du Chromebook':'la vérification de l\'appareil';
+const L={locked:false,busy:false,hiddenAt:0,avail:null,booted:false};
+window.FCLOCK=L;
+const logged=()=>{try{const u=me();return !!(R.on&&u)}catch(e){return false}};
+const errMsg=e=>{const n=e&&e.name||'';if(n==='NotAllowedError')return 'Vérification annulée ou refusée.';if(n==='InvalidStateError')return 'Ce verrou n\'est plus reconnu par l\'appareil.';if(n==='SecurityError')return 'Vérification refusée par le navigateur.';return (e&&e.message)||String(e||'erreur')};
+async function checkAvail(){if(L.avail!==null)return L.avail;try{L.avail=can()&&!!(await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())}catch(e){L.avail=false}return L.avail}
+
+/* ---------- voile ---------- */
+const ov=document.createElement('div');ov.id='fclock';ov.hidden=true;ov.setAttribute('role','dialog');ov.setAttribute('aria-label','FidjiCoach verrouillée');
+ov.innerHTML=`<div class="box"><img src="/fidjicoach-logo.png" alt="FidjiCoach"><h2>FidjiCoach est verrouillée</h2><p data-m>Déverrouillez avec ${bioName()}.</p><div><button class="btn btn-accent" data-a="fcUnlock">Déverrouiller</button><button class="btn btn-plain" data-a="fcLockLogout">Se déconnecter</button></div></div>`;
+document.body.appendChild(ov);
+const msg=t=>{const m=ov.querySelector('[data-m]');if(m)m.textContent=t};
+function show(){if(!cfg())return;L.locked=true;ov.hidden=false;try{document.activeElement&&document.activeElement.blur()}catch(e){}}
+function hide(){L.locked=false;ov.hidden=true}
+async function unlock(auto){const c=cfg();if(!c){hide();return}if(L.busy)return;L.busy=true;msg('Vérification…');
+  try{const cred=await navigator.credentials.get({publicKey:{challenge:rnd(32),rpId:location.hostname,allowCredentials:[{id:unb64(c.id),type:'public-key',transports:['internal']}],userVerification:'required',timeout:60000}});
+    if(cred){hide();return}msg('Touchez « Déverrouiller » pour utiliser '+bioName()+'.')}
+  catch(e){console.warn('verrou',e);
+    if(e&&e.name==='InvalidStateError'){msg('Ce verrou n\'est plus reconnu : déconnectez-vous, puis réactivez-le dans les réglages.');}
+    else msg(auto?'Touchez « Déverrouiller » pour utiliser '+bioName()+'.':errMsg(e)+' Réessayez, ou déconnectez-vous pour entrer votre mot de passe.')}
+  finally{L.busy=false}}
+A.fcUnlock=()=>unlock(false);
+A.fcLockLogout=()=>{hide();try{if(typeof A.logout==='function')A.logout()}catch(e){console.warn(e)}};
+
+/* ---------- activer / désactiver (réglages) ---------- */
+A.fcLockOn=async()=>{const u=me();if(!u){flash('Connectez-vous d\'abord.');return}
+  if(!(await checkAvail())){flash('Aucune vérification biométrique disponible sur cet appareil (ou navigateur non compatible).');return}
+  try{const cred=await navigator.credentials.create({publicKey:{challenge:rnd(32),rp:{name:'FidjiCoach',id:location.hostname},
+      user:{id:rnd(16),name:u.email||'fidjicoach',displayName:(typeof name==='function'&&name(u))||'FidjiCoach'},
+      pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+      authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'discouraged'},timeout:60000,attestation:'none'}});
+    if(!cred)throw new Error('Aucune clé créée.');
+    LS(KEY,JSON.stringify({id:b64u(cred.rawId),at:Date.now(),who:u.email||''}));
+    flash('Verrou activé sur cet appareil : '+bioName()+' sera demandé à l\'ouverture de FidjiCoach.');inject(true)}
+  catch(e){console.warn(e);flash('Activation impossible : '+errMsg(e))}};
+A.fcLockOff=async()=>{const c=cfg();if(!c){inject(true);return}
+  try{const cred=await navigator.credentials.get({publicKey:{challenge:rnd(32),rpId:location.hostname,allowCredentials:[{id:unb64(c.id),type:'public-key',transports:['internal']}],userVerification:'required',timeout:60000}});
+    if(!cred)throw new Error('Vérification non faite.')}
+  catch(e){if(!(e&&e.name==='InvalidStateError')){flash('Pour désactiver le verrou, la vérification est demandée : '+errMsg(e));return}}
+  LS(KEY,null);hide();flash('Verrou désactivé sur cet appareil.');inject(true)};
+
+/* ---------- rangée dans le panneau « Application et notifications » ---------- */
+function rowHtml(){const c=cfg();const av=L.avail;
+  const st_=c?'<span class="st on">Activé</span>':av===false?'<span class="st bad">Non disponible</span>':'<span class="st">Désactivé</span>';
+  const btn=c?`<button class="btn btn-sm btn-plain" data-a="fcLockOff">Désactiver</button>`:av===false?'':`<button class="btn btn-sm btn-accent" data-a="fcLockOn">Activer</button>`;
+  const note=av===false?'Aucune vérification biométrique trouvée sur cet appareil (ou navigateur non compatible). Sur iPhone, utilisez l\'app installée depuis l\'écran d\'accueil.'
+    :`Demande ${bioName()} quand FidjiCoach s'ouvre sur cet appareil (et après 5 minutes en arrière-plan). Réglage propre à cet appareil : il ne change rien à votre connexion ni aux autres appareils.`;
+  return `<div class="row fclockrow"><span><b>Verrou à l'ouverture</b> ${st_}<span class="muted small">${note}</span></span><span>${btn}</span></div>`}
+function inject(force){const p=document.getElementById('fcpwaP');if(!p)return;const old=p.querySelector('.fclockrow');
+  if(old&&!force)return;const h=rowHtml();if(old)old.outerHTML=h;else{const last=[...p.querySelectorAll(':scope > .row')].pop();if(last)last.insertAdjacentHTML('afterend',h);else p.insertAdjacentHTML('beforeend',h)}}
+let mo_t=0;new MutationObserver(()=>{if(mo_t)return;mo_t=requestAnimationFrame(()=>{mo_t=0;try{inject(false)}catch(e){}})}).observe(document.body,{childList:true,subtree:true});
+
+/* ---------- quand verrouiller ---------- */
+if(cfg())show();                                   /* dès l'ouverture, avant même de savoir si on est connecté (rien ne s'affiche en dessous) */
+async function boot(){await checkAvail();L.booted=true;
+  if(!cfg()){hide();return}
+  if(!logged()){hide();return}                       /* pas connecté : la page de connexion (mot de passe) suffit */
+  if(!L.avail){hide();flash('Verrou à l\'ouverture : aucune vérification biométrique disponible sur cet appareil.');return}
+  show();unlock(true)}
+(R.bootP||Promise.resolve()).then(()=>setTimeout(boot,150)).catch(()=>setTimeout(boot,150));
+setTimeout(()=>{if(!L.booted)boot()},6000);         /* filet : jamais un voile coincé */
+if(typeof afterLogin==='function')afterLogin=(old=>function(){const r=old.apply(this,arguments);if(L.booted&&L.locked&&!L.busy)hide();return r})(afterLogin);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){L.hiddenAt=Date.now();return}
+  if(cfg()&&logged()&&L.avail&&!L.locked&&L.hiddenAt&&Date.now()-L.hiddenAt>RELOCK_MS){show();unlock(true)}});
+if(typeof EN5==='object')Object.assign(EN5,{'Verrou à l\'ouverture':'Lock on open','Déverrouiller':'Unlock','Se déconnecter':'Sign out','FidjiCoach est verrouillée':'FidjiCoach is locked','Activé':'On','Désactivé':'Off','Non disponible':'Unavailable'});
 })();
 </script>
 </body></html>
