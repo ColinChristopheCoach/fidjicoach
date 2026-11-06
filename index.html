@@ -22929,7 +22929,8 @@ decorate=(old=>function(){old();if(!R.on)return;try{const sb=document.querySelec
   if(info&&info.classList.contains('info')&&!info.querySelector('.fctrel'))info.insertAdjacentHTML('beforeend','<br><span class="fctrel">Sur votre relevé de carte, le paiement paraîtra sous le nom <b>FIDJICOACH</b>.</span>')}catch(e){console.warn(e)}})(decorate);
 
 /* ---------- Paiements en ligne : textes corrigés, frais déplacés dans « Tarification des entraîneurs » ---------- */
-fcPayPage=(old=>function(){let h=old();if(!R.on||R.pay.err||!R.pay.at)return h;
+fcPayPage=(old=>function(){if(R.on&&R.pay.at&&!R.pay.loading&&Date.now()-R.pay.at>20000){loadPay().then(()=>render())}/* données relues en arrière-plan (nouvelle demande, nouvel entraîneur) */
+  let h=old();if(!R.on||R.pay.err||!R.pay.at)return h;
   if(R.realRole==='admin'){const S=(R.pay.plat&&R.pay.plat.settings)||{};
     h=h.replace(/<p class="small">Les paiements de vos clients arrivent directement[\s\S]*?<\/p>/,`<p class="small">Les paiements de vos clients arrivent dans votre compte Stripe, sans commission ni forfait. Les autres entraîneurs connectent leur compte Stripe : FidjiCoach encaisse les paiements de leurs clients (relevé de carte : <b>FIDJICOACH</b>), garde sa commission et les frais de Stripe, puis transfère le reste à leur compte. Leur forfait mensuel se paie à part.</p><div class="actions" style="margin-top:8px"><button class="btn btn-sm btn-accent" data-a="nav" data-s="fctarif">Tarification des entraîneurs</button></div>`);
     h=h.replace(/<section class="panel fc8p"><span class="eyebrow">Frais de la plateforme<\/span>[\s\S]*?<\/section>/,`<section class="panel fc8p"><span class="eyebrow">Location d'équipement</span><h3>Frais de bris ou de non-retour</h3>
@@ -22950,7 +22951,7 @@ addEventListener('submit',async e=>{const f=e.target;if(!f||f.id!=='fctrent')ret
 /* ---------- Administrateur : Finances › Tarification des entraîneurs ---------- */
 const num9=v=>{const s=String(v??'').trim().replace(',','.');return s===''?null:Number(s)};
 function tarifPage(){if(!R.on||R.realRole!=='admin')return '<div class="empty">Réservé à l\'administrateur de FidjiCoach.</div>';
-  if(!R.abillAt&&!R.abillBusy){R.abillBusy=true;loadABill().then(()=>{R.abillBusy=false;render()})}
+  if((!R.abillAt||Date.now()-R.abillAt>20000)&&!R.abillBusy){R.abillBusy=true;loadABill().then(()=>{R.abillBusy=false;render()})}
   if(!R.abillAt)return '<div class="empty">Chargement…</div>';
   if(R.abillErr)return `<p class="fcmsgoff">${esc(R.abillErr)}</p>`;
   const P=Object.assign({},DEFP,(R.abill&&R.abill.settings)||{});const F=rulesOf(P);const L=(R.abill&&R.abill.coaches)||[];const nf=Number(R.abill&&R.abill.founders||0);
