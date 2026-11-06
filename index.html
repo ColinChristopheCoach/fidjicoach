@@ -22596,7 +22596,7 @@ MENU.push(['p.trouver','Trouver un entraîneur','Find a coach','Sous-menu Mon pr
 pOk=(old=>function(p){return p==='trouver'?!!R.on:old(p)})(pOk);
 CLIENT_TABS.push('trouver','vie');
 /* Corrections 4 : chaque entrée du menu de gauche mène à sa page (ces sections restent locales à l'appareil, comme dans la V7) */
-CLIENT_TABS.push('compet','famille','charge','progres','video','appareils','tech','guide','club','music','res');window.fcClientTabs=CLIENT_TABS;
+CLIENT_TABS.push('cal','compet','famille','charge','progres','video','appareils','tech','guide','club','music','res');window.fcClientTabs=CLIENT_TABS;
 profileSub=(old=>function(u){if(st.ptab!=='trouver')return old(u);const inner=findV().replace(/^<main class="wrap app fc9plat">/,'<div class="fc9plat">').replace(/<\/main>$/,'</div>');
   return `<div class="subhead"><button class="backbtn" data-a="pHub">‹ ${esc(LB('tab.profil'))}</button><h2>Trouver un entraîneur</h2></div><p class="muted small" style="margin-bottom:10px">Vous pouvez être suivi par plusieurs entraîneurs : en ouvrant la page d'un autre entraîneur, vous y êtes relié et vous acceptez ses conditions à votre première réservation chez lui. Le sélecteur « Mon entraîneur » du menu ☰ permet ensuite de passer de l'un à l'autre.</p>${inner}`})(profileSub);
 /* « Voir sa page et réserver » depuis le compte : on reste connecté (fcCoachPick → fcSwitch) */
@@ -23668,7 +23668,7 @@ document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!t.da
 
 /* ---------- 10. Après chaque affichage ---------- */
 if(typeof render==='function')render=(old=>function(){const r=old.apply(this,arguments);try{cardRefresh();stateRefresh(false);
-  if(R.on&&R.role==='admin'&&st.view==='admin'){const b=document.querySelector('.fcreal');if(b&&!b.dataset.pwa){b.dataset.pwa='1';b.insertAdjacentHTML('beforeend',' <b>PWA :</b> application installable et notifications poussées. <b>Corrections 6.</b>')}}}catch(e){}return r})(render);
+  if(R.on&&R.role==='admin'&&st.view==='admin'){const b=document.querySelector('.fcreal');if(b&&!b.dataset.pwa){b.dataset.pwa='1';b.insertAdjacentHTML('beforeend',' <b>PWA :</b> application installable et notifications poussées. <b>Corrections 6b.</b>')}}}catch(e){}return r})(render);
 if(typeof EN5==='object')Object.assign(EN5,{'Application et notifications':'App and notifications','Installer':'Install','Comment installer':'How to install','Activer sur cet appareil':'Turn on on this device','Couper sur cet appareil':'Turn off on this device','Envoyer un essai':'Send a test','Plus tard':'Later','Actualiser':'Refresh','Rappels de cours':'Lesson reminders'});
 })();
 </script>
