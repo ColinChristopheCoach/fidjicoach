@@ -23386,8 +23386,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c8';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='7 nov. 2026 · Corrections 8';
+const FC_BUILD='2026-11-07-c8b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='7 nov. 2026 · Corrections 8b';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -23412,6 +23412,14 @@ loadMe0=(old=>async function(){try{if(R.sb){const {data}=await R.sb.auth.getSess
     if(id){const prev=LSg(OWN);if(prev&&prev!==id){c8Park(prev);c8Swap(id)}LSs(OWN,id)}}}
   catch(e){console.warn('Corrections 8 (compte)',e&&e.message||e)}
   return old.apply(this,arguments)})(loadMe0);
+/* Corrections 8b : l'image de marque vient toujours de la copie en ligne des réglages de ce compte. Avant, une copie restée
+   sur l'appareil (logo d'un autre compte) survivait si les réglages en ligne n'avaient pas d'image de marque. */
+loadCoachSide=(old=>async function(){await old();try{if(R.on!==undefined&&R.sb&&R.coachId){
+    const {data,error}=await R.sb.from('coach_private').select('data').eq('coach_id',R.coachId).maybeSingle();
+    if(!error){const sv=data&&data.data&&data.data.settings;const s=db.settings||(db.settings={});
+      if(sv&&sv.brand)s.brand=sv.brand;else if(s.brand){delete s.brand}
+      fcPersist()}}}
+  catch(e){console.warn('Corrections 8b (marque)',e&&e.message||e)}})(loadCoachSide);
 /* compte fondateur : une seule fois, on retire l'image de marque venue d'un autre compte (les logos d'origine reviennent) */
 loadCoachSide=(old=>async function(){await old();try{if(R.realRole==='admin'){const s=db.settings||(db.settings={});
     if(!s.c8brand){s.c8brand=1;if(s.brand)delete s.brand;R.snap.priv=null;fcPersist();setTimeout(queueSync,300)}}}
@@ -23461,10 +23469,11 @@ function c8Paint(){try{const w=document.querySelector('#app header.top .wrap');i
   const back=w.querySelector('.fcback');if(back){if(back.nextElementSibling!==b)back.after(b)}else if(w.firstElementChild!==b)w.prepend(b);}catch(e){console.warn(e)}}
 /* numéro de version : au bas du menu (près de « Se déconnecter ») et dans Réglages › Application */
 function c8Decor(){try{const v=verTxt()+(C8.sw?' · réserve '+C8.sw.replace(/^fc-/,''):'');
-  document.querySelectorAll('[data-a="logout"],[data-x="logout"]').forEach(el=>{if(el.closest('header'))return;const box=el.parentElement;if(!box||box.querySelector(':scope > .fc8ver'))return;
+  document.querySelectorAll('[data-a="logout"],[data-x="logout"]').forEach(el=>{if(el.classList.contains('hicon')||el.closest('.wrap>nav>.hicon'))return;const box=el.parentElement;if(!box||box.querySelector(':scope > .fc8ver'))return;
     el.insertAdjacentHTML('afterend',`<p class="fc8ver" data-fc8ver>${esc(v)}</p>`)});
   document.querySelectorAll('.fc8ver').forEach(p=>{if(p.textContent!==v)p.textContent=v});
   const pp=document.getElementById('fcpwaP');if(pp&&!pp.querySelector('.fc8ver'))pp.insertAdjacentHTML('beforeend',`<p class="fc8ver in">${esc(v)}${C8.newer?' — <b>nouvelle version disponible</b> <button type="button" class="linkbtn" data-a="c8refresh">Actualiser</button>':''}</p>`)}catch(e){console.warn(e)}}
+C8.decor=()=>c8Decor();
 addEventListener('popstate',()=>setTimeout(c8Paint,0));
 setTimeout(()=>{c8Paint();c8Decor()},0);
 
@@ -23567,6 +23576,7 @@ document.head.insertAdjacentHTML('beforeend',`<style id="fc8css">
 @media (max-width:380px){.top .wrap:has(.fcrefresh) .brandmark{max-width:64px}}
 @media print{.hicon.fcrefresh,.fc8ver{display:none!important}}
 .fc8ver{margin:10px 4px 2px;font-size:.78rem;color:var(--muted);text-align:center}
+.menu .fc8ver{text-align:left;margin:4px 0 0;padding:8px 14px 4px;border-top:1px solid var(--line);font-size:.75rem}
 .fc8ver.in{text-align:left;margin:12px 0 0;padding-top:10px;border-top:1px solid var(--line)}
 .c8box>summary{cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:2px}
 .c8box>summary::-webkit-details-marker{display:none}
