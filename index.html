@@ -23392,8 +23392,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c10b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='7 nov. 2026 · Corrections 10b (factures)';
+const FC_BUILD='2026-11-07-c10c';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='7 nov. 2026 · Corrections 10c (factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -24174,6 +24174,7 @@ window.fcFactV10=function(u){const fam=[u.id,...db.users.filter(x=>x.guardian===
  html.fcInvPrinting,html.fcInvPrinting body{background:#fff!important}html.fcInvPrinting .fcinv{border:0;font-size:11pt;margin:0}}`;document.head.appendChild(s)})();
 if(typeof EN5==='object')Object.assign(EN5,{'Mes factures':'My invoices','Enregistrer le PDF':'Save PDF','Imprimer':'Print'});
 
+CLIENT_TABS.push('fact10');
 /* PWA : fonctions internes dont l'app installable a besoin (notifications touchées, hors ligne) */
 window.fcPwaHooks={loadNotifs,nAny,syncAll,errTxt};
 R.bootP=bootReal();R.bootP.then(stripeReturn).catch(e=>console.error(e));
