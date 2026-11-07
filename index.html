@@ -10883,7 +10883,7 @@ const CMAP=()=>{const u=me();const t=st.tab||'accueil';const p=st.ptab;const tra
   const used=new Set(['abo']);const PP=k=>{used.add(k);return P(k)};
   const G=[
    ['',[T('accueil',LB('tab.accueil'),'home')]],
-   ['Cours et forfaits',[T('reserver',LB('tab.reserver'),'book'),T('forfaits','Forfaits mensuels','repeat'),T('panier','Mon panier','tag',cartOf(u).length),T('resa5','Mes réservations','list'),
+   ['Cours et forfaits',[T('reserver',LB('tab.reserver'),'book'),T('forfaits','Forfaits mensuels','repeat'),T('panier','Mon panier','tag',cartOf(u).length),T('resa5','Mes réservations','list'),T('fact10','Mes factures','money'),
      ...(feat('location')?[X('rent','Location d\'équipement','ski',false)]:[]),...(feat('public')&&pubSessions().length?[X('pub','Cours de groupe publics','users',false)]:[])]],
    ['Calendrier et messages',[...(feat('cal')?[T('cal',LB('tab.cal'),'cal')]:[]),...(shown('tab.msg')?[T('msg',LB('tab.msg'),'msg',unreadMsgClient(u))]:[]),PP('notifs'),X('find','Trouver mon entraîneur','pin',false)]],
    ['Mon entraînement',[...(mod('entrain')?[X('train','Enregistrer un entraînement','run',train)]:[]),PP('forme'),PP('charge'),PP('plans'),PP('compet'),PP('progres'),PP('video'),PP('appareils')]],
@@ -10906,7 +10906,7 @@ Object.assign(A,{
     if(d.x==='rent')return A.hub({k:'__rent'});if(d.x==='pub')return A.hub({k:'__pub'});if(d.x==='find')return A.findNav();if(d.x==='logout')return A.logout();
     if(d.x==='view'){A.go({v:d.v});return}
     if(d.p){A.ptab({p:d.p});window.scrollTo(0,0);return}
-    if(['forfaits','panier','resa5'].includes(d.t)){st.tab=d.t;st.ptab=null;st.view='client';render();window.scrollTo(0,0);return}
+    if(['forfaits','panier','resa5','fact10'].includes(d.t)){st.tab=d.t;st.ptab=null;st.view='client';render();window.scrollTo(0,0);return}
     if(d.t==='cal')st.agv='cal';
     A.tab({t:d.t})}});
 /* l'onglet « Mes réservations » de l'ancien calendrier mène à la nouvelle page */
@@ -10917,9 +10917,9 @@ A.nav=(old=>function(d){st.v5open=false;old(d)})(A.nav);
 clientV=(old=>function(u){
   if(!u.onboarded)return old(u);
   let h;
-  if(['forfaits','panier','resa5'].includes(st.tab)&&st.vol!=='train'){
-    const T={forfaits:'Forfaits mensuels',panier:'Mon panier',resa5:'Mes réservations'}[st.tab];
-    const body=st.tab==='forfaits'?forfaitsV(u):st.tab==='panier'?panierV(u):resaClientV(u);
+  if(['forfaits','panier','resa5','fact10'].includes(st.tab)&&st.vol!=='train'){
+    const T={forfaits:'Forfaits mensuels',panier:'Mon panier',resa5:'Mes réservations',fact10:'Mes factures'}[st.tab];
+    const body=st.tab==='forfaits'?forfaitsV(u):st.tab==='panier'?panierV(u):st.tab==='fact10'?(window.fcFactV10?window.fcFactV10(u):''):resaClientV(u);
     h=`<main class="wrap app v6 cl">${cnav(u,st.tab)}<div class="pagehead"><h2>${esc(T)}</h2></div>${body}</main>`;
   }else h=old(u);
   const side=sideHTML('c',CMAP().map(([g,it])=>[g,it]));
@@ -20460,7 +20460,9 @@ function toLocal(row){const d=row.details||{};
   const pays=(row.payments||[]).slice().sort((a,b)=>((a.payer_id===row.owner_id?0:1)-(b.payer_id===row.owner_id?0:1))||a.created_at.localeCompare(b.created_at)||String(a.claimed_at||'9').localeCompare(String(b.claimed_at||'9'))||a.id.localeCompare(b.id));
   const parts=pays.map((p,i)=>({pid:p.id,userId:lid(p.payer_id),amount:p.amount_cents/100,method:p.method,paid:p.status==='payee'||p.status==='remboursee',paidAt:p.paid_at?String(p.paid_at).slice(0,10):null,
     lines:p.lines||[],invited:!p.payer_id,payerOnly:i===0&&d.me===false,split:{},
-    status:p.status,refunded:(p.refunded_cents||0)/100,refunds:(p.refunds||[]).slice().sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)))}));
+    status:p.status,refunded:(p.refunded_cents||0)/100,
+    invNo:p.inv_no||null,invAt:p.inv_at?new Date(p.inv_at).toLocaleDateString('en-CA',{timeZone:'America/Toronto'}):null,invSent:p.inv_sent_at?new Date(p.inv_sent_at).toLocaleDateString('en-CA',{timeZone:'America/Toronto'}):null,
+    refunds:(p.refunds||[]).slice().sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)))}));
   return {id:row.id,sid:row.id,real:true,ref:row.ref,owner:lid(row.owner_id),payer:lid(row.owner_id),type:d.ctype||row.type,formule:row.formule||'ind',tech:row.technique||'',niveau:row.niveau||'',
     dur:row.duree_min||60,qty:row.nb_cours||1,nb:row.nb_pers||1,lieu:row.lieu||'',created:row.created_at,sessions,gone,rental:{},cancelled:row.status==='annulee',
     gift:d.me===false?{msg:d.giftMsg||''}:null,shareCode:d.shareCode||null,addr:d.addr||undefined,video:d.video||undefined,parental:d.parental||undefined,waiverAt:d.waiverAt||null,parts}}
@@ -23390,8 +23392,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c9d';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='7 nov. 2026 · Corrections 9d (logo de l\'entraîneur dans son en-tête)';
+const FC_BUILD='2026-11-07-c10';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='7 nov. 2026 · Corrections 10 (factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -24036,6 +24038,141 @@ addEventListener('submit',async e=>{const f=e.target;if(!f||(f.id!=='c9dmSetup'&
   if(c.length<6||!/^[A-Za-z0-9-]+$/.test(c)){flash('Code : 6 caractères ou plus, lettres, chiffres et tirets seulement');return}
   busyOn('Enregistrement…');try{const {error}=await R.sb.rpc('admin_demo_code',{p_code:c});if(error)throw error;st.c9dl=location.origin+location.pathname+'?demo='+encodeURIComponent(c);await dmLoad();flash('Nouveau code enregistré : l\'ancien lien ne fonctionne plus')}
   catch(err){flash(fr(err.message))}finally{busyOff();render()}},true);
+
+/* ================= Corrections 10 (7 nov. 2026) : factures =================
+   - Chaque paiement reçu a un numéro de facture donné par la base (F2026-0001, une suite par entraîneur et par année).
+   - Client : « Mes factures » (menu Cours et forfaits) et bouton de facture dans chaque réservation.
+   - Entraîneur : facture de chaque part payée dans la réservation; Enregistrer le PDF, Imprimer, Envoyer au client par courriel
+     (Edge Function send-invoice, PDF en pièce jointe). */
+const dlong10=d=>{if(!d)return '';const s=String(d).slice(0,10);const x=new Date(s+'T12:00:00');return isNaN(x)?s:x.toLocaleDateString('fr-CA',{day:'numeric',month:'long',year:'numeric'})};
+const TAX10=/^(TPS|TVQ|TVH|HST|GST|QST)\b/i;
+const PAY10={carte:'carte de crédit',interac:'virement Interac',credit:'crédit',comptant:'argent comptant'};
+const mon10=a=>a<0?'−'+money(-a):money(a);
+function inv10Find(bid,i){const b=B(bid);if(!b)return null;const p=b.parts[Number(i)];return p?{b,p}:null}
+function inv10Coach(){const adm=R.role==='admin';let S={};try{S=(adm?show9():R.show)||{}}catch(e){}
+  const U=ui();const I=adm?(U.coach||{}):(R.coachInfo||U.coach||{});
+  const nm=(R.coachRow&&R.coachRow.nom_affiche)||I.name||'Votre entraîneur';let logo=S.logo||'';if(!logo){try{logo=brand('color')}catch(e){}}
+  return {name:nm,tel:I.tel||'',email:I.email||'',region:I.region||'',logo}}
+function inv10Data(b,p){const cl=userById(p.userId);
+  const L=((p.lines&&p.lines.length)?p.lines:[[bDesc(b),p.amount]]).map(([d,a])=>[String(d),Number(a)||0]);
+  const tax=L.filter(l=>TAX10.test(l[0])),items=L.filter(l=>!TAX10.test(l[0]));
+  return {no:p.invNo,date:p.invAt||p.paidAt||today(),ref:b.ref,coach:inv10Coach(),cl:{name:name(cl),email:(cl&&cl.email)||''},items,tax,
+    sub:r2(items.reduce((n,l)=>n+l[1],0)),total:p.amount,method:p.method,paidAt:p.paidAt,refunded:Number(p.refunded)||0,
+    sessions:(b.sessions||[]).map(s=>dfmt(s.date)+(s.start?' '+hfmt(s.start):'')),lieu:b.lieu||'',sent:p.invSent||null}}
+function inv10Note(o){return 'Payé'+(o.method?' par '+(PAY10[o.method]||o.method):'')+' le '+dlong10(o.paidAt||o.date)+'.'+(o.sessions.length?' Cours : '+o.sessions.join(', ')+'.':'')+(o.lieu?' Lieu : '+o.lieu+'.':'')}
+function inv10HTML(o){const C=o.coach;
+  return `<div class="fcinv" id="fcInvDoc">
+  <div class="fcinv-h"><div class="fcinv-b">${C.logo?`<img src="${esc(C.logo)}" alt="">`:''}<div><b>${esc(C.name)}</b><span>${esc([C.region,C.tel,C.email].filter(Boolean).join(' · '))}</span></div></div>
+   <div class="fcinv-n"><b>Facture ${esc(o.no)}</b><span>Date : ${esc(dlong10(o.date))}</span><span>Réservation ${esc(o.ref)}</span></div></div>
+  <div class="fcinv-to"><span>Facturé à</span><b>${esc(o.cl.name)}</b>${o.cl.email?`<span>${esc(o.cl.email)}</span>`:''}</div>
+  <table><thead><tr><th>Description</th><th>Montant</th></tr></thead><tbody>
+   ${o.items.map(([d,a])=>`<tr><td>${esc(d)}</td><td>${mon10(a)}</td></tr>`).join('')}
+   ${o.tax.length?`<tr class="st"><td>Sous-total</td><td>${mon10(o.sub)}</td></tr>`+o.tax.map(([d,a])=>`<tr class="st"><td>${esc(d)}</td><td>${mon10(a)}</td></tr>`).join(''):''}
+   <tr class="tot"><td>Total payé</td><td>${mon10(o.total)}</td></tr>
+   ${o.refunded>0?`<tr class="st"><td>Remboursé</td><td>${mon10(-o.refunded)}</td></tr><tr class="tot"><td>Montant net</td><td>${mon10(r2(o.total-o.refunded))}</td></tr>`:''}
+  </tbody></table>
+  <p class="fcinv-m">${esc(inv10Note(o))}</p><p class="fcinv-f">Merci de votre confiance! · Facture émise avec FidjiCoach</p></div>`}
+MOD3.fcInv=function(u,m){const f=inv10Find(m.bid,m.i);
+  if(!f||!f.p.invNo)return [`<p>Facture introuvable.</p><div class="actions"><button class="btn btn-accent" data-a="close">Fermer</button></div>`,true];
+  const o=inv10Data(f.b,f.p);const coach=R.role==='admin';const canMail=coach&&f.b.real&&f.p.pid&&!f.p.invited;
+  return [`<span class="eyebrow">Facture</span>${inv10HTML(o)}
+  ${coach&&o.sent?`<p class="small muted">Envoyée au client par courriel le ${esc(dlong10(o.sent))}.</p>`:''}
+  <div class="actions fcinv-act"><button class="btn btn-accent" data-a="fcInvPdf">Enregistrer le PDF</button><button class="btn btn-plain" data-a="fcInvPrint">Imprimer</button>${canMail?`<button class="btn btn-plain" data-a="fcInvMail">${o.sent?'Renvoyer':'Envoyer'} au client par courriel</button>`:''}<button class="btn btn-plain" data-a="close">Fermer</button></div>`,true]};
+A.invoice=(old=>function(d){const b=B(d.b);if(!R.on||!b||!b.real)return old(d);const p=b.parts[Number(d.i)];
+  if(!p||!p.paid){flash('Pas de facture : ce paiement n\'est pas reçu.');return}
+  if(!p.invNo){flash('Le numéro de facture arrive dans un instant : touchez Actualiser.');return}
+  st.modal={kind:'fcInv',bid:b.id,i:Number(d.i)};render()})(A.invoice);
+async function inv10Img(src){if(!src)return null;try{let data=src;
+    if(!/^data:/.test(src)){const r=await fetch(src,{mode:'cors'});if(!r.ok)return null;const bl=await r.blob();if(/svg/.test(bl.type))return null;
+      data=await new Promise(res=>{const fr_=new FileReader();fr_.onload=()=>res(fr_.result);fr_.readAsDataURL(bl)})}
+    if(/^data:image\/svg/.test(data))return null;
+    const im=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=data});
+    const c=document.createElement('canvas');c.width=im.naturalWidth||1;c.height=im.naturalHeight||1;c.getContext('2d').drawImage(im,0,0);
+    return {d:c.toDataURL('image/png'),w:c.width,h:c.height}}catch(e){console.warn('Logo de facture',e);return null}}
+async function inv10Pdf(o){const J=window.jspdf&&window.jspdf.jsPDF;if(!J)throw new Error('le générateur de PDF n\'est pas chargé');
+  const doc=new J({unit:'pt',format:'letter'});
+  const T=s=>String(s==null?'':s).replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/[–—−]/g,'-').replace(/…/g,'...').replace(/[   ]/g,' ').replace(/œ/g,'oe').replace(/Œ/g,'OE').replace(/✓/g,'').replace(/[^\x00-\xff]/g,'');
+  const M=n=>T(n<0?'-'+money(-n):money(n));const navy=[19,50,91],grey=[107,114,128];const X=54,RX=558;let y=54;
+  const img=await inv10Img(o.coach.logo);let hh=0;
+  if(img){const h=50,w=Math.min(170,img.w*h/img.h);try{doc.addImage(img.d,'PNG',X,y,w,h);hh=h}catch(e){}}
+  doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(20);doc.text('Facture',RX,y+16,{align:'right'});
+  doc.setFontSize(11);doc.text(T(o.no),RX,y+32,{align:'right'});doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);
+  doc.text(T('Date : '+dlong10(o.date)),RX,y+46,{align:'right'});doc.text(T('Réservation '+o.ref),RX,y+58,{align:'right'});
+  y+=Math.max(hh,58)+16;
+  doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(T(o.coach.name),X,y);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);
+  const ci=[o.coach.region,o.coach.tel,o.coach.email].filter(Boolean).join(' · ');if(ci)doc.text(T(ci),X,y+13);
+  y+=40;doc.setFontSize(8);doc.text(T('FACTURÉ À'),X,y);doc.setFontSize(11);doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.text(T(o.cl.name),X,y+15);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);if(o.cl.email)doc.text(T(o.cl.email),X,y+28);
+  y+=46;doc.setFillColor(238,244,251);doc.rect(X,y,RX-X,22,'F');doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(9.5);
+  doc.text('Description',X+8,y+15);doc.text('Montant',RX-8,y+15,{align:'right'});y+=22;doc.setFont('helvetica','normal');doc.setLineWidth(.5);
+  const row=(d,a,op={})=>{const ls=doc.splitTextToSize(T(d),RX-X-120);const h=Math.max(20,ls.length*12+8);if(y+h>730){doc.addPage();y=54}
+    if(op.top){doc.setDrawColor(...navy);doc.setLineWidth(1.2);doc.line(X,y,RX,y);doc.setLineWidth(.5)}
+    doc.setFont('helvetica',op.b?'bold':'normal');doc.setTextColor(...(op.g?grey:navy));doc.text(ls,X+8,y+14);doc.text(a,RX-8,y+14,{align:'right'});
+    doc.setDrawColor(225,230,238);doc.line(X,y+h,RX,y+h);y+=h};
+  o.items.forEach(([d,a])=>row(d,M(a)));
+  if(o.tax.length){row('Sous-total',M(o.sub),{g:1});o.tax.forEach(([d,a])=>row(d,M(a),{g:1}))}
+  row('Total payé',M(o.total),{b:1,top:1});
+  if(o.refunded>0){row('Remboursé',M(-o.refunded),{g:1});row('Montant net',M(r2(o.total-o.refunded)),{b:1})}
+  y+=18;doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);const nl=doc.splitTextToSize(T(inv10Note(o)),RX-X);doc.text(nl,X,y);
+  doc.setFontSize(8);doc.text(T('Merci de votre confiance! · Facture émise avec FidjiCoach (fidjicoach.ca)'),X,760);
+  return doc}
+A.fcInvPdf=async function(){const m=st.modal;const f=m&&inv10Find(m.bid,m.i);if(!f)return;busyOn('Préparation du PDF…');
+  try{const o=inv10Data(f.b,f.p);const blob=(await inv10Pdf(o)).output('blob');const fn='Facture '+o.no+'.pdf';let done=false;
+    try{const file=new File([blob],fn,{type:'application/pdf'});
+      if(navigator.canShare&&matchMedia('(pointer:coarse)').matches&&navigator.canShare({files:[file]})){busyOff();await navigator.share({files:[file],title:fn});done=true}}
+    catch(e){if(e&&e.name==='AbortError')done=true}
+    if(!done)await offerFile(fn,blob)}
+  catch(e){flash('PDF impossible : '+(e&&e.message||e))}finally{busyOff()}};
+A.fcInvPrint=function(){const src=document.getElementById('fcInvDoc');if(!src)return;
+  let host=document.getElementById('fcInvPrint');if(host)host.remove();host=document.createElement('div');host.id='fcInvPrint';
+  host.innerHTML=src.outerHTML.replace('id="fcInvDoc"','');document.body.appendChild(host);document.documentElement.classList.add('fcInvPrinting');
+  const done=()=>{document.documentElement.classList.remove('fcInvPrinting');const h=document.getElementById('fcInvPrint');if(h)h.remove();window.removeEventListener('afterprint',done)};
+  window.addEventListener('afterprint',done);setTimeout(done,60000);
+  setTimeout(()=>{try{window.print()}catch(e){done();flash('Impression impossible ici : enregistrez le PDF, puis imprimez-le.')}},80)};
+A.fcInvMail=async function(){const m=st.modal;const f=m&&inv10Find(m.bid,m.i);if(!f||!f.b.real||R.role!=='admin')return;const o=inv10Data(f.b,f.p);
+  if(!confirm('Envoyer la facture '+o.no+' à '+(o.cl.email||o.cl.name)+' par courriel, avec le PDF?'))return;
+  busyOn('Envoi de la facture…');
+  try{const doc=await inv10Pdf(o);const pdf=doc.output('datauristring').split(',')[1];
+    const {data,error}=await R.sb.functions.invoke('send-invoice',{body:{payment_id:f.p.pid,pdf,filename:'Facture '+o.no+'.pdf'}});
+    if(error){let msg=error.message;try{const j=await error.context.json();if(j&&j.error)msg=j.error}catch(_){}throw new Error(msg)}
+    if(data&&data.error)throw new Error(data.error);f.p.invSent=today();flash('Facture envoyée à '+((data&&data.to)||o.cl.email||'votre client')+'.')}
+  catch(e){flash(/Failed to send|404|not found/i.test(e&&e.message||'')?'La fonction d\'envoi (send-invoice) n\'est pas disponible.':'Envoi impossible : '+fr(e&&e.message||String(e)))}
+  finally{busyOff();render()}};
+/* les factures dans chaque réservation (client : les siennes et celles de ses enfants; entraîneur : toutes les parts payées) */
+bookingCard=(old=>function(b,u,admin){let h=old(b,u,admin);try{if(!R.on||!b||!b.real)return h;
+  h=h.replace(/<button class="btn btn-sm btn-plain" data-a="invoice"[^>]*>Facture<\/button>/g,'');
+  const mine=p=>admin||(u&&(p.userId===u.id||((userById(p.userId)||{}).guardian===u.id)));
+  const L=b.parts.map((p,i)=>({p,i})).filter(({p})=>p.paid&&p.invNo&&mine(p));if(!L.length)return h;
+  const blk=`<div class="fcinvblk"><b class="small">${L.length>1?'Factures':'Facture'}</b><span class="actions">${L.map(({p,i})=>`<button class="btn btn-sm btn-plain" data-a="invoice" data-b="${esc(b.id)}" data-i="${i}">${esc(p.invNo)}${admin?' · '+esc(name(userById(p.userId)).split(' ')[0]):''} · ${money(p.amount)}${admin&&p.invSent?' · envoyée':''}</button>`).join('')}</span></div>`;
+  const k=h.lastIndexOf('</article>');return k<0?h+blk:h.slice(0,k)+blk+h.slice(k)}catch(e){console.warn(e);return h}})(bookingCard);
+/* page « Mes factures » du client */
+window.fcFactV10=function(u){const fam=[u.id,...db.users.filter(x=>x.guardian===u.id).map(x=>x.id)];const L=[];
+  (db.bookings||[]).forEach(b=>(b.parts||[]).forEach((p,i)=>{if(p.paid&&p.invNo&&fam.includes(p.userId))L.push({b,p,i,d:p.invAt||p.paidAt||''})}));
+  L.sort((a,c)=>String(c.d).localeCompare(String(a.d))||String(c.p.invNo).localeCompare(String(a.p.invNo)));
+  const who=R.on&&R.coachRow&&R.coachRow.nom_affiche?' avec '+esc(R.coachRow.nom_affiche):'';
+  if(!L.length)return `<div class="empty">Aucune facture pour l'instant${who}. Une facture est créée automatiquement pour chaque paiement reçu.<p style="margin-top:10px"><button class="btn btn-plain" data-a="v5go" data-t="resa5">Mes réservations</button></p></div>`;
+  const yr=today().slice(0,4);const tot=r2(L.filter(x=>String(x.d).slice(0,4)===yr).reduce((n,x)=>n+(Number(x.p.amount)||0)-(Number(x.p.refunded)||0),0));
+  return `<p class="muted small" style="margin-bottom:10px">Vos factures${who} : une pour chaque paiement. Total payé en ${yr} : <b>${money(tot)}</b> (remboursements déduits).</p>
+  <div class="list fcinvlist">${L.map(({b,p,i,d})=>`<div class="invrow"><span><b>${esc(p.invNo)}</b> · <span class="num">${money(p.amount)}</span>${p.refunded>0?` <span class="pill neutral">Remboursé ${money(p.refunded)}</span>`:''}<br><small>${esc(dlong10(d))} · ${esc(String((p.lines&&p.lines[0]&&p.lines[0][0])||bDesc(b)))} · ${esc(b.ref)}</small></span><button class="btn btn-sm btn-plain" data-a="invoice" data-b="${esc(b.id)}" data-i="${i}">Voir la facture</button></div>`).join('')}</div>`};
+(function(){const s=document.createElement('style');s.textContent=`
+.fcinv{background:#fff;color:#13325b;border:1px solid #dfe5ee;border-radius:10px;padding:18px;margin:8px 0 12px;font-size:.92rem;line-height:1.4}
+.fcinv-h{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.fcinv-b{display:flex;gap:10px;align-items:center;min-width:0}.fcinv-b img{height:44px;width:auto;max-width:150px;object-fit:contain}
+.fcinv-b div,.fcinv-n,.fcinv-to{display:flex;flex-direction:column;min-width:0}.fcinv-n{text-align:right}
+.fcinv span{color:#6b7280;font-size:.82rem;overflow-wrap:anywhere}
+.fcinv-to{margin:14px 0 10px}.fcinv-to>span:first-child{text-transform:uppercase;letter-spacing:.06em;font-size:.7rem}
+.fcinv table{width:100%;border-collapse:collapse}.fcinv th{background:#eef4fb;color:#13325b;text-align:left;padding:7px 8px;font-size:.82rem}
+.fcinv th:last-child,.fcinv td:last-child{text-align:right;white-space:nowrap;padding-left:12px}
+.fcinv td{padding:7px 8px;border-bottom:1px solid #e6ebf2;vertical-align:top;color:#13325b}.fcinv tr.st td{color:#6b7280}
+.fcinv tr.tot td{font-weight:700;border-top:2px solid #13325b}
+.fcinv-m{color:#4b5563;font-size:.84rem;margin:12px 0 0}.fcinv-f{color:#9aa3af;font-size:.76rem;margin:8px 0 0}
+.fcinvblk{margin-top:12px;border-top:1px solid var(--line);padding-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+@media (max-width:480px){.fcinv{padding:12px;font-size:.88rem}.fcinv-n{text-align:left}}
+#fcInvPrint{display:none}
+@media print{html.fcInvPrinting body>*:not(#fcInvPrint){display:none!important}html.fcInvPrinting #fcInvPrint{display:block!important}
+ html.fcInvPrinting,html.fcInvPrinting body{background:#fff!important}html.fcInvPrinting .fcinv{border:0;font-size:11pt;margin:0}}`;document.head.appendChild(s)})();
+if(typeof EN5==='object')Object.assign(EN5,{'Mes factures':'My invoices','Enregistrer le PDF':'Save PDF','Imprimer':'Print'});
 
 /* PWA : fonctions internes dont l'app installable a besoin (notifications touchées, hors ligne) */
 window.fcPwaHooks={loadNotifs,nAny,syncAll,errTxt};
