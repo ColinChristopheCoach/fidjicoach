@@ -1216,7 +1216,7 @@ function seed(){
     settings:{autoInv:false,alerts:{'Message':A1(1,1,1),'Réservation':A1(1,1,1),'Annulation':A1(1,1,1),'Déplacement':A1(1,1,1),'Interac à confirmer':A1(1,0,1),'Location':A1(1,0,1),'Rappel location':A1(1,1,1),'Retour':A1(1,0,1),'Rapport à rédiger':A1(1,0,1)}},session:null};
 }
 function load(){try{const s=localStorage.getItem(KEY);if(s)return JSON.parse(s)}catch(e){}return null}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){flash('Mémoire du navigateur pleine : photo trop lourde?')}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){console.warn('Mémoire du navigateur pleine (copie de démo non enregistrée)')}}
 let db=load()||seed();
 
 /* ================= Utilitaires ================= */
@@ -23386,8 +23386,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c8c';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='7 nov. 2026 · Corrections 8c';
+const FC_BUILD='2026-11-07-c8d';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='7 nov. 2026 · Corrections 8d';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -23397,19 +23397,22 @@ const LSs=(k,v)=>{try{if(v==null)localStorage.removeItem(k);else localStorage.se
 /* ---------- A1. Un appareil, plusieurs comptes ---------- */
 const OWN='fc-owner',PARK='fidjicoach-reel-1@',PARKL='fc-owner-parked';
 function c8Park(prev){
-  const big=(k,v)=>typeof v==='string'&&v.length>60000&&/^data:/.test(v)?'':v;
-  let ok=LSs(PARK+prev,JSON.stringify(db));if(!ok)ok=LSs(PARK+prev,JSON.stringify(db,big));
-  let L=[];try{L=JSON.parse(LSg(PARKL)||'[]')}catch(e){L=[]}L=[prev].concat(L.filter(x=>x!==prev));
-  while(L.length>3){LSs(PARK+L.pop(),null)}                      /* au plus 3 comptes rangés sur l'appareil */
+  /* Corrections 8d : copie allégée (sans photos ni logos lourds), un seul compte rangé, et jamais au prix de l'espace du compte connecté */
+  const big=(k,v)=>typeof v==='string'&&v.length>20000&&/^data:/.test(v)?'':v;
+  let L=[];try{L=JSON.parse(LSg(PARKL)||'[]')}catch(e){L=[]}L.filter(x=>x!==prev).forEach(x=>LSs(PARK+x,null));L=[prev];
+  let ok=LSs(PARK+prev,JSON.stringify(db,big));
   if(!ok)L=L.filter(x=>x!==prev);LSs(PARKL,JSON.stringify(L))}
-function c8Swap(id){let next=null;try{const s=LSg(PARK+id);if(s)next=JSON.parse(s)}catch(e){next=null}
+function c8Take(id){try{const s=LSg(PARK+id);return s?JSON.parse(s):null}catch(e){return null}}
+function c8Swap(id,pre){let next=pre||null;if(!next)next=c8Take(id);
   LSs(PARK+id,null);try{let L=JSON.parse(LSg(PARKL)||'[]');LSs(PARKL,JSON.stringify(L.filter(x=>x!==id)))}catch(e){}
   if(!next||typeof next!=='object')next=cleanDb(seed());
   Object.keys(db).forEach(k=>{delete db[k]});Object.assign(db,next);db.users=[];db.session=null;
   R.snap={};fcPersist()}
-C8.t={park:c8Park,swap:c8Swap};
+C8.t={park:c8Park,swap:c8Swap,take:c8Take};
+/* mémoire pleine : on libère d'abord le compte rangé, avant le reste (la démo n'est retirée qu'en dernier, comme avant) */
+fcFree=(old=>function(level){try{let L=[];try{L=JSON.parse(LSg(PARKL)||'[]')}catch(e){}L.forEach(x=>LSs(PARK+x,null));LSs(PARKL,null)}catch(e){}return old(level)})(fcFree);
 loadMe0=(old=>async function(){try{if(R.sb){const {data}=await R.sb.auth.getSession();const id=data&&data.session&&data.session.user&&data.session.user.id;
-    if(id){const prev=LSg(OWN);if(prev&&prev!==id){c8Park(prev);c8Swap(id)}LSs(OWN,id)}}}
+    if(id){const prev=LSg(OWN);if(prev&&prev!==id){const pre=c8Take(id);c8Park(prev);c8Swap(id,pre)}LSs(OWN,id)}}}
   catch(e){console.warn('Corrections 8 (compte)',e&&e.message||e)}
   return old.apply(this,arguments)})(loadMe0);
 /* Corrections 8b : l'image de marque vient toujours de la copie en ligne des réglages de ce compte. Avant, une copie restée
