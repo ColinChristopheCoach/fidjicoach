@@ -23386,8 +23386,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c8b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='7 nov. 2026 · Corrections 8b';
+const FC_BUILD='2026-11-07-c8c';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='7 nov. 2026 · Corrections 8c';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -23461,6 +23461,13 @@ async function c8Reload(){if(C8.busy)return;C8.busy=true;try{busyOn(lang()==='en
       const w=reg.waiting||reg.installing;if(w){try{w.postMessage({type:'SKIP_WAITING'})}catch(e){}await new Promise(r=>setTimeout(r,800))}}}}catch(e){}
   location.reload()}
 A.c8refresh=()=>c8Reload();
+/* Corrections 8c : à l'ouverture (et après ↻), tant que la session gardée sur l'appareil se recharge, un voile « Connexion… »
+   couvre l'écran au lieu d'afficher quelques secondes la page publique, comme si on était déconnecté. */
+{let has=false;try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){has=true;break}}}catch(e){}
+  if(has){const v=document.createElement('div');v.id='fc8boot';v.setAttribute('role','status');
+    v.innerHTML='<div><svg width="64" height="64" viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="27" fill="#13325b"/><g transform="translate(18 18) scale(.7)"><rect x="52" y="8" width="16" height="12" rx="4" fill="#fff"/><path d="M90 44 A38 38 0 1 0 90 88" stroke="#fff" stroke-width="12" stroke-linecap="round" fill="none"/><path d="M44 66 L56 78 L78 54" stroke="#d24a2a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></svg><p>'+(lang()==='en'?'Signing in…':'Connexion…')+'</p></div>';
+    document.body.appendChild(v);let gone=false;const off=()=>{if(gone)return;gone=true;v.classList.add('out');setTimeout(()=>v.remove(),250)};
+    setTimeout(off,12000);setTimeout(()=>{try{(R.bootP||Promise.resolve()).then(()=>setTimeout(off,R.on?650:0)).catch(off)}catch(e){off()}},0)}}
 const RICON='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v6h-6"/></svg>';
 function c8Paint(){try{const w=document.querySelector('#app header.top .wrap');if(!w)return;const en=lang()==='en';const t=en?'Refresh':'Actualiser';
   let b=w.querySelector('.fcrefresh');
@@ -23575,6 +23582,11 @@ document.head.insertAdjacentHTML('beforeend',`<style id="fc8css">
 @media (max-width:440px){.top .wrap:has(.fcrefresh){gap:6px}.top .wrap:has(.fcrefresh) .brand{flex:1 1 0;width:0;min-width:0}.top .wrap:has(.fcrefresh) .brandmark{max-width:96px;height:auto}}
 @media (max-width:380px){.top .wrap:has(.fcrefresh) .brandmark{max-width:64px}}
 @media print{.hicon.fcrefresh,.fc8ver{display:none!important}}
+#fc8boot{position:fixed;inset:0;z-index:1200;background:var(--bg,#f4f7fb);display:grid;place-items:center;transition:opacity .25s}
+#fc8boot.out{opacity:0}
+#fc8boot>div{text-align:center;color:var(--muted)}#fc8boot p{margin:12px 0 0;font-weight:600}
+#fc8boot svg{animation:fc8pulse 1.2s ease-in-out infinite}
+@keyframes fc8pulse{50%{transform:scale(.92);opacity:.75}}
 .fc8ver{margin:10px 4px 2px;font-size:.78rem;color:var(--muted);text-align:center}
 .menu .fc8ver{text-align:left;margin:4px 0 0;padding:8px 14px 4px;border-top:1px solid var(--line);font-size:.75rem}
 .fc8ver.in{text-align:left;margin:12px 0 0;padding-top:10px;border-top:1px solid var(--line)}
