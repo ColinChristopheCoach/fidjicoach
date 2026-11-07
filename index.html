@@ -23392,7 +23392,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c10c';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-07-c11';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='7 nov. 2026 · Corrections 10c (factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
@@ -24059,11 +24059,11 @@ function inv10Data(b,p){const cl=userById(p.userId);
   return {no:p.invNo,date:p.invAt||p.paidAt||today(),ref:b.ref,coach:inv10Coach(),cl:{name:name(cl),email:(cl&&cl.email)||''},items,tax,
     sub:r2(items.reduce((n,l)=>n+l[1],0)),total:p.amount,method:p.method,paidAt:p.paidAt,refunded:Number(p.refunded)||0,
     sessions:(b.sessions||[]).map(s=>dfmt(s.date)+(s.start?' '+hfmt(s.start):'')),lieu:b.lieu||'',sent:p.invSent||null}}
-function inv10Note(o){return 'Payé'+(o.method?' par '+(PAY10[o.method]||o.method):'')+' le '+dlong10(o.paidAt||o.date)+'.'+(o.sessions.length?' Cours : '+o.sessions.join(', ')+'.':'')+(o.lieu?' Lieu : '+o.lieu+'.':'')}
+function inv10Note(o){if(o.note)return o.note;return 'Payé'+(o.method?' par '+(PAY10[o.method]||o.method):'')+' le '+dlong10(o.paidAt||o.date)+'.'+(o.sessions.length?' Cours : '+o.sessions.join(', ')+'.':'')+(o.lieu?' Lieu : '+o.lieu+'.':'')}
 function inv10HTML(o){const C=o.coach;
   return `<div class="fcinv" id="fcInvDoc">
   <div class="fcinv-h"><div class="fcinv-b">${C.logo?`<img src="${esc(C.logo)}" alt="">`:''}<div><b>${esc(C.name)}</b><span>${esc([C.region,C.tel,C.email].filter(Boolean).join(' · '))}</span></div></div>
-   <div class="fcinv-n"><b>Facture ${esc(o.no)}</b><span>Date : ${esc(dlong10(o.date))}</span><span>Réservation ${esc(o.ref)}</span></div></div>
+   <div class="fcinv-n"><b>Facture ${esc(o.no)}</b><span>Date : ${esc(dlong10(o.date))}</span><span>${esc(o.refTxt||('Réservation '+o.ref))}</span></div></div>
   <div class="fcinv-to"><span>Facturé à</span><b>${esc(o.cl.name)}</b>${o.cl.email?`<span>${esc(o.cl.email)}</span>`:''}</div>
   <table><thead><tr><th>Description</th><th>Montant</th></tr></thead><tbody>
    ${o.items.map(([d,a])=>`<tr><td>${esc(d)}</td><td>${mon10(a)}</td></tr>`).join('')}
@@ -24072,9 +24072,9 @@ function inv10HTML(o){const C=o.coach;
    ${o.refunded>0?`<tr class="st"><td>Remboursé</td><td>${mon10(-o.refunded)}</td></tr><tr class="tot"><td>Montant net</td><td>${mon10(r2(o.total-o.refunded))}</td></tr>`:''}
   </tbody></table>
   <p class="fcinv-m">${esc(inv10Note(o))}</p><p class="fcinv-f">Merci de votre confiance! · Facture émise avec FidjiCoach</p></div>`}
-MOD3.fcInv=function(u,m){const f=inv10Find(m.bid,m.i);
-  if(!f||!f.p.invNo)return [`<p>Facture introuvable.</p><div class="actions"><button class="btn btn-accent" data-a="close">Fermer</button></div>`,true];
-  const o=inv10Data(f.b,f.p);const coach=R.role==='admin';const canMail=coach&&f.b.real&&f.p.pid&&!f.p.invited;
+MOD3.fcInv=function(u,m){const c=invCur();
+  if(!c)return [`<p>Facture introuvable.</p><div class="actions"><button class="btn btn-accent" data-a="close">Fermer</button></div>`,true];
+  const o=c.o;const coach=R.role==='admin';const canMail=coach&&c.real;
   return [`<span class="eyebrow">Facture</span>${inv10HTML(o)}
   ${coach&&o.sent?`<p class="small muted">Envoyée au client par courriel le ${esc(dlong10(o.sent))}.</p>`:''}
   <div class="actions fcinv-act"><button class="btn btn-accent" data-a="fcInvPdf">Enregistrer le PDF</button><button class="btn btn-plain" data-a="fcInvPrint">Imprimer</button>${canMail?`<button class="btn btn-plain" data-a="fcInvMail">${o.sent?'Renvoyer':'Envoyer'} au client par courriel</button>`:''}<button class="btn btn-plain" data-a="close">Fermer</button></div>`,true]};
@@ -24097,7 +24097,7 @@ async function inv10Pdf(o){const J=window.jspdf&&window.jspdf.jsPDF;if(!J)throw 
   if(img){const h=50,w=Math.min(170,img.w*h/img.h);try{doc.addImage(img.d,'PNG',X,y,w,h,undefined,'FAST');hh=h}catch(e){}}
   doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(20);doc.text('Facture',RX,y+16,{align:'right'});
   doc.setFontSize(11);doc.text(T(o.no),RX,y+32,{align:'right'});doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);
-  doc.text(T('Date : '+dlong10(o.date)),RX,y+46,{align:'right'});doc.text(T('Réservation '+o.ref),RX,y+58,{align:'right'});
+  doc.text(T('Date : '+dlong10(o.date)),RX,y+46,{align:'right'});doc.text(T(o.refTxt||('Réservation '+o.ref)),RX,y+58,{align:'right'});
   y+=Math.max(hh,58)+16;
   doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(T(o.coach.name),X,y);
   doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);
@@ -24117,8 +24117,8 @@ async function inv10Pdf(o){const J=window.jspdf&&window.jspdf.jsPDF;if(!J)throw 
   y+=18;doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);const nl=doc.splitTextToSize(T(inv10Note(o)),RX-X);doc.text(nl,X,y);
   doc.setFontSize(8);doc.text(T('Merci de votre confiance! · Facture émise avec FidjiCoach (fidjicoach.ca)'),X,760);
   return doc}
-A.fcInvPdf=async function(){const m=st.modal;const f=m&&inv10Find(m.bid,m.i);if(!f)return;busyOn('Préparation du PDF…');
-  try{const o=inv10Data(f.b,f.p);const blob=(await inv10Pdf(o)).output('blob');const fn='Facture '+o.no+'.pdf';let done=false;
+A.fcInvPdf=async function(){const c=invCur();if(!c)return;busyOn('Préparation du PDF…');
+  try{const o=c.o;const blob=(await inv10Pdf(o)).output('blob');const fn='Facture '+o.no+'.pdf';let done=false;
     try{const file=new File([blob],fn,{type:'application/pdf'});
       if(navigator.canShare&&matchMedia('(pointer:coarse)').matches&&navigator.canShare({files:[file]})){busyOff();await navigator.share({files:[file],title:fn});done=true}}
     catch(e){if(e&&e.name==='AbortError')done=true}
@@ -24130,13 +24130,13 @@ A.fcInvPrint=function(){const src=document.getElementById('fcInvDoc');if(!src)re
   const done=()=>{document.documentElement.classList.remove('fcInvPrinting');const h=document.getElementById('fcInvPrint');if(h)h.remove();window.removeEventListener('afterprint',done)};
   window.addEventListener('afterprint',done);setTimeout(done,60000);
   setTimeout(()=>{try{window.print()}catch(e){done();flash('Impression impossible ici : enregistrez le PDF, puis imprimez-le.')}},80)};
-A.fcInvMail=async function(){const m=st.modal;const f=m&&inv10Find(m.bid,m.i);if(!f||!f.b.real||R.role!=='admin')return;const o=inv10Data(f.b,f.p);
+A.fcInvMail=async function(){const c=invCur();if(!c||!c.real||R.role!=='admin')return;const o=c.o;
   if(!confirm('Envoyer la facture '+o.no+' à '+(o.cl.email||o.cl.name)+' par courriel, avec le PDF?'))return;
   busyOn('Envoi de la facture…');
   try{const doc=await inv10Pdf(o);const pdf=doc.output('datauristring').split(',')[1];
-    const {data,error}=await R.sb.functions.invoke('send-invoice',{body:{payment_id:f.p.pid,pdf,filename:'Facture '+o.no+'.pdf'}});
+    const {data,error}=await R.sb.functions.invoke('send-invoice',{body:Object.assign({pdf,filename:'Facture '+o.no+'.pdf'},c.body)});
     if(error){let msg=error.message;try{const j=await error.context.json();if(j&&j.error)msg=j.error}catch(_){}throw new Error(msg)}
-    if(data&&data.error)throw new Error(data.error);f.p.invSent=today();flash('Facture envoyée à '+((data&&data.to)||o.cl.email||'votre client')+'.')}
+    if(data&&data.error)throw new Error(data.error);c.mark();flash('Facture envoyée à '+((data&&data.to)||o.cl.email||'votre client')+'.')}
   catch(e){flash(/Failed to send|404|not found/i.test(e&&e.message||'')?'La fonction d\'envoi (send-invoice) n\'est pas disponible.':'Envoi impossible : '+fr(e&&e.message||String(e)))}
   finally{busyOff();render()}};
 /* les factures dans chaque réservation (client : les siennes et celles de ses enfants; entraîneur : toutes les parts payées) */
@@ -24173,6 +24173,85 @@ window.fcFactV10=function(u){const fam=[u.id,...db.users.filter(x=>x.guardian===
 @media print{html.fcInvPrinting body>*:not(#fcInvPrint){display:none!important}html.fcInvPrinting #fcInvPrint{display:block!important}
  html.fcInvPrinting,html.fcInvPrinting body{background:#fff!important}html.fcInvPrinting .fcinv{border:0;font-size:11pt;margin:0}}`;document.head.appendChild(s)})();
 if(typeof EN5==='object')Object.assign(EN5,{'Mes factures':'My invoices','Enregistrer le PDF':'Save PDF','Imprimer':'Print'});
+
+/* ================= Corrections 11 (7 nov. 2026) : factures des frais de location et des abonnements =================
+   - Frais de location facturés après coup (bris, perte, non-retour) : numérotés au paiement comme les cours (même suite F2026-xxxx).
+   - Abonnements mensuels : une facture par paiement mensuel reçu de Stripe (table sub_invoices, même suite F2026-xxxx).
+   - Une seule fenêtre de facture (PDF, impression, courriel) pour les trois sources : cours, frais, abonnement. */
+function invCur(){const m=st.modal;if(!m||m.kind!=='fcInv')return null;
+  if(m.src==='fee'){const x=inv11Fee(m.bid,m.pid);return x&&x.f.invNo?{o:inv11FeeData(x.b,x.f),real:!!(x.b.real&&x.f.pid),body:{payment_id:x.f.pid},mark:()=>{x.f.invSent=today()}}:null}
+  if(m.src==='sub'){const x=(db.subInv||[]).find(v=>v.id===m.id);return x?{o:inv11SubData(x),real:true,body:{sub_invoice_id:x.id},mark:()=>{x.sent=today()}}:null}
+  const f=inv10Find(m.bid,m.i);return f&&f.p.invNo?{o:inv10Data(f.b,f.p),real:!!(f.b.real&&f.p.pid&&!f.p.invited),body:{payment_id:f.p.pid},mark:()=>{f.p.invSent=today()}}:null}
+const day11=v=>v?new Date(v).toLocaleDateString('en-CA',{timeZone:'America/Toronto'}):null;
+function inv11Split(lines,total,fallback){const L=((lines&&lines.length)?lines:[[fallback,total]]).map(([d,a])=>[String(d),Number(a)||0]);
+  const tax=L.filter(l=>TAX10.test(l[0])),items=L.filter(l=>!TAX10.test(l[0]));return {items,tax,sub:r2(items.reduce((n,l)=>n+l[1],0))}}
+function inv11Fee(bid,pid){const b=B(bid);if(!b)return null;const f=(b.feesSrv||[]).find(x=>x.pid===pid);return f?{b,f}:null}
+function inv11FeeData(b,f){const cl=userById(f.payer);const sp=inv11Split(f.lines,f.amount,'Frais de location : '+(f.reason||''));
+  return Object.assign({no:f.invNo,date:f.invAt||f.paidAt||today(),ref:b.ref,refTxt:'Location '+b.ref,coach:inv10Coach(),cl:{name:name(cl),email:(cl&&cl.email)||''},
+    total:f.amount,method:f.method||'carte',paidAt:f.paidAt,refunded:Number(f.refunded)||0,sessions:[],lieu:'',sent:f.invSent||null,
+    note:'Frais de location d\'équipement (bris, perte ou non-retour) facturés après la location '+b.ref+', selon le contrat de location signé. Payé par '+(PAY10[f.method||'carte']||f.method)+' le '+dlong10(f.paidAt||f.invAt)+'.'},sp)}
+function inv11SubData(x){const cl=userById(x.userId);const sp=inv11Split(x.lines,x.total,(x.plan||'Forfait mensuel')+' · abonnement mensuel');
+  return Object.assign({no:x.no,date:x.at||today(),ref:x.plan||'',refTxt:'Abonnement · '+(x.plan||'mensuel'),coach:inv10Coach(),cl:{name:name(cl),email:(cl&&cl.email)||''},
+    total:x.total,method:'carte',paidAt:x.at,refunded:0,sessions:[],lieu:'',sent:x.sent||null,
+    note:'Abonnement mensuel payé par carte de crédit le '+dlong10(x.at)+(x.end?', pour la période du '+dlong10(x.at)+' au '+dlong10(x.end):'')+'. Renouvellement automatique chaque mois, annulable en tout temps (aucun remboursement d\'un mois commencé).'},sp)}
+A.fcInvX=d=>{if(d.s==='fee'){const x=inv11Fee(d.b,d.p);if(!x||!x.f.invNo){flash(x&&x.f.status==='payee'?'Le numéro de facture arrive dans un instant : touchez Actualiser.':'Pas de facture : ces frais ne sont pas encore payés.');return}
+    st.modal={kind:'fcInv',src:'fee',bid:d.b,pid:d.p}}
+  else if(d.s==='sub'){if(!(db.subInv||[]).some(v=>v.id===d.id)){flash('Facture introuvable : touchez Actualiser.');return}st.modal={kind:'fcInv',src:'sub',id:d.id}}
+  else return;render()};
+const invBtn11=(s,attrs,label)=>`<button class="btn btn-sm btn-plain" data-a="fcInvX" data-s="${s}" ${attrs}>${label}</button>`;
+const feeBtn11=(b,f,admin)=>invBtn11('fee',`data-b="${esc(b.id)}" data-p="${esc(f.pid)}"`,`${esc(f.invNo)} · ${money(f.amount)}${admin&&f.invSent?' · envoyée':''}`);
+const subBtn11=(x,txt)=>invBtn11('sub',`data-id="${esc(x.id)}"`,txt||`${esc(x.no)} · ${money(x.total)}`);
+
+/* frais de location : numéro de facture, lignes, envoi */
+toLocal=(old=>function(row){const b=old(row);try{const P=row.payments||[];(b.feesSrv||[]).forEach(f=>{const p=P.find(x=>x.id===f.pid);if(!p)return;
+    f.invNo=p.inv_no||null;f.invAt=day11(p.inv_at);f.invSent=day11(p.inv_sent_at);f.lines=p.lines||[];f.method=p.method||'carte';f.refunded=(p.refunded_cents||0)/100})}catch(e){console.warn(e)}return b})(toLocal);
+
+/* abonnements : factures mensuelles (le client voit les siennes, l'entraîneur toutes celles de ses abonnés) */
+db.subInv=db.subInv||[];
+loadSubs=(old=>async function(){await old();if(!R.coachId||!R.uid||R.subsOn===false)return;
+  try{const {data,error}=await R.sb.from('sub_invoices').select('*').eq('coach_id',R.coachId).order('paid_at',{ascending:false}).limit(500);if(error)throw error;
+    db.subInv=(data||[]).map(v=>({id:v.id,sid:v.subscription_id,userId:lid(v.client_id),no:v.inv_no,at:day11(v.inv_at||v.paid_at),end:day11(v.period_end),
+      total:(v.amount_cents||0)/100,lines:v.lines||[],plan:v.plan_name||'',sent:day11(v.inv_sent_at)}));
+    (db.subs||[]).forEach(s=>{if(!s.real)return;const V=db.subInv.filter(v=>v.sid===s.sid);(s.payments||[]).forEach(p=>{const v=V.find(x=>x.at===p.date&&Math.abs(x.total-p.amount)<.01)||V.find(x=>x.at===p.date);if(v){p.invNo=v.no;p.invId=v.id}})})}
+  catch(e){if(!missing(e))console.warn('Factures d\'abonnement',e.message);db.subInv=[]}})(loadSubs);
+
+/* réservation : factures des frais de location */
+bookingCard=(old=>function(b,u,admin){let h=old(b,u,admin);try{if(!R.on||!b||!b.real||!(b.feesSrv||[]).length)return h;
+  const mine=f=>admin||(u&&(f.payer===u.id||((userById(f.payer)||{}).guardian===u.id)));
+  const L=b.feesSrv.filter(f=>f.invNo&&['payee','remboursee'].includes(f.status)&&mine(f));if(!L.length)return h;
+  const blk=`<div class="fcinvblk"><b class="small">${L.length>1?'Factures des frais de location':'Facture des frais de location'}</b><span class="actions">${L.map(f=>feeBtn11(b,f,admin)).join('')}</span></div>`;
+  const k=h.lastIndexOf('</article>');return k<0?h+blk:h.slice(0,k)+blk+h.slice(k)}catch(e){console.warn(e);return h}})(bookingCard);
+
+/* entraîneur : locations des clients (bouton de facture sur les frais payés) */
+rentPanel=(old=>function(){let h=old();try{if(!h)return h;
+  (db.rentals||[]).forEach(r=>(r.fees||[]).forEach(f=>{if(!f.invNo||!['payee','remboursee'].includes(f.status))return;const b=(db.bookings||[]).find(x=>x.sid===r.sid);if(!b)return;
+    const tag=`Frais ${money(f.amount)} : ${esc(f.reason)} `;const i=h.indexOf(tag);if(i<0)return;const j=h.indexOf('</small>',i);if(j<0)return;
+    h=h.slice(0,j)+' '+invBtn11('fee',`data-b="${esc(b.id)}" data-p="${esc(f.pid)}" style="padding:2px 8px;font-size:.78rem"`,'Facture '+esc(f.invNo))+h.slice(j)}))}catch(e){console.warn(e)}return h})(rentPanel);
+
+/* client : Mon abonnement › factures mensuelles */
+aboClient=(old=>function(u){let h=old(u);try{if(!R.on||R.role!=='client'||!u)return h;const V=(db.subInv||[]).filter(v=>v.userId===u.id);if(!V.length)return h;
+  return h+`<h3 class="sech">Factures de l'abonnement</h3><div class="list fcinvlist">${V.map(v=>`<div class="invrow"><span><b>${esc(v.no)}</b> · <span class="num">${money(v.total)}</span><br><small>${esc(dlong10(v.at))} · ${esc(v.plan||'Abonnement')}</small></span>${subBtn11(v,'Voir la facture')}</div>`).join('')}</div>`}catch(e){console.warn(e);return h}})(aboClient);
+
+/* entraîneur : Abonnements › factures des abonnés */
+abosAdmin=(old=>function(){let h=old();try{if(!R.on||R.role!=='admin')return h;const V=db.subInv||[];if(!V.length)return h;
+  return h+`<h3 class="sech">Factures des abonnements</h3><p class="muted small" style="margin:0 0 8px">Une facture par paiement mensuel reçu (même numérotation que vos cours). Ouvrez-en une pour l'enregistrer en PDF, l'imprimer ou l'envoyer au client.</p>
+  <div class="list fcinvlist">${V.slice(0,120).map(v=>`<div class="invrow"><span><b>${esc(v.no)}</b> · ${esc(name(userById(v.userId)))} · <span class="num">${money(v.total)}</span>${v.sent?' <span class="pill neutral">envoyée</span>':''}<br><small>${esc(dlong10(v.at))} · ${esc(v.plan||'Abonnement')}</small></span>${subBtn11(v,'Voir la facture')}</div>`).join('')}</div>`}catch(e){console.warn(e);return h}})(abosAdmin);
+
+/* client : « Mes factures » = cours + frais de location + abonnements */
+window.fcFactV10=(old=>function(u){try{if(!R.on)return old(u);
+  const fam=[u.id,...db.users.filter(x=>x.guardian===u.id).map(x=>x.id)];const L=[];
+  (db.bookings||[]).forEach(b=>{(b.parts||[]).forEach((p,i)=>{if(p.paid&&p.invNo&&fam.includes(p.userId))L.push({no:p.invNo,d:p.invAt||p.paidAt||'',amt:Number(p.amount)||0,ref_:Number(p.refunded)||0,
+      what:String((p.lines&&p.lines[0]&&p.lines[0][0])||bDesc(b))+' · '+b.ref,btn:`<button class="btn btn-sm btn-plain" data-a="invoice" data-b="${esc(b.id)}" data-i="${i}">Voir la facture</button>`})});
+    (b.feesSrv||[]).forEach(f=>{if(f.invNo&&['payee','remboursee'].includes(f.status)&&fam.includes(f.payer))L.push({no:f.invNo,d:f.invAt||f.paidAt||'',amt:Number(f.amount)||0,ref_:Number(f.refunded)||0,
+      what:'Frais de location : '+(f.reason||'')+' · '+b.ref,btn:invBtn11('fee',`data-b="${esc(b.id)}" data-p="${esc(f.pid)}"`,'Voir la facture')})})});
+  (db.subInv||[]).forEach(v=>{if(fam.includes(v.userId))L.push({no:v.no,d:v.at||'',amt:v.total,ref_:0,what:'Abonnement · '+(v.plan||'mensuel'),btn:subBtn11(v,'Voir la facture')})});
+  L.sort((a,c)=>String(c.d).localeCompare(String(a.d))||String(c.no).localeCompare(String(a.no)));
+  const who=R.coachRow&&R.coachRow.nom_affiche?' avec '+esc(R.coachRow.nom_affiche):'';
+  if(!L.length)return `<div class="empty">Aucune facture pour l'instant${who}. Une facture est créée automatiquement pour chaque paiement reçu : cours, abonnement ou frais de location.<p style="margin-top:10px"><button class="btn btn-plain" data-a="v5go" data-t="resa5">Mes réservations</button></p></div>`;
+  const yr=today().slice(0,4);const tot=r2(L.filter(x=>String(x.d).slice(0,4)===yr).reduce((n,x)=>n+x.amt-x.ref_,0));
+  return `<p class="muted small" style="margin-bottom:10px">Vos factures${who} : cours, abonnements et frais de location. Total payé en ${yr} : <b>${money(tot)}</b> (remboursements déduits).</p>
+  <div class="list fcinvlist">${L.map(x=>`<div class="invrow"><span><b>${esc(x.no)}</b> · <span class="num">${money(x.amt)}</span>${x.ref_>0?` <span class="pill neutral">Remboursé ${money(x.ref_)}</span>`:''}<br><small>${esc(dlong10(x.d))} · ${esc(x.what)}</small></span>${x.btn}</div>`).join('')}</div>`}
+  catch(e){console.warn(e);return old(u)}})(window.fcFactV10);
 
 CLIENT_TABS.push('fact10');
 /* PWA : fonctions internes dont l'app installable a besoin (notifications touchées, hors ligne) */
