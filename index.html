@@ -22399,7 +22399,7 @@ function setupV(){if(!R.on)return '<div class="empty">Connectez-vous.</div>';if(
   const s=show9();const a=ui().about||{};const U=ui();const c=R.coachRow||{};const done=REQ9.filter(stOk).length;const owner=R.realRole==='admin';
   const I=R.pay&&R.pay.info||{};const rows=(a.parcours||[]).slice();while(rows.length<4)rows.push(['','']);
   const step=(k,body,act)=>`<section class="fc9step" id="fc9-${k}"><div class="hd"><h3>${okTag(k)} ${esc(STEPS9.find(x=>x[0]===k)[1])}</h3>${act||''}</div>${body}</section>`;
-  return `<div class="fc9prog"><b>${done} / ${REQ9.length}</b><div class="fc9bar"><i style="width:${Math.round(done/REQ9.length*100)}%"></i></div><span class="small">${R.setup&&R.setup.listed?(owner?'Vous êtes le fondateur : votre page est toujours visible dans « Trouver un entraîneur ».':'Votre page est <b>visible</b> dans « Trouver un entraîneur ».'):'Votre page sera visible dans « Trouver un entraîneur » quand les 10 étapes obligatoires seront faites.'}</span></div>
+  return `<div class="fc9prog"><b>${done} / ${REQ9.length}</b><div class="fc9bar"><i style="width:${Math.round(done/REQ9.length*100)}%"></i></div><span class="small">${R.setup&&R.setup.demo?'Compte de démonstration : sa vitrine n\'apparaît jamais dans « Trouver un entraîneur » (lien direct seulement).':R.setup&&R.setup.listed?(owner?'Vous êtes le fondateur : votre page est toujours visible dans « Trouver un entraîneur ».':'Votre page est <b>visible</b> dans « Trouver un entraîneur ».'):'Votre page sera visible dans « Trouver un entraîneur » quand les 10 étapes obligatoires seront faites.'}</span></div>
   <p class="muted" style="max-width:48rem;margin-bottom:14px">Tout ce que vos clients verront sur votre vitrine (fidjicoach.ca/?entraineur=${esc(c.slug||'')}). Les textes se publient quand vous touchez <b>Enregistrer et vérifier</b>; les images se publient dès leur téléversement.</p>
   <form id="fc9setup" class="fc9steps" novalidate>
   ${step('contrat',`<p class="small">${owner?'Vous êtes l\'exploitant de FidjiCoach : ce contrat est celui que les autres entraîneurs acceptent.':stOk('contrat')?'Contrat accepté'+(c.contrat_signe_at?' le '+esc(String(c.contrat_signe_at).slice(0,10)):'')+'.':'Lisez le contrat d\'utilisation de FidjiCoach pour les entraîneurs (frais de la plateforme, Stripe Connect, confidentialité des clients), puis acceptez-le.'}</p>`,
@@ -22474,7 +22474,7 @@ function goSetup(){if(!R.forceSetup)return;R.forceSetup=false;st.view='admin';st
 afterLogin=(old=>function(){old();setTimeout(goSetup,150)})(afterLogin);
 bootReal=(old=>async function(){await old();try{goSetup()}catch(e){}})(bootReal);
 decorate=(old=>function(){old();try{if(!R.on||R.role!=='admin'||st.view!=='admin')return;const app=document.getElementById('app');
-    if(R.setup&&!R.setup.off&&!R.setup.listed&&curSec()!=='setup9'){const m=app&&(app.querySelector('.admmain')||app.querySelector('main'));const miss=REQ9.filter(k=>!stOk(k)).length;
+    if(R.setup&&!R.setup.off&&!R.setup.listed&&!R.setup.demo&&curSec()!=='setup9'){const m=app&&(app.querySelector('.admmain')||app.querySelector('main'));const miss=REQ9.filter(k=>!stOk(k)).length;
       if(m&&!m.querySelector('.fc9ban'))m.insertAdjacentHTML('afterbegin',`<p class="fc9ban small" style="background:var(--warn-soft);border-radius:10px;padding:10px 14px;margin:0 0 14px">Votre page n'est pas encore visible dans « Trouver un entraîneur » : ${miss} étape${miss>1?'s':''} de la mise en place reste${miss>1?'nt':''} à faire. <button class="linkbtn" data-a="nav" data-s="setup9">Ouvrir la mise en place</button></p>`)}
     const bar=document.querySelector('.fcreal');if(bar&&!bar.dataset.e9){bar.dataset.e9='1';bar.insertAdjacentHTML('beforeend',' <b>Étape 9 (phase 1) :</b> site FidjiCoach, vitrines, entraîneurs invités avec mise en place guidée, conditions et infolettre par entraîneur, rapports de cours en ligne. <b>Phase 2 :</b> programmes adaptés aux blessures et aux objectifs, Trouver un entraîneur pour les clients, suppression de compte, mots de passe.')}}
   catch(e){console.warn(e)}})(decorate);
@@ -23392,8 +23392,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c10';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='7 nov. 2026 · Corrections 10 (factures)';
+const FC_BUILD='2026-11-07-c10b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='7 nov. 2026 · Corrections 10b (factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -24087,14 +24087,14 @@ async function inv10Img(src){if(!src)return null;try{let data=src;
       data=await new Promise(res=>{const fr_=new FileReader();fr_.onload=()=>res(fr_.result);fr_.readAsDataURL(bl)})}
     if(/^data:image\/svg/.test(data))return null;
     const im=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=data});
-    const c=document.createElement('canvas');c.width=im.naturalWidth||1;c.height=im.naturalHeight||1;c.getContext('2d').drawImage(im,0,0);
+    const k=Math.min(1,480/Math.max(im.naturalWidth||1,im.naturalHeight||1));const c=document.createElement('canvas');c.width=Math.max(1,Math.round((im.naturalWidth||1)*k));c.height=Math.max(1,Math.round((im.naturalHeight||1)*k));c.getContext('2d').drawImage(im,0,0,c.width,c.height);
     return {d:c.toDataURL('image/png'),w:c.width,h:c.height}}catch(e){console.warn('Logo de facture',e);return null}}
 async function inv10Pdf(o){const J=window.jspdf&&window.jspdf.jsPDF;if(!J)throw new Error('le générateur de PDF n\'est pas chargé');
-  const doc=new J({unit:'pt',format:'letter'});
+  const doc=new J({unit:'pt',format:'letter',compress:true});
   const T=s=>String(s==null?'':s).replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/[–—−]/g,'-').replace(/…/g,'...').replace(/[   ]/g,' ').replace(/œ/g,'oe').replace(/Œ/g,'OE').replace(/✓/g,'').replace(/[^\x00-\xff]/g,'');
   const M=n=>T(n<0?'-'+money(-n):money(n));const navy=[19,50,91],grey=[107,114,128];const X=54,RX=558;let y=54;
   const img=await inv10Img(o.coach.logo);let hh=0;
-  if(img){const h=50,w=Math.min(170,img.w*h/img.h);try{doc.addImage(img.d,'PNG',X,y,w,h);hh=h}catch(e){}}
+  if(img){const h=50,w=Math.min(170,img.w*h/img.h);try{doc.addImage(img.d,'PNG',X,y,w,h,undefined,'FAST');hh=h}catch(e){}}
   doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(20);doc.text('Facture',RX,y+16,{align:'right'});
   doc.setFontSize(11);doc.text(T(o.no),RX,y+32,{align:'right'});doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);
   doc.text(T('Date : '+dlong10(o.date)),RX,y+46,{align:'right'});doc.text(T('Réservation '+o.ref),RX,y+58,{align:'right'});
@@ -24159,7 +24159,7 @@ window.fcFactV10=function(u){const fam=[u.id,...db.users.filter(x=>x.guardian===
 .fcinv{background:#fff;color:#13325b;border:1px solid #dfe5ee;border-radius:10px;padding:18px;margin:8px 0 12px;font-size:.92rem;line-height:1.4}
 .fcinv-h{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start}
 .fcinv-b{display:flex;gap:10px;align-items:center;min-width:0}.fcinv-b img{height:44px;width:auto;max-width:150px;object-fit:contain}
-.fcinv-b div,.fcinv-n,.fcinv-to{display:flex;flex-direction:column;min-width:0}.fcinv-n{text-align:right}
+.fcinv-b div,.fcinv-n,.fcinv-to{display:flex;flex-direction:column;min-width:0}.fcinv-n{text-align:right;align-items:flex-end;margin-left:auto}
 .fcinv span{color:#6b7280;font-size:.82rem;overflow-wrap:anywhere}
 .fcinv-to{margin:14px 0 10px}.fcinv-to>span:first-child{text-transform:uppercase;letter-spacing:.06em;font-size:.7rem}
 .fcinv table{width:100%;border-collapse:collapse}.fcinv th{background:#eef4fb;color:#13325b;text-align:left;padding:7px 8px;font-size:.82rem}
@@ -24168,7 +24168,7 @@ window.fcFactV10=function(u){const fam=[u.id,...db.users.filter(x=>x.guardian===
 .fcinv tr.tot td{font-weight:700;border-top:2px solid #13325b}
 .fcinv-m{color:#4b5563;font-size:.84rem;margin:12px 0 0}.fcinv-f{color:#9aa3af;font-size:.76rem;margin:8px 0 0}
 .fcinvblk{margin-top:12px;border-top:1px solid var(--line);padding-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-@media (max-width:480px){.fcinv{padding:12px;font-size:.88rem}.fcinv-n{text-align:left}}
+@media (max-width:480px){.fcinv{padding:12px;font-size:.88rem}.fcinv-n{text-align:left;align-items:flex-start;margin-left:0}}
 #fcInvPrint{display:none}
 @media print{html.fcInvPrinting body>*:not(#fcInvPrint){display:none!important}html.fcInvPrinting #fcInvPrint{display:block!important}
  html.fcInvPrinting,html.fcInvPrinting body{background:#fff!important}html.fcInvPrinting .fcinv{border:0;font-size:11pt;margin:0}}`;document.head.appendChild(s)})();
