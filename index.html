@@ -22189,7 +22189,9 @@ function text9(t){return String(t||'').split(/\n{2,}/).map(p=>{const L=p.split('
 function showcasePub(){const s=show9();const a=ui().about||{};const U=ui();
   return {logo:s.logo||null,logoWhite:s.logoWhite||null,photo:s.photo||null,intro:a.intro||'',title:a.title||'Mon parcours',
     parcours:(a.parcours||[]).map(r=>[r[0]||'',r[1]||'']).filter(r=>r[0]||r[1]).slice(0,12),terms:s.terms||'',cancel:s.cancel||'',
-    nl:{on:!!(s.nl&&s.nl.on),text:(s.nl&&s.nl.text)||''},sponsorsOn:!!s.sponsorsOn,home:{lat:U.home.lat,lon:U.home.lon,name:U.home.name}}}
+    nl:{on:!!(s.nl&&s.nl.on),text:(s.nl&&s.nl.text)||''},sponsorsOn:!!s.sponsorsOn,home:{lat:U.home.lat,lon:U.home.lon,name:U.home.name},
+    /* 10 : confirmations de la mise en place (lues par coach_setup) */
+    taxOk:!!s.taxOk,travelOk:!!s.travelOk}}
 pubData=(old=>function(){const d=old();try{if(R.role==='admin'){d.showcase9=showcasePub();
   if(d.showcase9.sponsorsOn&&window.fcCm){const P=window.fcCm.P();d.cm12={v:1,set:P.set||{},sp:(P.sp||[]).filter(sp=>window.fcCm.live(sp)&&sp.vis&&(sp.vis.pub||sp.vis.home)).map(sp=>Object.assign({},sp,{logo:sp.logo&&String(sp.logo).length<160000?sp.logo:null,email:'',tel:'',note:'',amt:null}))}}}}catch(e){console.warn(e)}return d})(pubData);
 applyPub=(old=>function(d){old(d);if(!d||R.role==='admin')return;try{
@@ -23386,8 +23388,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c9b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='7 nov. 2026 · Corrections 9b (cartes, export, démo)';
+const FC_BUILD='2026-11-07-c9c';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='7 nov. 2026 · Corrections 9c (confirmations taxes et déplacement)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
