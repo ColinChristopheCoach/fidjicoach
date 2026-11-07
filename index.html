@@ -23386,8 +23386,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c8d';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='7 nov. 2026 · Corrections 8d';
+const FC_BUILD='2026-11-07-c8e';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='7 nov. 2026 · Corrections 8 (partie D)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -23615,6 +23615,218 @@ document.head.insertAdjacentHTML('beforeend',`<style id="fc8css">
 #c8evForm>.field{margin-top:10px}
 .c8dayact{margin:4px 0 8px}
 </style>`);
+}
+
+/* ================= Corrections 8, partie D (7 nov. 2026) : modifier un cours =================
+   Client (la personne qui a réservé) et entraîneur : changer la date, l'heure, le style (classique ou patin), le lieu
+   et la durée d'un cours. Le serveur vérifie tout et recalcule le prix (booking_modify_quote / booking_modify) :
+   - plus de 48 h avant le cours et plage libre : modifié tout de suite;
+   - moins de 48 h : demande dans « À traiter » de l'entraîneur (booking_modify_decide), le cours reste tel quel d'ici là;
+   - différence : part payée → « Payer la différence » par carte, ou remboursement automatique; part non payée → montant mis à jour.
+   - forfait commencé : seulement la date, l'heure et le style (lieu et durée fixes; cours restants non remboursables). */
+{
+const MODK='fcMod';
+toLocal=(old=>function(row){const o=old(row);try{const d=(row&&row.details)||{};
+  o.modReq=d.modReq||null;o.modLog=Array.isArray(d.modLog)?d.modLog:[];o.hasRent=!!d.rent||row.type==='location';
+  const P=row.payments||[];(o.parts||[]).forEach(p=>{const r=P.find(x=>x.id===p.pid);p.kind=(r&&r.kind)||'part'})}catch(e){console.warn(e)}return o})(toLocal);
+
+const c8mIsOwner=b=>{const u=me();return !!(u&&b&&b.owner===u.id)};
+const c8mCan=b=>!!(R.on&&b&&b.real&&!b.cancelled&&!b.modReq&&b.approval!=='pending'&&!b.hasRent&&!b.public&&!b.pubSid&&(R.role==='admin'||c8mIsOwner(b)));
+const c8mFut=s=>{try{return hoursUntil(s)>0}catch(e){return false}};
+const c8mBtn=(b,s)=>`<button class="btn-xs" data-a="fcModOpen" data-b="${esc(b.id)}" data-s="${esc(s)}">Modifier</button>`;
+const c8mFirst=()=>{try{return typeof c5First==='function'?c5First():'votre entraîneur'}catch(e){return 'votre entraîneur'}};
+/* bouton « Modifier » à côté de « Déplacer » (réservations et calendrier du client) */
+const c8mAddBtns=h=>{if(!R.on||!h||h.indexOf('data-a="move"')<0)return h;
+  return h.replace(/<button class="btn-xs" data-a="move" data-b="([^"]+)" data-s="([^"]+)">Déplacer<\/button>/g,(all,bid,sid)=>{const b=B(bid);return c8mCan(b)?all+c8mBtn(b,sid):all})};
+sessRows=(old=>function(b,u,admin){let h=old(b,u,admin);try{
+  if(admin&&R.role==='admin'&&c8mCan(b))(b.sessions||[]).forEach(s=>{if(!c8mFut(s)||s.pendingMove)return;
+    const k=`data-a="report" data-b="${b.id}" data-s="${s.id}"`;const i=h.indexOf(k);if(i<0)return;const j=h.indexOf('</button>',i);if(j<0)return;
+    h=h.slice(0,j+9)+c8mBtn(b,s.id)+h.slice(j+9)});
+  else h=c8mAddBtns(h)}catch(e){console.warn(e)}return h})(sessRows);
+clientCalV=(old=>function(u){let h=old(u);try{h=c8mAddBtns(h)}catch(e){console.warn(e)}return h})(clientCalV);
+
+/* statut et carte de la réservation : demande en attente, différence à payer */
+const c8mOwed=(b,u)=>(b.parts||[]).filter(p=>p.kind==='ecart'&&!p.paid&&u&&p.userId===u.id);
+bookingStatus=(old=>function(b){if(b&&!b.cancelled&&b.modReq)return ['Modification demandée','warn'];const r=old(b);
+  try{if(r&&r[1]!=='ok'&&!b.cancelled&&(b.parts||[]).some(p=>p.kind==='ecart'&&!p.paid)&&(b.parts||[]).filter(p=>p.kind!=='ecart').every(p=>p.paid))return ['Différence à payer','warn']}catch(e){}return r})(bookingStatus);
+bookingCard=(old=>function(b,u,admin){let h=old(b,u,admin);try{if(!R.on||!b||!b.real)return h;let note='';
+  const M=b.modReq;
+  if(M&&!b.cancelled){const amt=Number(M.d_own)||0;const money_=amt>0?' · différence de '+money(amt/100):amt<0?' · remboursement de '+money(-amt/100):'';
+    note=admin?`<div class="fcsdnote"><span><b>Modification demandée (moins de 48 h)</b><br><span class="small">${esc(M.summary||'')}${money_}</span><br><span class="muted small">Le cours reste tel quel tant que vous n'avez pas répondu.</span></span><span class="actions"><button class="btn btn-sm btn-accent" data-a="fcModYes" data-b="${b.id}">Approuver</button><button class="btn btn-sm btn-plain" data-a="fcModNo" data-b="${b.id}">Refuser</button></span></div>`
+      :c8mIsOwner(b)?`<div class="fcsdnote"><span><b>Demande de modification envoyée à ${esc(c8mFirst())}</b><br><span class="small">${esc(M.summary||'')}${money_}</span><br><span class="muted small">À moins de 48 h du cours, la modification doit être approuvée. Votre cours reste tel quel d'ici là.</span></span><span class="actions"><button class="btn btn-sm btn-plain" data-a="fcModDrop" data-b="${b.id}">Retirer la demande</button></span></div>`:''}
+  const owed=admin?[]:c8mOwed(b,u);
+  if(owed.length&&!b.cancelled)note+=`<div class="fcsdnote"><span><b>Différence à payer : ${money(owed.reduce((n,p)=>n+p.amount,0))}</b><br><span class="muted small">Votre cours a été modifié et le nouveau prix est plus élevé. Le paiement se fait par carte.</span></span><span class="actions">${owed.map(p=>`<button class="btn btn-sm btn-accent" data-a="fcModPay" data-p="${esc(p.pid)}">Payer la différence${owed.length>1?' ('+money(p.amount)+')':''}</button>`).join('')}</span></div>`;
+  if(!note)return h;
+  return h.includes('<div class="sess">')?h.replace('<div class="sess">',note+'<div class="sess">'):h.replace('</article>',note+'</article>')}catch(e){console.warn(e);return h}})(bookingCard);
+
+/* « À traiter » de l'entraîneur */
+todoAdmin=(old=>function(){const o=old();if(!R.on||R.role!=='admin')return o;const add=[];
+  try{(db.bookings||[]).filter(b=>b.real&&!b.cancelled&&b.modReq).forEach(b=>{const M=b.modReq;const amt=Number(M.d_own)||0;
+    add.push({k:'warn',t:'Modification de cours à approuver',d:esc(name(userById(b.owner)))+' · '+b.ref+' · '+esc(b.lieu||'')+'<br><b>'+esc(M.summary||'')+'</b>'+(amt>0?' · différence de '+money(amt/100):amt<0?' · remboursement de '+money(-amt/100):'')+' <span class="muted">(moins de 48 h)</span>',
+      btn:`<span class="actions"><button class="btn btn-sm btn-accent" data-a="fcModYes" data-b="${b.id}">Approuver</button><button class="btn btn-sm btn-plain" data-a="fcModNo" data-b="${b.id}">Refuser</button></span>`})})}catch(e){console.warn(e)}
+  return add.concat(o)})(todoAdmin);
+
+/* ---------- fenêtre « Modifier un cours » ---------- */
+const c8mDurs=b=>{const out=new Set();try{const ct=ctype(b.type);(ct&&ct.rows||[]).forEach(r=>{const v=r[b.formule||'ind'];if(v!==''&&v!=null&&!isNaN(Number(v)))out.add(Number(r.dur))})}catch(e){}out.add(Number(b.dur)||60);return [...out].filter(x=>x>0).sort((a,c)=>a-c)};
+const c8mLieux=b=>{const L=[];try{(db.centres||[]).filter(c=>c.ok).forEach(c=>{if(c.name&&!L.includes(c.name))L.push(c.name)})}catch(e){}if(b.lieu&&!L.includes(b.lieu))L.unshift(b.lieu);return L};
+const c8mSkate=n=>{try{const c=(db.centres||[]).find(x=>x.name===n);return ctrSkate(c)}catch(e){return true}};
+const c8mParams=m=>{const b=B(m.bid);const p={session:m.sid};if(!b)return p;
+  if(m.tech&&m.tech!==b.tech)p.tech=m.tech;if(m.lieu&&m.lieu!==b.lieu)p.lieu=m.lieu;if(Number(m.dur)&&Number(m.dur)!==Number(b.dur))p.dur=Number(m.dur);
+  const n=st.pk&&st.pk.sel&&st.pk.sel[0];const s=(b.sessions||[]).find(x=>x.id===m.sid);if(n&&s&&(n.date!==s.date||n.start!==s.start)){p.date=n.date;p.start=n.start}
+  return p};
+const c8mChanged=p=>!!(p.tech||p.lieu||p.dur||p.date);
+async function c8mQuote(key){const m=st.modal;if(!m||m.kind!==MODK)return;const b=B(m.bid);if(!b)return;
+  const p=c8mParams(m);m.qBusy=true;
+  try{const {data,error}=await R.sb.rpc('booking_modify_quote',{p_booking:b.sid,p});if(error)throw error;
+    if(st.modal!==m||m.qWant!==key)return;m.q=data;m.qErr=''}
+  catch(e){if(st.modal!==m||m.qWant!==key)return;m.q=null;m.qErr=errTxt(e)}
+  finally{if(st.modal===m&&m.qWant===key){m.qBusy=false;m.qKey=key;render()}}}
+function c8mPreview(m,b){const p=c8mParams(m);if(!c8mChanged(p))return '<p class="muted small c8mprev">Choisissez ce que vous voulez changer : le prix et les conditions s\'affichent ici.</p>';
+  const key=JSON.stringify(p);
+  if(m.qKey!==key){if(m.qWant!==key){m.qWant=key;setTimeout(()=>c8mQuote(key),0)}return '<p class="muted small c8mprev">Calcul du prix…</p>'}
+  if(m.qErr)return `<p class="alert c8mprev">${esc(m.qErr)}</p>`;
+  const q=m.q||{};const admin=R.role==='admin';const d=Number(q.d_own)||0;const paid=!!q.own_paid;const inter=q.own_method==='interac';
+  const L=[];
+  L.push(`<b>Changement :</b> ${esc(q.summary||'')}`);
+  if(d===0)L.push('Même prix.');
+  else if(paid&&d>0)L.push(d<50?'Écart de moins de 0,50 $ : non facturé.':(admin?'Le client devra payer la différence de ':'Différence à payer par carte : ')+`<b>${money(d/100)}</b>`+(admin?' par carte.':' (taxes incluses), juste après la modification.'));
+  else if(paid&&d<0)L.push((admin?'Remboursement automatique au client : ':'Remboursement de ')+`<b>${money(-d/100)}</b>`+(inter?' par Interac'+(admin?' (à renvoyer vous-même, voir À traiter).':' (renvoyé par '+esc(c8mFirst())+').'):(admin?' sur sa carte.':' sur votre carte.')));
+  else L.push((d>0?'Le prix augmente de ':'Le prix baisse de ')+`<b>${money(Math.abs(d)/100)}</b>`+(q.q1_total!=null?` : nouveau montant à payer ${money(Number(q.q1_total))}.`:'.'));
+  if(q.share&&Number(q.d_oth))L.push('La part de chaque partenaire change aussi de '+money(Math.abs(Number(q.d_oth))/100)+(Number(q.d_oth)>0?' (en plus).':' (en moins).'));
+  if(q.late)L.push(`<span style="color:var(--warn)"><b>Moins de 48 h avant le cours :</b> votre demande sera envoyée à ${esc(c8mFirst())}, qui doit l'approuver. Le cours reste tel quel d'ici là.</span>`);
+  return `<div class="c8mprev info">${L.map(x=>`<p>${x}</p>`).join('')}</div>`}
+MOD3[MODK]=function(u,m){const b=B(m.bid);const s=b&&(b.sessions||[]).find(x=>x.id===m.sid);
+  if(!b||!s)return ['<p class="muted">Ce cours n\'est plus disponible.</p><div class="actions"><button class="btn btn-plain" data-a="close">Fermer</button></div>',false];
+  const started=(b.qty||1)>1&&forfaitStarted(b);const admin=R.role==='admin';
+  const durs=c8mDurs(b),lieux=c8mLieux(b);const n=st.pk&&st.pk.sel&&st.pk.sel[0];
+  const p=c8mParams(m);const ok=c8mChanged(p)&&m.qKey===JSON.stringify(p)&&!m.qErr&&!m.qBusy;const late=ok&&m.q&&m.q.late;
+  const opt=(v,l,on,dis)=>`<option value="${esc(v)}" ${on?'selected':''} ${dis?'disabled':''}>${esc(l)}</option>`;
+  const inner=`<span class="eyebrow">${admin?'Modifier le cours d\'un client':'Modifier mon cours'}</span><h3>${esc(dlong(s.date))} · ${esc(hfmt(s.start))}</h3>
+  <p class="muted small">${esc(bDesc(b))} · ${esc(b.lieu||'')} · ${esc(b.ref||'')}${admin?' · '+esc(name(userById(b.owner))):''}</p>
+  <div class="c8mgrid">
+    <label class="field"><span>Style</span><select data-fcmod="tech">${['Classique','Patin'].map(t=>opt(t,t,(m.tech||b.tech)===t,t==='Patin'&&!c8mSkate(m.lieu||b.lieu))).join('')}</select></label>
+    <label class="field"><span>Lieu</span><select data-fcmod="lieu" ${started?'disabled':''}>${lieux.map(l=>opt(l,l,(m.lieu||b.lieu)===l,false)).join('')}</select></label>
+    <label class="field"><span>Durée</span><select data-fcmod="dur" ${started?'disabled':''}>${durs.map(d=>opt(d,durLbl(d),Number(m.dur||b.dur)===d,false)).join('')}</select></label>
+  </div>
+  ${started?'<p class="muted small" style="margin:4px 0 0">Forfait commencé : le lieu et la durée ne changent plus (les cours restants se déplacent, sans remboursement).</p>':''}
+  <div class="c8mwhen"><span><span class="muted small">Date et heure</span><br><b>${n?esc(dlong(n.date))+' · '+esc(hfmt(n.start)):esc(dlong(s.date))+' · '+esc(hfmt(s.start))+' <span class="muted small">(inchangée)</span>'}</b></span>
+    <button type="button" class="btn btn-sm btn-plain" data-a="fcModCal">${m.cal?'Masquer le calendrier':n?'Changer':'Changer la date ou l\'heure'}</button></div>
+  ${m.cal?`${selectedV(st.pk.sel)}${calV()}`:''}
+  ${c8mPreview(m,b)}
+  <div class="actions"><button class="btn btn-accent" data-a="fcModGo" ${ok?'':'disabled'}>${late&&!admin?'Envoyer la demande':'Confirmer la modification'}</button><button class="btn btn-plain" data-a="close">Retour</button></div>
+  ${admin?'':'<p class="muted small" style="margin-top:10px">Pour seulement changer la date ou l\'heure, vous pouvez aussi utiliser « Déplacer ».</p>'}`;
+  return [inner,false]};
+Object.assign(A,{
+  fcModOpen(d){const b=B(d.b);if(!c8mCan(b)){flash('Ce cours ne peut pas être modifié en ligne. Écrivez à votre entraîneur.');return}
+    const s=(b.sessions||[]).find(x=>x.id===d.s);if(!s)return;
+    st.pk={ctx:'move',month:s.date.slice(0,7),day:null,dur:Number(b.dur)||60,max:1,sel:[],ignore:s.id,lieu:b.lieu};
+    st.modal={kind:MODK,bid:b.id,sid:s.id,tech:b.tech||'',lieu:b.lieu||'',dur:Number(b.dur)||60,cal:false,q:null,qKey:'',qWant:'',qErr:''};render()},
+  fcModCal(){const m=st.modal;if(!m||m.kind!==MODK)return;m.cal=!m.cal;render()},
+  async fcModGo(){const m=st.modal;if(!m||m.kind!==MODK)return;const b=B(m.bid);if(!b)return;const p=c8mParams(m);if(!c8mChanged(p))return;
+    busyOn('Modification du cours…');let res=null;
+    try{const {data,error}=await R.sb.rpc('booking_modify',{p_booking:b.sid,p});if(error)throw error;res=data||{}}
+    catch(e){console.error(e);busyOff();m.qErr=errTxt(e);m.qKey=JSON.stringify(p);render();return}
+    st.modal=null;st.pk=null;
+    try{await syncAll()}finally{busyOff()}
+    const admin=R.role==='admin';
+    if(res.pending){render();flash('Demande envoyée à '+c8mFirst()+' : la modification sera faite après son approbation.');return}
+    const bits=[];if(Number(res.refund_cents)>0)bits.push('remboursement de '+money(res.refund_cents/100)+(Number(res.manual)?' par Interac':admin?' sur la carte du client':' sur votre carte'));
+    if(res.adjusted_cents!=null)bits.push('nouveau montant à payer : '+money(res.adjusted_cents/100));
+    if(Number(res.pay_cents)>0&&admin)bits.push('le client a une différence de '+money(res.pay_cents/100)+' à payer');
+    if(Number(res.pay_cents)>0&&!admin&&res.pay_id){st.modal={kind:'fcModPay',pid:res.pay_id,cents:res.pay_cents,bid:b.id};render();return}
+    render();flash('Cours modifié'+(bits.length?' · '+bits.join(' · '):'')+'.'+(admin?' Le client est avisé.':''))},
+  fcModPay(d){const pid=d.p||(st.modal&&st.modal.pid);if(!pid)return;goCheckout(pid)},
+  async fcModYes(d){await c8mDecide(d.b,true)},
+  async fcModNo(d){if(!confirm('Refuser cette modification? Le cours reste tel quel et le client est avisé.'))return;await c8mDecide(d.b,false)},
+  async fcModDrop(d){if(!confirm('Retirer votre demande de modification? Votre cours reste tel quel.'))return;await c8mDecide(d.b,false)}
+});
+MOD3.fcModPay=function(u,m){return [`<span class="eyebrow">Cours modifié</span><h3>Différence à payer : ${money((m.cents||0)/100)}</h3>
+  <p class="muted">Votre cours est modifié. Le nouveau prix est plus élevé : la différence (taxes incluses) se paie par carte, sur la page sécurisée de Stripe.</p>
+  ${STRIPE_TEST?'<p class="muted small"><b>Mode test</b> : carte 4242 4242 4242 4242, une date future et n\'importe quel code de 3 chiffres.</p>':''}
+  <div class="actions"><button class="btn btn-accent" data-a="fcModPay" data-p="${esc(m.pid)}">Payer par carte</button><button class="btn btn-plain" data-a="close">Payer plus tard</button></div>
+  <p class="muted small" style="margin-top:8px">Plus tard : Réservations › « Payer la différence ».</p>`,false]};
+async function c8mDecide(id,ok){const b=B(id);if(!b||!b.real)return;const admin=R.role==='admin';
+  busyOn(ok?'Approbation…':admin?'Refus…':'Retrait de la demande…');
+  try{const {data,error}=await R.sb.rpc('booking_modify_decide',{p_booking:b.sid,p_ok:!!ok});if(error)throw error;await syncAll();
+    const r=data||{};
+    flash(r.withdrawn?'Demande retirée : votre cours reste tel quel.':r.refused?'Modification refusée : le cours reste tel quel et le client est avisé.'
+      :'Modification approuvée et faite. Le client est avisé'+(Number(r.pay_cents)>0?' (différence de '+money(r.pay_cents/100)+' à payer par carte)':Number(r.refund_cents)>0?' (remboursement de '+money(r.refund_cents/100)+')':'')+'.')}
+  catch(e){console.error(e);flash(errTxt(e))}finally{busyOff();render()}}
+/* choix du style, du lieu, de la durée */
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.fcmod)return;const m=st.modal;if(!m||m.kind!==MODK)return;
+  const k=t.dataset.fcmod;if(k==='dur'){m.dur=Number(t.value)||m.dur;if(st.pk){st.pk.dur=m.dur}}else m[k]=t.value;
+  if(k==='lieu'&&m.tech==='Patin'&&!c8mSkate(m.lieu))m.tech='Classique';
+  if(st.pk)st.pk.lieu=m.lieu;render()});
+if(typeof EN5==='object')Object.assign(EN5,{'Modifier':'Edit','Modification demandée':'Change requested','Différence à payer':'Difference due','Payer la différence':'Pay the difference','Modification de cours à approuver':'Lesson change to approve','Retirer la demande':'Withdraw request'});
+document.head.insertAdjacentHTML('beforeend',`<style id="fc8dcss">
+.c8mgrid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1.5fr) minmax(0,1fr);gap:8px 10px;margin-top:10px}
+.c8mgrid .field{margin:0;min-width:0}.c8mgrid select{width:100%;min-width:0}
+@media (max-width:560px){.c8mgrid{grid-template-columns:1fr 1fr}.c8mgrid .field:nth-child(2){grid-column:1/-1;order:-1}}
+.c8mwhen{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 6px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.c8mprev{margin:12px 0 4px}
+.c8mprev.info{padding:10px 12px;border-radius:12px;background:var(--info-soft,var(--ok-soft));border:1px solid var(--line)}
+.c8mprev.info p{margin:0 0 4px}.c8mprev.info p:last-child{margin:0}
+</style>`);
+}
+
+/* ================= Corrections 7, point 11 (7 nov. 2026) : météo réelle =================
+   Prévisions Open-Meteo (modèles d'Environnement Canada et d'autres services) pour chaque centre, d'après ses coordonnées :
+   température actuelle, min/max, conditions, neige d'hier et d'aujourd'hui, vent, 5 jours. Un seul appel pour 40 centres;
+   gardé 30 min dans le navigateur. Repli propre : sans réseau ou en cas de panne, les anciennes prévisions (moins de 6 h)
+   ou, à défaut, les données d'exemple d'avant. Toutes les pages qui montrent la météo ou le fart en profitent (wxFor). */
+{
+const WXK='fc-wx-1',TTL=30*60*1000,KEEP=6*3600*1000,REF=[46.81,-71.21];
+const W={map:{},at:0,busy:false,err:null};
+const wkey=(la,lo)=>Number(la).toFixed(2)+','+Number(lo).toFixed(2);
+try{const c=JSON.parse(localStorage.getItem(WXK)||'null');if(c&&c.at&&Date.now()-c.at<KEEP&&c.map){W.map=c.map;W.at=c.at}}catch(e){}
+const WMO=c=>{c=Number(c);return c===0?'Ensoleillé':c===1?'Plutôt ensoleillé':c===2?'Partiellement nuageux':c===3?'Nuageux':c===45?'Brouillard':c===48?'Brouillard givrant'
+  :c>=51&&c<=55?'Bruine':c===56||c===57?'Bruine verglaçante':c===61?'Pluie faible':c===63?'Pluie':c===65?'Pluie forte':c===66||c===67?'Pluie verglaçante'
+  :c===71?'Neige légère':c===73?'Neige':c===75?'Neige forte':c===77?'Grains de neige':c>=80&&c<=82?'Averses de pluie':c===85?'Averses de neige':c===86?'Fortes averses de neige'
+  :c===95?'Orage':c===96||c===99?'Orage et grêle':'Variable'};
+const DIRS=['N','NE','E','SE','S','SO','O','NO'];const wdir=d=>DIRS[Math.round(((Number(d)||0)%360+360)%360/45)%8];
+const JR=['Dim.','Lun.','Mar.','Mer.','Jeu.','Ven.','Sam.'];
+const cm=n=>(Math.round(n*10)/10).toString().replace('.',',');
+function wxPack(o){const cur=o.current||{},D=o.daily||{},T=D.time||[];if(!T.length||cur.temperature_2m==null)return null;
+  let i0=T.indexOf(today());if(i0<0)i0=Math.min(1,T.length-1);
+  const mx=D.temperature_2m_max||[],mn=D.temperature_2m_min||[],wc=D.weather_code||[],sn=D.snowfall_sum||[];
+  const t=Math.round(cur.temperature_2m);
+  const days=[];for(let i=i0;i<Math.min(T.length,i0+5);i++)days.push([i===i0?'Auj.':JR[new Date(T[i]+'T12:00:00').getDay()],i===i0?t:Math.round(mx[i]),WMO(wc[i])]);
+  const y=i0>0?Number(sn[i0-1])||0:0,s0=Number(sn[i0])||0;const nb=[];
+  if(y>=0.5)nb.push(cm(y)+' cm de neige hier');if(s0>=0.5)nb.push(cm(s0)+' cm prévus aujourd\'hui');
+  return {t,min:Math.round(mn[i0]),max:Math.round(mx[i0]),cond:WMO(cur.weather_code!=null?cur.weather_code:wc[i0]),
+    neige:nb.length?nb.join(' · '):'Pas de neige fraîche',vent:'Vent '+wdir(cur.wind_direction_10m)+' '+Math.round(Number(cur.wind_speed_10m)||0)+' km/h',days,real:true}}
+function wxApplyRef(){const r=W.map[wkey(REF[0],REF[1])];if(!r)return;
+  WX.today={t:r.t,min:r.min,max:r.max,cond:r.cond,neige:r.neige,vent:r.vent};WX.days=r.days.map(x=>x.slice())}
+async function wxLoad(force){if(W.busy)return;if(!force&&W.at&&Date.now()-W.at<TTL)return;if(navigator.onLine===false)return;
+  if(!force&&W.tried&&Date.now()-W.tried<120000)return;W.tried=Date.now();
+  const list=[],seen=new Set();const add=(la,lo)=>{la=Number(la);lo=Number(lo);if(!la||!lo||!isFinite(la)||!isFinite(lo))return;const k=wkey(la,lo);if(!seen.has(k)){seen.add(k);list.push([la,lo,k])}};
+  add(REF[0],REF[1]);try{(db.centres||[]).forEach(c=>add(c.lat,c.lon))}catch(e){}
+  W.busy=true;const map={};let got=0;
+  try{for(let i=0;i<list.length;i+=40){const ch=list.slice(i,i+40);
+      const url='https://api.open-meteo.com/v1/forecast?latitude='+ch.map(x=>x[0].toFixed(3)).join(',')+'&longitude='+ch.map(x=>x[1].toFixed(3)).join(',')
+        +'&current=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,snowfall_sum'
+        +'&past_days=1&forecast_days=6&timezone=America%2FToronto';
+      const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);let j=await r.json();if(!Array.isArray(j))j=[j];
+      j.forEach((o,k)=>{try{const p=ch[k]&&wxPack(o);if(p){map[ch[k][2]]=p;got++}}catch(e){}})}
+    W.err=null}
+  catch(e){W.err=e&&e.message||'indisponible';console.warn('Météo réelle indisponible',W.err)}
+  finally{W.busy=false}
+  if(got){W.map=Object.assign({},W.map,map);W.at=Date.now();try{localStorage.setItem(WXK,JSON.stringify({at:W.at,map:W.map}))}catch(e){}}
+  wxApplyRef();try{const a=document.activeElement;const typing=a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);if(got&&!st.modal&&!typing)render()}catch(e){}}
+wxApplyRef();
+wxFor=(old=>function(c){try{if(c&&Number(c.lat)&&Number(c.lon)){const w=W.map[wkey(c.lat,c.lon)];if(w&&W.at&&Date.now()-W.at<KEEP)return w}}catch(e){}return old(c)})(wxFor);
+const wxWhen=()=>{try{return new Date(W.at).toLocaleTimeString('fr-CA',{hour:'2-digit',minute:'2-digit'}).replace(':',' h ')}catch(e){return ''}};
+meteoV=(old=>function(){let h=old();try{
+  const pill=W.at&&Date.now()-W.at<KEEP?`<span class="pill ok" title="Prévisions Open-Meteo">Prévisions réelles · ${esc(wxWhen())}</span>`
+    :W.busy?'<span class="pill neutral">Chargement de la météo…</span>':`<span class="pill neutral">Données d'exemple${W.err?' (météo indisponible)':''}</span>`;
+  h=h.replace('<span class="pill neutral">Données d\'exemple</span>',pill);
+  h=h.replace('Dans la vraie version, la météo de chaque centre vient automatiquement de ses coordonnées (Environnement Canada) chaque matin.',
+    'La météo de chaque centre vient de ses coordonnées : prévisions <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (modèles d\'Environnement Canada et d\'autres services), mises à jour aux 30 minutes.')}catch(e){console.warn(e)}
+  if(!W.busy&&(!W.at||Date.now()-W.at>TTL))setTimeout(()=>wxLoad(),0);return h})(meteoV);
+setTimeout(()=>wxLoad(),1200);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')wxLoad()});
+setInterval(()=>{if(document.visibilityState==='visible')wxLoad()},TTL);
+window.fcWx={load:()=>wxLoad(true),state:W};
 }
 
 /* PWA : fonctions internes dont l'app installable a besoin (notifications touchées, hors ligne) */
