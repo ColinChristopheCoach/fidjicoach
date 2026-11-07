@@ -23386,8 +23386,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c9';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='7 nov. 2026 · Corrections 9 (cartes, export, démo)';
+const FC_BUILD='2026-11-07-c9b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='7 nov. 2026 · Corrections 9b (cartes, export, démo)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -23838,6 +23838,8 @@ window.fcWx={load:()=>wxLoad(true),state:W};
       bandeau « Passer au client démo / à l'entraîneur démo » et « Quitter la démo ». Console › Lien de démonstration
       (administrateur) : créer les comptes, nouveau code, copier le lien, réinitialiser. Edge Function demo-login. */
 const C9_VER='Corrections 9 · 7 nov. 2026';
+/* Corrections 9b : l'encadré technique « Mode réel : … » (journal des versions) est réservé à l'administrateur; caché aux autres entraîneurs et dans la démo */
+decorate=(old=>function(){old();try{if(R.on&&R.realRole!=='admin')document.querySelectorAll('.fcreal').forEach(b=>b.remove())}catch(e){}})(decorate);
 
 /* ---------- A. Export Excel en ligne ---------- */
 const XP={busy:false};
@@ -24141,9 +24143,11 @@ A.fmDrag=function(d){st.fmDrag=d.c;render();flash('Glissez l\'épingle sur la ca
 A.fmDragEnd=function(){st.fmDrag=null;render()};
 
 /* ---------- 2. cartes des sentiers (fiche d'un centre, Mon entraînement…) : nouveau fond « Carte » ---------- */
-if(!st.trStyle)st.trStyle='carte';
-if(!st.ctrStyle)st.ctrStyle='carte';
-trailMapSVG=(old=>function(c,o){o=o||{};if((o.style||'plan')!=='carte'||!c||!okLL(num(c.lat),num(c.lon)))return old(c,o.style==='carte'?{...o,style:'plan'}:o);
+if(!st.trStyle||st.trStyle==='sat'||st.trStyle==='routes')st.trStyle='carte';
+if(!st.ctrStyle||st.ctrStyle==='sat'||st.ctrStyle==='routes')st.ctrStyle='carte';
+['trStyle','ctrStyle'].forEach(k=>{const f=A[k];if(typeof f==='function')A[k]=function(d){if(d&&(d.v==='sat'||d.v==='routes'))d={...d,v:'carte'};return f.call(this,d)}});
+if(typeof addFindSeg==='function')addFindSeg=(old=>function(arr,F){if(F&&(F.view==='sat'||F.view==='routes'))F.view='plan';const r=old(arr,F);r[0]=r[0].replace(/<button[^>]*data-a="findView" data-v="(?:sat|routes)">[^<]*<\/button>/g,'');return r})(addFindSeg);
+trailMapSVG=(old=>function(c,o){o=o||{};if(o.style==='sat'||o.style==='routes')o={...o,style:'carte'};if((o.style||'plan')!=='carte'||!c||!okLL(num(c.lat),num(c.lon)))return old(c,o.style==='carte'?{...o,style:'plan'}:o);
   const fb=old(c,{...o,style:'plan'});
   try{const key=String(o.key||'map');
     FM.cfg[key]={kind:'trail',c:{id:c.id,name:c.name,lat:num(c.lat),lon:num(c.lon),free:!!c.free},cRef:c,
@@ -24153,9 +24157,10 @@ mapBox=(old=>function(svg,key,o){o=o||{};const real=String(svg).startsWith('<div
   const o2=real?o:{...o};
   let h=old(svg,key,o2);
   /* bouton « Carte » ajouté devant Plan / Satellite / Routes */
-  h=h.replace(/<div class="mstyle" role="group" aria-label="Fond de carte">/,m=>m+`<button class="${(o.cur||'plan')==='carte'?'on':''}" data-a="${o.styleA||'trStyle'}" data-v="carte">Carte</button>`);
+  /* Corrections 9b : seulement « Carte » et « Courbes de niveau » (l'ancien plan, avec le relief); Satellite et Routes retirés */
+  h=h.replace(/<div class="mstyle" role="group" aria-label="Fond de carte">[\s\S]*?<\/div>/,()=>{const cur=o.cur||'plan';const sa=o.styleA||'trStyle';
+    return `<div class="mstyle" role="group" aria-label="Fond de carte"><button class="${cur==='carte'?'on':''}" data-a="${sa}" data-v="carte">Carte</button><button class="${cur!=='carte'?'on':''}" data-a="${sa}" data-v="plan">Courbes de niveau</button></div>`});
   if(real){
-    if(/data-v="carte"/.test(h))h=h.replace(/(<button class=")on(" data-a="[^"]*" data-v="(?:plan|sat|routes)">)/g,'$1$2');
     h=h.replace(/<button data-a="pzIn"[\s\S]*?aria-label="Recadrer"[^>]*>⤢<\/button>/,`<button data-a="fmFit" data-k="${esc(key)}" aria-label="Recadrer" title="Recadrer">⤢</button>`);
     h=h.replace(/<span class="pzhint">[\s\S]*?<\/span>/,'');
     h=h.replace(/<span class="osmattr">[\s\S]*?<\/span>/,'').replace(/<div class="topoleg"[\s\S]*?<\/span><\/div>/,'');
@@ -24167,7 +24172,10 @@ A.fmFit=function(d){const E=FM.maps[d.k];if(E&&E.ready){E.fitSig=null;fmData(E)}
 /* ---------- montage après chaque affichage ---------- */
 render=(old=>function(){const r=old.apply(this,arguments);try{fmDedupe();fmMount()}catch(e){console.warn(e)}return r})(render);
 /* un seul jeu de boutons d'itinéraire par centre dans la page */
-function fmDedupe(){const seen=new Set();document.querySelectorAll('.fmdir').forEach(d=>{const a=d.querySelector('a');const k=a&&a.getAttribute('href');if(!k)return;if(seen.has(k))d.remove();else seen.add(k)})}
+function fmLegend(){document.querySelectorAll('.fmap[data-fm]').forEach(p=>{const g=p.closest('.trgrid');if(!g)return;
+  g.querySelectorAll('.legend span').forEach(sp=>{if(/^Courbes de niveau aux/.test(sp.textContent.trim()))sp.remove()});
+  g.querySelectorAll('.trnote').forEach(n=>{n.innerHTML=n.innerHTML.replace('; le fond de carte est stylisé','; fond de carte OpenFreeMap')})})}
+function fmDedupe(){fmLegend();const seen=new Set();document.querySelectorAll('.fmdir').forEach(d=>{const a=d.querySelector('a');const k=a&&a.getAttribute('href');if(!k)return;if(seen.has(k))d.remove();else seen.add(k)})}
 function fmMount(){const ph=[...document.querySelectorAll('.fmap[data-fm]')];if(!ph.length)return;
   if(FM.failAt&&Date.now()-FM.failAt<60000)return;
   fmLoad().then(ml=>{ph.forEach(p=>{if(p.isConnected)try{fmAttach(ml,p)}catch(e){console.warn(e)}});fmPrune()}).catch(e=>console.warn('Carte interactive indisponible :',e.message))}
