@@ -22266,7 +22266,9 @@ document.addEventListener('change',e=>{const t=e.target;if(t&&t.id==='fc9sport')
 /* son logo dans l'en-tête (Corrections 3 l'enlevait chez les autres entraîneurs; il revient s'il a téléversé le sien) */
 header=(old=>function(u){let h=old(u);if(platMode())return h;
   if(R.on&&R.realRole==='coach'&&!(db.settings.brand&&db.settings.brand.mark))h=h.replace(/<img class="brandmark"[^>]*>/,'');
-  if(fcOther()&&R.show&&R.show.logo&&!/class="brandmark/.test(h))h=h.replace(/(<button class="brand"[^>]*>)/,`$1<img class="brandmark fc9mark" src="${esc(R.show.logoWhite||R.show.logo)}" alt="">`);
+  /* 10 : l'entraîneur voit aussi son propre logo publié (sur tous ses appareils), pas seulement ses clients */
+  let SL=R.show;try{if(R.on&&R.realRole==='coach'){const s9=show9();if(s9&&s9.logo)SL=s9}}catch(e){}
+  if(fcOther()&&SL&&SL.logo&&!/class="brandmark/.test(h))h=h.replace(/(<button class="brand"[^>]*>)/,`$1<img class="brandmark fc9mark" src="${esc(SL.logoWhite||SL.logo)}" alt="">`);
   if(!u&&R.coachRow&&!/data-a="fcPlatform"/.test(h))h=h.replace('<nav><span class="navlinks">','<nav><span class="navlinks"><button class="btn btn-ghost btn-sm" data-a="fcPlatform" title="Tous les entraîneurs de FidjiCoach">‹ FidjiCoach</button>');
   return h})(header);
 /* l'entraîneur invité : ni le téléphone ni le courriel du fondateur dans ses textes tant qu'il n'a pas entré les siens */
@@ -23388,8 +23390,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c9c';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='7 nov. 2026 · Corrections 9c (confirmations taxes et déplacement)';
+const FC_BUILD='2026-11-07-c9d';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='7 nov. 2026 · Corrections 9d (logo de l\'entraîneur dans son en-tête)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
