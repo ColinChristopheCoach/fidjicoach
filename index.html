@@ -23392,7 +23392,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c11';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-07-c11b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='7 nov. 2026 · Corrections 10c (factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
@@ -24252,6 +24252,52 @@ window.fcFactV10=(old=>function(u){try{if(!R.on)return old(u);
   return `<p class="muted small" style="margin-bottom:10px">Vos factures${who} : cours, abonnements et frais de location. Total payé en ${yr} : <b>${money(tot)}</b> (remboursements déduits).</p>
   <div class="list fcinvlist">${L.map(x=>`<div class="invrow"><span><b>${esc(x.no)}</b> · <span class="num">${money(x.amt)}</span>${x.ref_>0?` <span class="pill neutral">Remboursé ${money(x.ref_)}</span>`:''}<br><small>${esc(dlong10(x.d))} · ${esc(x.what)}</small></span>${x.btn}</div>`).join('')}</div>`}
   catch(e){console.warn(e);return old(u)}})(window.fcFactV10);
+
+/* Corrections 11b (7 nov. 2026) : Finances › Facturation de l'entraîneur = toutes les factures au même endroit
+   (cours, locations, frais de location, abonnements), filtre par type, tri par date ou numéro, recherche. */
+st.fcF=st.fcF||{t:'tout',s:'recent',q:''};
+const FCF_T=[['tout','Toutes'],['cours','Cours'],['location','Locations'],['frais','Frais de location'],['abonnement','Abonnements']];
+const FCF_L={cours:'Cours',location:'Location',frais:'Frais de location',abonnement:'Abonnement'};
+function fcFAll(){const L=[];
+  (db.bookings||[]).forEach(b=>{if(!b.real)return;const loc=b.type==='location'||b.kindSrv==='location';
+    (b.parts||[]).forEach((p,i)=>{if(!p.paid||!p.invNo)return;L.push({t:loc?'location':'cours',no:p.invNo,d:p.invAt||p.paidAt||'',cl:name(userById(p.userId)),amt:Number(p.amount)||0,ref_:Number(p.refunded)||0,sent:p.invSent,
+      what:String((p.lines&&p.lines[0]&&p.lines[0][0])||bDesc(b))+(!loc&&b.rentSrv?' + location':'')+' · '+b.ref,btn:`<button class="btn btn-sm btn-plain" data-a="invoice" data-b="${esc(b.id)}" data-i="${i}">Voir</button>`})});
+    (b.feesSrv||[]).forEach(f=>{if(!f.invNo||!['payee','remboursee'].includes(f.status))return;L.push({t:'frais',no:f.invNo,d:f.invAt||f.paidAt||'',cl:name(userById(f.payer)),amt:Number(f.amount)||0,ref_:Number(f.refunded)||0,sent:f.invSent,
+      what:'Frais de location : '+(f.reason||'')+' · '+b.ref,btn:invBtn11('fee',`data-b="${esc(b.id)}" data-p="${esc(f.pid)}"`,'Voir')})})});
+  (db.subInv||[]).forEach(v=>L.push({t:'abonnement',no:v.no,d:v.at||'',cl:name(userById(v.userId)),amt:v.total,ref_:0,sent:v.sent,what:'Abonnement · '+(v.plan||'mensuel'),btn:subBtn11(v,'Voir')}));
+  return L}
+function fcFRows(){const F=st.fcF;const q=deacc(String(F.q||'')).toLowerCase().trim();
+  let L=fcFAll();const n={tout:L.length};L.forEach(x=>n[x.t]=(n[x.t]||0)+1);
+  if(F.t!=='tout')L=L.filter(x=>x.t===F.t);
+  if(q)L=L.filter(x=>deacc([x.no,x.cl,x.what].join(' ')).toLowerCase().includes(q));
+  const num=x=>{const m=/^F(\d{4})-(\d+)$/.exec(x.no||'');return m?(+m[1])*1e6+(+m[2]):0};
+  L.sort(F.s==='ancien'?(a,c)=>String(a.d).localeCompare(String(c.d))||num(a)-num(c):F.s==='numero'?(a,c)=>num(c)-num(a):(a,c)=>String(c.d).localeCompare(String(a.d))||num(c)-num(a));
+  const tot=r2(L.reduce((s,x)=>s+x.amt-x.ref_,0));
+  return {n,html:`<p class="muted small" style="margin:0 0 8px">${L.length} facture${L.length>1?'s':''} · total net <b>${money(tot)}</b>${F.t!=='tout'||q?' (selon le filtre)':''}</p>
+  ${L.length?`<div class="list fcinvlist">${L.map(x=>`<div class="invrow"><span><b>${esc(x.no)}</b> · ${esc(x.cl)} · <span class="num">${money(x.amt)}</span> <span class="pill neutral">${FCF_L[x.t]}</span>${x.ref_>0?` <span class="pill neutral">Remboursé ${money(x.ref_)}</span>`:''}${x.sent?' <span class="pill ok">envoyée</span>':''}<br><small>${esc(dlong10(x.d))} · ${esc(x.what)}</small></span>${x.btn}</div>`).join('')}</div>`
+  :`<div class="empty">${q||F.t!=='tout'?'Aucune facture ne correspond à ce filtre.':'Aucune facture pour l\'instant. Une facture est créée automatiquement pour chaque paiement reçu.'}</div>`}`}}
+function fcFPage(){const F=st.fcF;const r=fcFRows();
+  return `<section class="panel fs fcfpan" style="margin:0 0 22px;border-top-color:var(--line)"><span class="eyebrow">Factures</span><h3>Toutes vos factures</h3>
+  <p class="muted small">Cours, locations, frais de location et abonnements, avec la même numérotation. Ouvrez une facture pour l'enregistrer en PDF, l'imprimer ou l'envoyer au client.</p>
+  <div class="fcf-bar"><div class="fcf-chips">${FCF_T.map(([k,l])=>`<button type="button" class="chip ${F.t===k?'on':''}" data-a="fcFt" data-v="${k}">${l}${r.n[k]?` <span class="muted">${r.n[k]}</span>`:''}</button>`).join('')}</div>
+   <div class="fcf-tools"><label class="field" style="margin:0"><span class="sr-only">Trier</span><select data-fcfs aria-label="Trier">${[['recent','Plus récentes d\'abord'],['ancien','Plus anciennes d\'abord'],['numero','Par numéro']].map(([k,l])=>`<option value="${k}" ${F.s===k?'selected':''}>${l}</option>`).join('')}</select></label>
+   <label class="field" style="margin:0"><span class="sr-only">Rechercher</span><input type="search" id="fcFq" placeholder="Client, numéro ou réservation" value="${esc(F.q||'')}" aria-label="Rechercher une facture"></label></div></div>
+  <div id="fcFList">${r.html}</div></section>`}
+A.fcFt=d=>{st.fcF.t=d.v;render()};
+addEventListener('change',e=>{const t=e.target;if(t&&t.matches&&t.matches('[data-fcfs]')){st.fcF.s=t.value;const el=document.getElementById('fcFList');if(el)el.innerHTML=fcFRows().html}},true);
+addEventListener('input',e=>{const t=e.target;if(t&&t.id==='fcFq'){st.fcF.q=t.value;const el=document.getElementById('fcFList');if(el)el.innerHTML=fcFRows().html}},true);
+adminFactu=(old=>function(){let h=old();try{if(!R.on||R.role!=='admin')return h;
+  const tg=h.lastIndexOf('<label class="toggle" style="margin-top:16px"><span><b>Factures automatiques</b>');const st_=tg<0?-1:h.lastIndexOf('<div class="list">',tg);
+  if(st_>=0){const end=h.indexOf('</label>',tg);h=h.slice(0,st_)+(end>0?h.slice(end+8):'')}
+  return fcFPage()+h}catch(e){console.warn(e);return h}})(adminFactu);
+(function(){const s=document.createElement('style');s.textContent=`
+.fcf-bar{display:flex;flex-direction:column;gap:10px;margin:12px 0}
+.fcf-chips{display:flex;flex-wrap:wrap;gap:6px}
+.fcf-chips .chip{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:6px 12px;font:inherit;font-size:.86rem;cursor:pointer}
+.fcf-chips .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}.fcf-chips .chip.on .muted{color:inherit;opacity:.75}
+.fcf-tools{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:8px}
+.fcf-tools select,.fcf-tools input{width:100%}
+@media (max-width:520px){.fcf-tools{grid-template-columns:1fr}}`;document.head.appendChild(s)})();
 
 CLIENT_TABS.push('fact10');
 /* PWA : fonctions internes dont l'app installable a besoin (notifications touchées, hors ligne) */
