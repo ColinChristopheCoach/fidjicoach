@@ -23392,7 +23392,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c11b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-07-c12';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='7 nov. 2026 · Corrections 10c (factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
@@ -24063,15 +24063,15 @@ function inv10Note(o){if(o.note)return o.note;return 'Payé'+(o.method?' par '+(
 function inv10HTML(o){const C=o.coach;
   return `<div class="fcinv" id="fcInvDoc">
   <div class="fcinv-h"><div class="fcinv-b">${C.logo?`<img src="${esc(C.logo)}" alt="">`:''}<div><b>${esc(C.name)}</b><span>${esc([C.region,C.tel,C.email].filter(Boolean).join(' · '))}</span></div></div>
-   <div class="fcinv-n"><b>Facture ${esc(o.no)}</b><span>Date : ${esc(dlong10(o.date))}</span><span>${esc(o.refTxt||('Réservation '+o.ref))}</span></div></div>
-  <div class="fcinv-to"><span>Facturé à</span><b>${esc(o.cl.name)}</b>${o.cl.email?`<span>${esc(o.cl.email)}</span>`:''}</div>
+   <div class="fcinv-n"><b>${esc(o.title||'Facture')} ${esc(o.no)}</b><span>Date : ${esc(dlong10(o.date))}</span><span>${esc(o.refTxt||('Réservation '+o.ref))}</span></div></div>
+  <div class="fcinv-to"><span>${o.title?'Crédité à':'Facturé à'}</span><b>${esc(o.cl.name)}</b>${o.cl.email?`<span>${esc(o.cl.email)}</span>`:''}</div>
   <table><thead><tr><th>Description</th><th>Montant</th></tr></thead><tbody>
    ${o.items.map(([d,a])=>`<tr><td>${esc(d)}</td><td>${mon10(a)}</td></tr>`).join('')}
    ${o.tax.length?`<tr class="st"><td>Sous-total</td><td>${mon10(o.sub)}</td></tr>`+o.tax.map(([d,a])=>`<tr class="st"><td>${esc(d)}</td><td>${mon10(a)}</td></tr>`).join(''):''}
-   <tr class="tot"><td>Total payé</td><td>${mon10(o.total)}</td></tr>
+   <tr class="tot"><td>${esc(o.totLbl||'Total payé')}</td><td>${mon10(o.total)}</td></tr>
    ${o.refunded>0?`<tr class="st"><td>Remboursé</td><td>${mon10(-o.refunded)}</td></tr><tr class="tot"><td>Montant net</td><td>${mon10(r2(o.total-o.refunded))}</td></tr>`:''}
   </tbody></table>
-  <p class="fcinv-m">${esc(inv10Note(o))}</p><p class="fcinv-f">Merci de votre confiance! · Facture émise avec FidjiCoach</p></div>`}
+  <p class="fcinv-m">${esc(inv10Note(o))}</p><p class="fcinv-f">${o.title?esc(o.title)+' émise avec FidjiCoach':'Merci de votre confiance! · Facture émise avec FidjiCoach'}</p></div>`}
 MOD3.fcInv=function(u,m){const c=invCur();
   if(!c)return [`<p>Facture introuvable.</p><div class="actions"><button class="btn btn-accent" data-a="close">Fermer</button></div>`,true];
   const o=c.o;const coach=R.role==='admin';const canMail=coach&&c.real;
@@ -24095,14 +24095,14 @@ async function inv10Pdf(o){const J=window.jspdf&&window.jspdf.jsPDF;if(!J)throw 
   const M=n=>T(n<0?'-'+money(-n):money(n));const navy=[19,50,91],grey=[107,114,128];const X=54,RX=558;let y=54;
   const img=await inv10Img(o.coach.logo);let hh=0;
   if(img){const h=50,w=Math.min(170,img.w*h/img.h);try{doc.addImage(img.d,'PNG',X,y,w,h,undefined,'FAST');hh=h}catch(e){}}
-  doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(20);doc.text('Facture',RX,y+16,{align:'right'});
+  doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(20);doc.text(T(o.title||'Facture'),RX,y+16,{align:'right'});
   doc.setFontSize(11);doc.text(T(o.no),RX,y+32,{align:'right'});doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);
   doc.text(T('Date : '+dlong10(o.date)),RX,y+46,{align:'right'});doc.text(T(o.refTxt||('Réservation '+o.ref)),RX,y+58,{align:'right'});
   y+=Math.max(hh,58)+16;
   doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(T(o.coach.name),X,y);
   doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);
   const ci=[o.coach.region,o.coach.tel,o.coach.email].filter(Boolean).join(' · ');if(ci)doc.text(T(ci),X,y+13);
-  y+=40;doc.setFontSize(8);doc.text(T('FACTURÉ À'),X,y);doc.setFontSize(11);doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.text(T(o.cl.name),X,y+15);
+  y+=40;doc.setFontSize(8);doc.text(T(o.title?'CRÉDITÉ À':'FACTURÉ À'),X,y);doc.setFontSize(11);doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.text(T(o.cl.name),X,y+15);
   doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);if(o.cl.email)doc.text(T(o.cl.email),X,y+28);
   y+=46;doc.setFillColor(238,244,251);doc.rect(X,y,RX-X,22,'F');doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(9.5);
   doc.text('Description',X+8,y+15);doc.text('Montant',RX-8,y+15,{align:'right'});y+=22;doc.setFont('helvetica','normal');doc.setLineWidth(.5);
@@ -24112,13 +24112,13 @@ async function inv10Pdf(o){const J=window.jspdf&&window.jspdf.jsPDF;if(!J)throw 
     doc.setDrawColor(225,230,238);doc.line(X,y+h,RX,y+h);y+=h};
   o.items.forEach(([d,a])=>row(d,M(a)));
   if(o.tax.length){row('Sous-total',M(o.sub),{g:1});o.tax.forEach(([d,a])=>row(d,M(a),{g:1}))}
-  row('Total payé',M(o.total),{b:1,top:1});
+  row(o.totLbl||'Total payé',M(o.total),{b:1,top:1});
   if(o.refunded>0){row('Remboursé',M(-o.refunded),{g:1});row('Montant net',M(r2(o.total-o.refunded)),{b:1})}
   y+=18;doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);const nl=doc.splitTextToSize(T(inv10Note(o)),RX-X);doc.text(nl,X,y);
-  doc.setFontSize(8);doc.text(T('Merci de votre confiance! · Facture émise avec FidjiCoach (fidjicoach.ca)'),X,760);
+  doc.setFontSize(8);doc.text(T(o.title?o.title+' émise avec FidjiCoach (fidjicoach.ca)':'Merci de votre confiance! · Facture émise avec FidjiCoach (fidjicoach.ca)'),X,760);
   return doc}
 A.fcInvPdf=async function(){const c=invCur();if(!c)return;busyOn('Préparation du PDF…');
-  try{const o=c.o;const blob=(await inv10Pdf(o)).output('blob');const fn='Facture '+o.no+'.pdf';let done=false;
+  try{const o=c.o;const blob=(await inv10Pdf(o)).output('blob');const fn=(o.title||'Facture')+' '+o.no+'.pdf';let done=false;
     try{const file=new File([blob],fn,{type:'application/pdf'});
       if(navigator.canShare&&matchMedia('(pointer:coarse)').matches&&navigator.canShare({files:[file]})){busyOff();await navigator.share({files:[file],title:fn});done=true}}
     catch(e){if(e&&e.name==='AbortError')done=true}
@@ -24131,12 +24131,12 @@ A.fcInvPrint=function(){const src=document.getElementById('fcInvDoc');if(!src)re
   window.addEventListener('afterprint',done);setTimeout(done,60000);
   setTimeout(()=>{try{window.print()}catch(e){done();flash('Impression impossible ici : enregistrez le PDF, puis imprimez-le.')}},80)};
 A.fcInvMail=async function(){const c=invCur();if(!c||!c.real||R.role!=='admin')return;const o=c.o;
-  if(!confirm('Envoyer la facture '+o.no+' à '+(o.cl.email||o.cl.name)+' par courriel, avec le PDF?'))return;
+  if(!confirm('Envoyer '+(o.title?'la note de crédit ':'la facture ')+o.no+' à '+(o.cl.email||o.cl.name)+' par courriel, avec le PDF?'))return;
   busyOn('Envoi de la facture…');
   try{const doc=await inv10Pdf(o);const pdf=doc.output('datauristring').split(',')[1];
-    const {data,error}=await R.sb.functions.invoke('send-invoice',{body:Object.assign({pdf,filename:'Facture '+o.no+'.pdf'},c.body)});
+    const {data,error}=await R.sb.functions.invoke('send-invoice',{body:Object.assign({pdf,filename:(o.title||'Facture')+' '+o.no+'.pdf'},c.body)});
     if(error){let msg=error.message;try{const j=await error.context.json();if(j&&j.error)msg=j.error}catch(_){}throw new Error(msg)}
-    if(data&&data.error)throw new Error(data.error);c.mark();flash('Facture envoyée à '+((data&&data.to)||o.cl.email||'votre client')+'.')}
+    if(data&&data.error)throw new Error(data.error);c.mark();flash((o.title||'Facture')+' envoyée à '+((data&&data.to)||o.cl.email||'votre client')+'.')}
   catch(e){flash(/Failed to send|404|not found/i.test(e&&e.message||'')?'La fonction d\'envoi (send-invoice) n\'est pas disponible.':'Envoi impossible : '+fr(e&&e.message||String(e)))}
   finally{busyOff();render()}};
 /* les factures dans chaque réservation (client : les siennes et celles de ses enfants; entraîneur : toutes les parts payées) */
@@ -24178,10 +24178,12 @@ if(typeof EN5==='object')Object.assign(EN5,{'Mes factures':'My invoices','Enregi
    - Frais de location facturés après coup (bris, perte, non-retour) : numérotés au paiement comme les cours (même suite F2026-xxxx).
    - Abonnements mensuels : une facture par paiement mensuel reçu de Stripe (table sub_invoices, même suite F2026-xxxx).
    - Une seule fenêtre de facture (PDF, impression, courriel) pour les trois sources : cours, frais, abonnement. */
-function invCur(){const m=st.modal;if(!m||m.kind!=='fcInv')return null;
-  if(m.src==='fee'){const x=inv11Fee(m.bid,m.pid);return x&&x.f.invNo?{o:inv11FeeData(x.b,x.f),real:!!(x.b.real&&x.f.pid),body:{payment_id:x.f.pid},mark:()=>{x.f.invSent=today()}}:null}
+function invCur(){const c=invCur0();if(c&&c.pid&&c.o&&!c.o.title){const N=(db.cnotes||[]).filter(n=>n.pid===c.pid);if(N.length){c.o.note=inv10Note(Object.assign({},c.o,{note:null}))+' Note'+(N.length>1?'s':'')+' de crédit : '+N.map(n=>n.no+' ('+money(n.total)+')').join(', ')+'.'}}return c}
+function invCur0(){const m=st.modal;if(!m||m.kind!=='fcInv')return null;
+  if(m.src==='nc'){const x=(db.cnotes||[]).find(v=>v.id===m.id);return x?{o:inv12CnData(x),real:true,body:{credit_note_id:x.id},mark:()=>{x.sent=today()}}:null}
+  if(m.src==='fee'){const x=inv11Fee(m.bid,m.pid);return x&&x.f.invNo?{o:inv11FeeData(x.b,x.f),pid:x.f.pid,real:!!(x.b.real&&x.f.pid),body:{payment_id:x.f.pid},mark:()=>{x.f.invSent=today()}}:null}
   if(m.src==='sub'){const x=(db.subInv||[]).find(v=>v.id===m.id);return x?{o:inv11SubData(x),real:true,body:{sub_invoice_id:x.id},mark:()=>{x.sent=today()}}:null}
-  const f=inv10Find(m.bid,m.i);return f&&f.p.invNo?{o:inv10Data(f.b,f.p),real:!!(f.b.real&&f.p.pid&&!f.p.invited),body:{payment_id:f.p.pid},mark:()=>{f.p.invSent=today()}}:null}
+  const f=inv10Find(m.bid,m.i);return f&&f.p.invNo?{o:inv10Data(f.b,f.p),pid:f.p.pid,real:!!(f.b.real&&f.p.pid&&!f.p.invited),body:{payment_id:f.p.pid},mark:()=>{f.p.invSent=today()}}:null}
 const day11=v=>v?new Date(v).toLocaleDateString('en-CA',{timeZone:'America/Toronto'}):null;
 function inv11Split(lines,total,fallback){const L=((lines&&lines.length)?lines:[[fallback,total]]).map(([d,a])=>[String(d),Number(a)||0]);
   const tax=L.filter(l=>TAX10.test(l[0])),items=L.filter(l=>!TAX10.test(l[0]));return {items,tax,sub:r2(items.reduce((n,l)=>n+l[1],0))}}
@@ -24196,6 +24198,7 @@ function inv11SubData(x){const cl=userById(x.userId);const sp=inv11Split(x.lines
     note:'Abonnement mensuel payé par carte de crédit le '+dlong10(x.at)+(x.end?', pour la période du '+dlong10(x.at)+' au '+dlong10(x.end):'')+'. Renouvellement automatique chaque mois, annulable en tout temps (aucun remboursement d\'un mois commencé).'},sp)}
 A.fcInvX=d=>{if(d.s==='fee'){const x=inv11Fee(d.b,d.p);if(!x||!x.f.invNo){flash(x&&x.f.status==='payee'?'Le numéro de facture arrive dans un instant : touchez Actualiser.':'Pas de facture : ces frais ne sont pas encore payés.');return}
     st.modal={kind:'fcInv',src:'fee',bid:d.b,pid:d.p}}
+  else if(d.s==='nc'){if(!(db.cnotes||[]).some(v=>v.id===d.id)){flash('Note de crédit introuvable : touchez Actualiser.');return}st.modal={kind:'fcInv',src:'nc',id:d.id}}
   else if(d.s==='sub'){if(!(db.subInv||[]).some(v=>v.id===d.id)){flash('Facture introuvable : touchez Actualiser.');return}st.modal={kind:'fcInv',src:'sub',id:d.id}}
   else return;render()};
 const invBtn11=(s,attrs,label)=>`<button class="btn btn-sm btn-plain" data-a="fcInvX" data-s="${s}" ${attrs}>${label}</button>`;
@@ -24245,19 +24248,21 @@ window.fcFactV10=(old=>function(u){try{if(!R.on)return old(u);
     (b.feesSrv||[]).forEach(f=>{if(f.invNo&&['payee','remboursee'].includes(f.status)&&fam.includes(f.payer))L.push({no:f.invNo,d:f.invAt||f.paidAt||'',amt:Number(f.amount)||0,ref_:Number(f.refunded)||0,
       what:'Frais de location : '+(f.reason||'')+' · '+b.ref,btn:invBtn11('fee',`data-b="${esc(b.id)}" data-p="${esc(f.pid)}"`,'Voir la facture')})})});
   (db.subInv||[]).forEach(v=>{if(fam.includes(v.userId))L.push({no:v.no,d:v.at||'',amt:v.total,ref_:0,what:'Abonnement · '+(v.plan||'mensuel'),btn:subBtn11(v,'Voir la facture')})});
-  L.sort((a,c)=>String(c.d).localeCompare(String(a.d))||String(c.no).localeCompare(String(a.no)));
+  const CN=(db.cnotes||[]).filter(n=>fam.includes(n.userId));
+  if(CN.length){L.forEach(x=>{if(CN.some(n=>n.invRef===x.no))x.ref_=0});CN.forEach(n=>{const b=n.bid?B(n.bid):null;L.push({no:n.no,d:n.at||'',amt:-n.total,ref_:0,what:'Note de crédit · remboursement de la facture '+(n.invRef||'?')+(b?' · '+b.ref:''),btn:cnBtn12(n,'Voir')})})}
+  L.sort((a,c)=>String(c.d).localeCompare(String(a.d))||inv12Cmp(c.no,a.no));
   const who=R.coachRow&&R.coachRow.nom_affiche?' avec '+esc(R.coachRow.nom_affiche):'';
   if(!L.length)return `<div class="empty">Aucune facture pour l'instant${who}. Une facture est créée automatiquement pour chaque paiement reçu : cours, abonnement ou frais de location.<p style="margin-top:10px"><button class="btn btn-plain" data-a="v5go" data-t="resa5">Mes réservations</button></p></div>`;
   const yr=today().slice(0,4);const tot=r2(L.filter(x=>String(x.d).slice(0,4)===yr).reduce((n,x)=>n+x.amt-x.ref_,0));
   return `<p class="muted small" style="margin-bottom:10px">Vos factures${who} : cours, abonnements et frais de location. Total payé en ${yr} : <b>${money(tot)}</b> (remboursements déduits).</p>
-  <div class="list fcinvlist">${L.map(x=>`<div class="invrow"><span><b>${esc(x.no)}</b> · <span class="num">${money(x.amt)}</span>${x.ref_>0?` <span class="pill neutral">Remboursé ${money(x.ref_)}</span>`:''}<br><small>${esc(dlong10(x.d))} · ${esc(x.what)}</small></span>${x.btn}</div>`).join('')}</div>`}
+  <div class="list fcinvlist">${L.map(x=>`<div class="invrow"><span><b>${esc(x.no)}</b> · <span class="num">${x.amt<0?'−'+money(-x.amt):money(x.amt)}</span>${x.ref_>0?` <span class="pill neutral">Remboursé ${money(x.ref_)}</span>`:''}<br><small>${esc(dlong10(x.d))} · ${esc(x.what)}</small></span>${x.btn}</div>`).join('')}</div>`}
   catch(e){console.warn(e);return old(u)}})(window.fcFactV10);
 
 /* Corrections 11b (7 nov. 2026) : Finances › Facturation de l'entraîneur = toutes les factures au même endroit
    (cours, locations, frais de location, abonnements), filtre par type, tri par date ou numéro, recherche. */
 st.fcF=st.fcF||{t:'tout',s:'recent',q:''};
-const FCF_T=[['tout','Toutes'],['cours','Cours'],['location','Locations'],['frais','Frais de location'],['abonnement','Abonnements']];
-const FCF_L={cours:'Cours',location:'Location',frais:'Frais de location',abonnement:'Abonnement'};
+const FCF_T=[['tout','Toutes'],['cours','Cours'],['location','Locations'],['frais','Frais de location'],['abonnement','Abonnements'],['nc','Notes de crédit']];
+const FCF_L={cours:'Cours',location:'Location',frais:'Frais de location',abonnement:'Abonnement',nc:'Note de crédit'};
 function fcFAll(){const L=[];
   (db.bookings||[]).forEach(b=>{if(!b.real)return;const loc=b.type==='location'||b.kindSrv==='location';
     (b.parts||[]).forEach((p,i)=>{if(!p.paid||!p.invNo)return;L.push({t:loc?'location':'cours',no:p.invNo,d:p.invAt||p.paidAt||'',cl:name(userById(p.userId)),amt:Number(p.amount)||0,ref_:Number(p.refunded)||0,sent:p.invSent,
@@ -24265,20 +24270,22 @@ function fcFAll(){const L=[];
     (b.feesSrv||[]).forEach(f=>{if(!f.invNo||!['payee','remboursee'].includes(f.status))return;L.push({t:'frais',no:f.invNo,d:f.invAt||f.paidAt||'',cl:name(userById(f.payer)),amt:Number(f.amount)||0,ref_:Number(f.refunded)||0,sent:f.invSent,
       what:'Frais de location : '+(f.reason||'')+' · '+b.ref,btn:invBtn11('fee',`data-b="${esc(b.id)}" data-p="${esc(f.pid)}"`,'Voir')})})});
   (db.subInv||[]).forEach(v=>L.push({t:'abonnement',no:v.no,d:v.at||'',cl:name(userById(v.userId)),amt:v.total,ref_:0,sent:v.sent,what:'Abonnement · '+(v.plan||'mensuel'),btn:subBtn11(v,'Voir')}));
+  const cn=db.cnotes||[];(db.bookings||[]).forEach(b=>{(b.parts||[]).forEach(p=>{const r=L.find(x=>x.no===p.invNo&&x.pid===undefined);if(r)r.pid=p.pid});(b.feesSrv||[]).forEach(f=>{const r=L.find(x=>x.no===f.invNo);if(r)r.pid=f.pid})});
+  L.forEach(x=>{if(x.pid&&cn.some(n=>n.pid===x.pid))x.net=x.amt});
+  cn.forEach(n=>{const b=n.bid?B(n.bid):null;L.push({t:'nc',no:n.no,d:n.at||'',cl:name(userById(n.userId)),amt:-n.total,net:-n.total,ref_:0,sent:n.sent,what:'Remboursement de la facture '+(n.invRef||'?')+(b?' · '+b.ref:'')+(n.reason?' · '+n.reason:''),btn:cnBtn12(n,'Voir')})});
   return L}
 function fcFRows(){const F=st.fcF;const q=deacc(String(F.q||'')).toLowerCase().trim();
   let L=fcFAll();const n={tout:L.length};L.forEach(x=>n[x.t]=(n[x.t]||0)+1);
   if(F.t!=='tout')L=L.filter(x=>x.t===F.t);
   if(q)L=L.filter(x=>deacc([x.no,x.cl,x.what].join(' ')).toLowerCase().includes(q));
-  const num=x=>{const m=/^F(\d{4})-(\d+)$/.exec(x.no||'');return m?(+m[1])*1e6+(+m[2]):0};
-  L.sort(F.s==='ancien'?(a,c)=>String(a.d).localeCompare(String(c.d))||num(a)-num(c):F.s==='numero'?(a,c)=>num(c)-num(a):(a,c)=>String(c.d).localeCompare(String(a.d))||num(c)-num(a));
-  const tot=r2(L.reduce((s,x)=>s+x.amt-x.ref_,0));
-  return {n,html:`<p class="muted small" style="margin:0 0 8px">${L.length} facture${L.length>1?'s':''} · total net <b>${money(tot)}</b>${F.t!=='tout'||q?' (selon le filtre)':''}</p>
-  ${L.length?`<div class="list fcinvlist">${L.map(x=>`<div class="invrow"><span><b>${esc(x.no)}</b> · ${esc(x.cl)} · <span class="num">${money(x.amt)}</span> <span class="pill neutral">${FCF_L[x.t]}</span>${x.ref_>0?` <span class="pill neutral">Remboursé ${money(x.ref_)}</span>`:''}${x.sent?' <span class="pill ok">envoyée</span>':''}<br><small>${esc(dlong10(x.d))} · ${esc(x.what)}</small></span>${x.btn}</div>`).join('')}</div>`
+    L.sort(F.s==='ancien'?(a,c)=>String(a.d).localeCompare(String(c.d))||inv12Cmp(a.no,c.no):F.s==='numero'?(a,c)=>inv12Cmp(c.no,a.no):(a,c)=>String(c.d).localeCompare(String(a.d))||inv12Cmp(c.no,a.no));
+  const tot=r2(L.reduce((s,x)=>s+(x.net!=null?x.net:x.amt-x.ref_),0));
+  return {n,html:`<p class="muted small" style="margin:0 0 8px">${L.length} facture${L.length>1?'s':''} · total net <b>${tot<0?'−'+money(-tot):money(tot)}</b>${F.t!=='tout'||q?' (selon le filtre)':''}</p>
+  ${L.length?`<div class="list fcinvlist">${L.map(x=>`<div class="invrow"><span><b>${esc(x.no)}</b> · ${esc(x.cl)} · <span class="num">${x.amt<0?'−'+money(-x.amt):money(x.amt)}</span> <span class="pill neutral">${FCF_L[x.t]}</span>${x.ref_>0?` <span class="pill neutral">Remboursé ${money(x.ref_)}</span>`:''}${x.sent?' <span class="pill ok">envoyée</span>':''}<br><small>${esc(dlong10(x.d))} · ${esc(x.what)}</small></span>${x.btn}</div>`).join('')}</div>`
   :`<div class="empty">${q||F.t!=='tout'?'Aucune facture ne correspond à ce filtre.':'Aucune facture pour l\'instant. Une facture est créée automatiquement pour chaque paiement reçu.'}</div>`}`}}
 function fcFPage(){const F=st.fcF;const r=fcFRows();
   return `<section class="panel fs fcfpan" style="margin:0 0 22px;border-top-color:var(--line)"><span class="eyebrow">Factures</span><h3>Toutes vos factures</h3>
-  <p class="muted small">Cours, locations, frais de location et abonnements, avec la même numérotation. Ouvrez une facture pour l'enregistrer en PDF, l'imprimer ou l'envoyer au client.</p>
+  <p class="muted small">Cours (C), locations et frais de location (L), abonnements (A) et notes de crédit (NC). Le numéro donne le type, la date du paiement et le rang dans la journée. Ouvrez une facture pour l'enregistrer en PDF, l'imprimer ou l'envoyer au client.</p>
   <div class="fcf-bar"><div class="fcf-chips">${FCF_T.map(([k,l])=>`<button type="button" class="chip ${F.t===k?'on':''}" data-a="fcFt" data-v="${k}">${l}${r.n[k]?` <span class="muted">${r.n[k]}</span>`:''}</button>`).join('')}</div>
    <div class="fcf-tools"><label class="field" style="margin:0"><span class="sr-only">Trier</span><select data-fcfs aria-label="Trier">${[['recent','Plus récentes d\'abord'],['ancien','Plus anciennes d\'abord'],['numero','Par numéro']].map(([k,l])=>`<option value="${k}" ${F.s===k?'selected':''}>${l}</option>`).join('')}</select></label>
    <label class="field" style="margin:0"><span class="sr-only">Rechercher</span><input type="search" id="fcFq" placeholder="Client, numéro ou réservation" value="${esc(F.q||'')}" aria-label="Rechercher une facture"></label></div></div>
@@ -24298,6 +24305,29 @@ adminFactu=(old=>function(){let h=old();try{if(!R.on||R.role!=='admin')return h;
 .fcf-tools{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:8px}
 .fcf-tools select,.fcf-tools input{width:100%}
 @media (max-width:520px){.fcf-tools{grid-template-columns:1fr}}`;document.head.appendChild(s)})();
+
+/* Corrections 12 (7 nov. 2026) : numéros « type + date du jour » (C-, L-, A-, NC-AAAAMMJJ-NNN) et notes de crédit.
+   Chaque remboursement réussi reçoit sa note de crédit (table credit_notes), liée à la facture d'origine. */
+db.cnotes=db.cnotes||[];
+function inv12Num(no){const m=/^([A-Z]+)-(\d{8})-(\d+)$/.exec(no||'');if(m)return {d:m[2],k:m[1],n:+m[3]};const o=/^F(\d{4})-(\d+)$/.exec(no||'');return o?{d:o[1]+'0000',k:'F',n:+o[2]}:{d:'',k:'',n:0}}
+function inv12Cmp(a,c){const x=inv12Num(a),y=inv12Num(c);return x.d.localeCompare(y.d)||x.k.localeCompare(y.k)||x.n-y.n}
+async function loadCNotes(){if(!R.on||!R.coachId||!R.uid)return;
+  try{const {data,error}=await R.sb.from('credit_notes').select('*').eq('coach_id',R.coachId).order('cn_at',{ascending:false}).limit(500);if(error)throw error;
+    db.cnotes=(data||[]).map(v=>({id:v.id,pid:v.payment_id,bid:v.booking_id,userId:lid(v.client_id),no:v.cn_no,at:day11(v.cn_at),total:(v.amount_cents||0)/100,
+      invRef:v.inv_ref||'',reason:v.reason||'',method:v.method||'carte',sent:day11(v.sent_at)}))}
+  catch(e){if(!missing(e))console.warn('Notes de crédit',e.message);db.cnotes=[]}}
+loadSubs=(old=>async function(){await old();await loadCNotes()})(loadSubs);
+function inv12CnData(x){const cl=userById(x.userId);const b=x.bid?B(x.bid):null;
+  return {title:'Note de crédit',totLbl:'Total crédité',no:x.no,date:x.at||today(),ref:x.invRef,refTxt:'Facture d\'origine '+(x.invRef||'')+(b?' · '+b.ref:''),
+    coach:inv10Coach(),cl:{name:name(cl),email:(cl&&cl.email)||''},items:[['Remboursement'+(x.reason?' : '+x.reason:''),-x.total]],tax:[],sub:-x.total,total:-x.total,
+    method:x.method,paidAt:x.at,refunded:0,sessions:[],lieu:'',sent:x.sent||null,
+    note:'Remboursement de '+money(x.total)+(x.method==='interac'?' par virement Interac':' sur la carte utilisée pour le paiement')+', le '+dlong10(x.at)+'. Cette note de crédit réduit la facture '+(x.invRef||'d\'origine')+' du même montant.'}}
+const cnBtn12=(x,txt)=>invBtn11('nc',`data-id="${esc(x.id)}"`,txt||`${esc(x.no)} · −${money(x.total)}`);
+/* réservation : notes de crédit */
+bookingCard=(old=>function(b,u,admin){let h=old(b,u,admin);try{if(!R.on||!b||!b.real)return h;
+  const N=(db.cnotes||[]).filter(n=>n.bid===b.id&&(admin||(u&&(n.userId===u.id||((userById(n.userId)||{}).guardian===u.id)))));if(!N.length)return h;
+  const blk=`<div class="fcinvblk"><b class="small">${N.length>1?'Notes de crédit':'Note de crédit'}</b><span class="actions">${N.map(n=>cnBtn12(n)).join('')}</span></div>`;
+  const k=h.lastIndexOf('</article>');return k<0?h+blk:h.slice(0,k)+blk+h.slice(k)}catch(e){console.warn(e);return h}})(bookingCard);
 
 CLIENT_TABS.push('fact10');
 /* PWA : fonctions internes dont l'app installable a besoin (notifications touchées, hors ligne) */
