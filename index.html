@@ -1132,7 +1132,7 @@ const CENTRES = [
   ['Site des sports d\'hiver de la Pointe-aux-Lièvres','Québec, Saint-Roch','https://www.quebec-cite.com/fr/entreprises/site-des-sports-dhiver-de-la-pointe-aux-lievres',46.820,-71.232,0,'','','','','',''],
   ['Centre de plein air de Beauport','Québec, Beauport','https://www.ville.quebec.qc.ca/citoyens/loisirs_sports/installations_sportives/ski_fond/ski_fond.aspx',46.889,-71.227,1,'Classique; 1 km pour les deux styles','20 km','','','La piste de 1 km est éclairée en soirée. Renseignements : 418 641-6500.',''],
   ['Ski de fond Charlesbourg','Québec, Charlesbourg','https://www.pleinaircharlesbourg.com/',46.903,-71.283,1,'Classique (simple trace)','26,5 km','Gratuit (appui de la Ville de Québec)','Oui : 24 $ (13 ans et plus), 17 $ (12 ans et moins)','Terrain avec dénivelé. Info : 418 849-9054.',''],
-  ['Pistes de Cap-Rouge','Québec, Cap-Rouge','https://www.ville.quebec.qc.ca/citoyens/loisirs_sports/installations_sportives/ski_fond/ski_fond.aspx',46.752,-71.347,0,'','','','','',''],
+  ['Pistes de Cap-Rouge','Québec, Cap-Rouge (4600, rue Saint-Félix)','https://www.ville.quebec.qc.ca/citoyens/loisirs_sports/installations_sportives/ski_fond/ski_fond.aspx',46.7395,-71.3651,0,'','','','','',''],
   ['Les Sentiers du Moulin','Lac-Beauport','https://www.sentiersdumoulin.com/',46.977,-71.298,1,'Classique et patin','38 km en classique, 15 km en patin','25 $ par jour (18-64 ans), 20 $ (13-17 ans), taxes en sus','À confirmer avec le centre','Réputé pour le style classique, à 20 min du centre-ville. Abonnement saison : 309 $ adulte.','https://www.sentiersdumoulin.com/pistes-et-conditions/'],
   ['Ski de fond Stoneham','Stoneham','https://www.quebec-cite.com/fr/entreprises/centre-de-ski-de-fond-stoneham',47.002,-71.372,0,'','15 km','','','Sur le terrain du golf de Stoneham.',''],
   ['Centre Castor','Valcartier','https://www.quebec-cite.com/fr/entreprises/le-centre-castor',46.938,-71.497,0,'','','','','Sur la base militaire de Valcartier, ouvert au public.',''],
@@ -23386,8 +23386,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c8e';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='7 nov. 2026 · Corrections 8 (partie D)';
+const FC_BUILD='2026-11-07-c9';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='7 nov. 2026 · Corrections 9 (cartes, export, démo)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -23829,10 +23829,475 @@ setInterval(()=>{if(document.visibilityState==='visible')wxLoad()},TTL);
 window.fcWx={load:()=>wxLoad(true),state:W};
 }
 
+/* ================= Corrections 9 (7 nov. 2026) : export Excel en ligne, lien de démonstration =================
+   A. « Sauvegardes » (copies de l'ancienne démo, gardées dans le navigateur) devient « Exporter mes données » en mode réel :
+      un fichier Excel tiré des données EN LIGNE, pour la période choisie : Résumé, Réservations, Paiements,
+      Remboursements, Revenus, Dépenses, Taxes, Abonnements, Clients. Aucune donnée de santé (fiche santé, blessures,
+      Test Ruffier, notes privées). L'administrateur y voit aussi le résumé des sauvegardes de Supabase.
+   B. Lien de démonstration fidjicoach.ca/?demo=CODE : connexion automatique à l'Entraîneur démo (vrai compte, mode test),
+      bandeau « Passer au client démo / à l'entraîneur démo » et « Quitter la démo ». Console › Lien de démonstration
+      (administrateur) : créer les comptes, nouveau code, copier le lien, réinitialiser. Edge Function demo-login. */
+const C9_VER='Corrections 9 · 7 nov. 2026';
+
+/* ---------- A. Export Excel en ligne ---------- */
+const XP={busy:false};
+const xpRange=()=>{const F=st.c9x||(st.c9x={p:'annee',a:'',b:''});const t=today();const y=t.slice(0,4);
+  if(F.p==='annee')return [y+'-01-01',y+'-12-31'];
+  if(F.p==='prec')return [(y-1)+'-01-01',(y-1)+'-12-31'];
+  if(F.p==='12m'){const d=new Date(t+'T12:00:00');d.setFullYear(d.getFullYear()-1);return [d.toISOString().slice(0,10),t]}
+  if(F.p==='perso')return [F.a||'2000-01-01',F.b||'2100-12-31'];
+  return ['2000-01-01','2100-12-31']};
+function exportV(){const F=st.c9x||(st.c9x={p:'annee',a:'',b:''});const adm=R.realRole==='admin';
+  const P=[['annee','Cette année'],['prec','L\'an dernier'],['12m','12 derniers mois'],['tout','Tout'],['perso','Dates choisies']];
+  return `<div class="c9x" style="display:grid;gap:16px">
+  <section class="panel" style="display:grid;gap:12px"><span class="eyebrow">Exporter mes données</span><h3>Un fichier Excel tiré de vos données en ligne</h3>
+    <p class="small">Réservations, paiements, remboursements, revenus, dépenses, taxes (TPS et TVQ perçues et payées), abonnements et liste de clients, pour la période choisie. Pratique pour votre comptable et pour garder une copie de vos dossiers.</p>
+    <div class="seg mini" role="group" aria-label="Période">${P.map(([k,l])=>`<button class="${F.p===k?'on':''}" data-a="c9xP" data-v="${k}">${l}</button>`).join('')}</div>
+    ${F.p==='perso'?`<div class="grid2"><label class="field"><span>Du</span><input type="date" data-c9x="a" value="${esc(F.a)}"></label><label class="field"><span>Au</span><input type="date" data-c9x="b" value="${esc(F.b)}"></label></div>`:''}
+    <div class="actions"><button class="btn btn-accent" data-a="c9xGo" ${XP.busy?'disabled':''}>${XP.busy?'Préparation…':'Télécharger le fichier Excel'}</button></div>
+    <p class="info small"><b>Aucune donnée de santé</b> dans ce fichier : la fiche santé, les blessures, les Tests Ruffier et vos notes privées n'y sont pas. Les clients n'y figurent que par leur nom, courriel et téléphone.</p></section>
+  ${adm?`<section class="panel" style="display:grid;gap:8px"><span class="eyebrow">Administrateur · base de données</span><h3>Sauvegardes de Supabase</h3>
+    <ul class="small" style="margin:0;padding-left:18px;display:grid;gap:4px"><li><b>Plan gratuit</b> : aucune sauvegarde automatique; le projet est mis en pause après 1 semaine sans activité.</li>
+    <li><b>Plan Pro</b> (25 $ US par mois) : sauvegarde quotidienne gardée 7 jours, restauration en quelques clics.</li>
+    <li><b>Option PITR</b> (avec Pro) : retour à la seconde près, 100 $ US par mois par 7 jours gardés.</li></ul>
+    <p class="small muted">Recommandation : passer au plan Pro au moment des paiements réels. D'ici là, téléchargez cet export une fois par semaine. Vérifié le 7 nov. 2026 sur supabase.com/pricing.</p></section>`:''}
+  </div>`}
+A.c9xP=d=>{const F=st.c9x||(st.c9x={p:'annee',a:'',b:''});F.p=d.v;render()};
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.c9x)return;const F=st.c9x||(st.c9x={p:'perso',a:'',b:''});F[t.dataset.c9x]=t.value});
+const x2=n=>Math.round((Number(n)||0)*100)/100;
+const c$=n=>x2((Number(n)||0)/100);
+const inR=(d,[a,b])=>{d=String(d||'').slice(0,10);return d&&d>=a&&d<=b};
+const dLoc=t=>{if(!t)return '';try{const p=tzParts(t);return p.date+' '+p.start}catch(e){return String(t).slice(0,16).replace('T',' ')}};
+const TYPEL={cours:'Cours',fartage:'Fartage',plan:'Plan d\'entraînement',musculation:'Musculation',stretching:'Étirements',location:'Location'};
+const STATL={en_attente:'En attente',confirmee:'Confirmée',annulee:'Annulée',terminee:'Terminée'};
+const PSTATL={a_payer:'À payer',en_cours:'En cours',payee:'Payée',remboursee:'Remboursée',echouee:'Échouée'};
+const MODEL={carte:'Carte',interac:'Interac',credit:'Crédit'};
+async function inChunks(ids,fn){const out=[];for(let i=0;i<ids.length;i+=120){const {data,error}=await fn(ids.slice(i,i+120));if(error)throw error;out.push(...(data||[]))}return out}
+A.c9xGo=async function(){if(XP.busy)return;if(!window.XLSX){flash('Le module Excel n\'est pas chargé. Actualisez la page.');return}
+  if(!R.on||!R.coachId){flash('Connectez-vous à votre compte entraîneur.');return}
+  const rg=xpRange();if(rg[0]>rg[1]){flash('La date de début est après la date de fin.');return}
+  XP.busy=true;render();busyOn('Préparation du fichier Excel…');const errs=[];
+  const safe=async(lbl,p)=>{try{const r=await p;if(r&&r.error)throw r.error;return r&&'data' in r?r.data:r}catch(e){errs.push(lbl+' : '+(e.message||e));return null}};
+  try{const cid=R.coachId;
+    const [led,sub,auto,bks,exps,subs]=await Promise.all([
+      safe('Revenus',R.sb.rpc('coach_ledger',{p_coach:cid})),safe('Abonnements (revenus)',R.sb.rpc('coach_sub_ledger',{p_coach:cid})),
+      safe('Dépenses automatiques',R.sb.rpc('coach_auto_expenses',{p_coach:cid})),
+      safe('Réservations',R.sb.from('bookings').select('id,ref,type,formule,niveau,technique,duree_min,nb_cours,nb_pers,lieu,status,created_at,total_cents,owner_id,booking_sessions(starts_at,cancelled)').eq('coach_id',cid).order('created_at')),
+      safe('Dépenses',R.sb.from('expenses').select('date,cat,descr,amount,tps,tvq').eq('coach_id',cid).order('date')),
+      safe('Abonnements',R.sb.from('subscriptions').select('client_id,plan_name,amount_cents,status,started_at,ended_at,current_period_end,cancel_at_period_end').eq('coach_id',cid))]);
+    const B=bks||[];const ids=B.map(b=>b.id);const bref=Object.fromEntries(B.map(b=>[b.id,b]));
+    const pays=ids.length?await safe('Paiements',inChunks(ids,s=>R.sb.from('payments').select('id,booking_id,payer_id,amount_cents,method,status,paid_at,created_at,refunded_cents,refunded_at,kind,fee_stripe_cents,fee_com_cents').in('booking_id',s))):[];
+    const refs=ids.length?await safe('Remboursements',inChunks(ids,s=>R.sb.from('refunds').select('booking_id,amount_cents,method,status,kind,reason,created_at,done_at').in('booking_id',s))):[];
+    /* clients : nom, courriel, téléphone seulement (rien de la fiche santé) */
+    const CL={};(db.users||[]).filter(u=>u.role==='client'&&u.sid).forEach(u=>{const f=u.fiche||{};CL[u.sid]={p:f.prenom||'',n:f.nom||'',e:u.email||'',t:f.tel||'',c:u.created||'',nl:!!u.newsletter}});
+    const who=id=>{const c=CL[id];return c?((c.p+' '+c.n).trim()||c.e):''};
+    const wb=XLSX.utils.book_new();const add=(rows,name,empty)=>{const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{[empty||'(rien pour cette période)']:''}]);
+      const keys=rows.length?Object.keys(rows[0]):[empty||''];ws['!cols']=keys.map(k=>({wch:Math.min(40,Math.max(10,String(k).length+2,...rows.slice(0,200).map(r=>String(r[k]??'').length+1)))}));XLSX.utils.book_append_sheet(wb,ws,name)};
+    /* Réservations */
+    const RB=B.filter(b=>{const s=(b.booking_sessions||[]).map(x=>x.starts_at).sort();return inR(s[0]||b.created_at,rg)||inR(b.created_at,rg)}).map(b=>{const s=(b.booking_sessions||[]).slice().sort((a,c)=>String(a.starts_at).localeCompare(String(c.starts_at)));
+      return {'Réf.':b.ref||'','Créée le':dLoc(b.created_at),'Client':who(b.owner_id),'Courriel':(CL[b.owner_id]||{}).e||'','Type':TYPEL[b.type]||b.type||'','Formule':b.formule||'','Technique':b.technique||'','Niveau':b.niveau||'',
+        'Durée (min)':Number(b.duree_min)||'','Nb de cours':Number(b.nb_cours)||'','Nb de personnes':Number(b.nb_pers)||'','Lieu':b.lieu||'','Statut':STATL[b.status]||b.status||'','Total ($)':c$(b.total_cents),
+        'Premier cours':s[0]?dLoc(s[0].starts_at):'','Cours (dates)':s.map(x=>dLoc(x.starts_at)+(x.cancelled?' (annulé)':'')).join(' · ')}});
+    add(RB,'Réservations');
+    /* Paiements */
+    const RP=(pays||[]).filter(p=>inR(p.paid_at||p.created_at,rg)).sort((a,b)=>String(a.paid_at||a.created_at).localeCompare(String(b.paid_at||b.created_at))).map(p=>({'Date':dLoc(p.paid_at||p.created_at),'Réf.':(bref[p.booking_id]||{}).ref||'','Payé par':who(p.payer_id),
+      'Mode':MODEL[p.method]||p.method||'','Statut':PSTATL[p.status]||p.status||'','Montant ($)':c$(p.amount_cents),'Remboursé ($)':c$(p.refunded_cents),'Frais Stripe ($)':c$(p.fee_stripe_cents),'Commission FidjiCoach ($)':c$(p.fee_com_cents),'Type':p.kind||''}));
+    add(RP,'Paiements');
+    /* Remboursements */
+    const RR=(refs||[]).filter(r=>inR(r.done_at||r.created_at,rg)).map(r=>({'Demandé le':dLoc(r.created_at),'Fait le':dLoc(r.done_at),'Réf.':(bref[r.booking_id]||{}).ref||'','Client':who((bref[r.booking_id]||{}).owner_id),
+      'Montant ($)':c$(r.amount_cents),'Mode':MODEL[r.method]||r.method||'','Statut':r.status||'','Type':r.kind||'','Motif':r.reason||''}));
+    add(RR,'Remboursements');
+    /* Revenus (cours, location, abonnements) */
+    const L=[...(led||[]),...(sub||[])].filter(x=>inR(x.date,rg)).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+    const TX=[...new Set(L.flatMap(x=>Object.keys(x.taxes||{})))];
+    const RV=L.map(x=>{const o={'Date':x.date,'Type':x.kind==='paiement'?(x.src==='abonnement'?'Abonnement':'Paiement'):(x.kind==='remboursement'?'Remboursement':x.kind||''),'Réf.':x.ref||'','Client':x.client||'','Mode':MODEL[x.method]||x.method||'',
+      'Cours ($)':x2(x.cours),'Accès ($)':x2(x.acces),'Déplacement ($)':x2(x.deplacement)};TX.forEach(t=>o[t+' ($)']=x2((x.taxes||{})[t]));o['Taxes ($)']=x2(x.tax_total);o['Total ($)']=x2(x.total);return o});
+    add(RV,'Revenus');
+    /* Dépenses (saisies et automatiques : frais Stripe, commission, forfait FidjiCoach) */
+    const DX=[...(exps||[]).map(e=>({'Date':e.date,'Catégorie':e.cat||'','Description':e.descr||'','Montant ($)':x2(e.amount),'TPS ($)':x2(e.tps),'TVQ ($)':x2(e.tvq),'Origine':'Saisie'})),
+      ...(auto||[]).map(e=>({'Date':e.date,'Catégorie':e.cat||'','Description':e.desc||'','Montant ($)':x2(e.amount),'TPS ($)':0,'TVQ ($)':0,'Origine':'Automatique'}))].filter(e=>inR(e.Date,rg)).sort((a,b)=>String(a.Date).localeCompare(String(b.Date)));
+    add(DX,'Dépenses');
+    /* Taxes par mois */
+    const M={};const mk=d=>String(d).slice(0,7);
+    L.forEach(x=>{const m=M[mk(x.date)]||(M[mk(x.date)]={c:{},tps:0,tvq:0});Object.entries(x.taxes||{}).forEach(([t,v])=>m.c[t]=(m.c[t]||0)+(Number(v)||0))});
+    DX.forEach(e=>{const m=M[mk(e.Date)]||(M[mk(e.Date)]={c:{},tps:0,tvq:0});m.tps+=e['TPS ($)'];m.tvq+=e['TVQ ($)']});
+    const RT=Object.keys(M).sort().map(k=>{const o={'Mois':k};TX.forEach(t=>o[t+' perçue ($)']=x2(M[k].c[t]));o['TPS payée ($)']=x2(M[k].tps);o['TVQ payée ($)']=x2(M[k].tvq);return o});
+    add(RT,'Taxes');
+    /* Abonnements */
+    const RS=(subs||[]).filter(s=>!s.started_at||inR(s.started_at,rg)||!s.ended_at||inR(s.ended_at,rg)).map(s=>({'Client':who(s.client_id),'Forfait':s.plan_name||'','Montant par mois ($)':c$(s.amount_cents),'Statut':({active:'Actif',trialing:'Essai',past_due:'En retard',canceled:'Annulé',incomplete:'Incomplet',unpaid:'Impayé'})[s.status]||s.status||'',
+      'Début':dLoc(s.started_at),'Fin':dLoc(s.ended_at),'Fin de la période payée':dLoc(s.current_period_end),'Annulation demandée':s.cancel_at_period_end?'Oui':'Non'}));
+    add(RS,'Abonnements');
+    /* Clients (sans données de santé) */
+    const nb={},tot={};B.forEach(b=>{nb[b.owner_id]=(nb[b.owner_id]||0)+1});(pays||[]).filter(p=>p.status==='payee'||p.status==='remboursee').forEach(p=>{tot[p.payer_id]=(tot[p.payer_id]||0)+(Number(p.amount_cents)||0)-(Number(p.refunded_cents)||0)});
+    const RC=Object.entries(CL).map(([id,c])=>({'Prénom':c.p,'Nom':c.n,'Courriel':c.e,'Téléphone':c.t,'Inscrit le':c.c,'Infolettre':c.nl?'Oui':'Non','Réservations':nb[id]||0,'Total payé ($)':c$(tot[id]||0)})).sort((a,b)=>(a.Nom+a.Prénom).localeCompare(b.Nom+b.Prénom,'fr'));
+    add(RC,'Clients');
+    /* Résumé (en premier) */
+    const S=(rows,k)=>x2(rows.reduce((t,r)=>t+(Number(r[k])||0),0));
+    const rev=S(RV.filter(r=>r.Type!=='Remboursement'),'Total ($)');const rem=S(RR.filter(r=>/fait|rembours|done|ok/i.test(r.Statut)||r['Fait le']),'Montant ($)');const dep=S(DX,'Montant ($)');
+    const sum=[['Entraîneur',(R.coachRow&&R.coachRow.nom_affiche)||ui().coach.name||''],['Période',rg[0]==='2000-01-01'?'Tout':rg[0]+' au '+rg[1]],['Fichier créé le',today()],['',''],
+      ['Réservations',RB.length],['Paiements',RP.length],['Revenus encaissés ($)',rev],['Remboursements faits ($)',rem],
+      ...TX.map(t=>[t+' perçue ($)',S(RV,t+' ($)')]),['Dépenses ($)',dep],['TPS payée ($)',S(DX,'TPS ($)')],['TVQ payée ($)',S(DX,'TVQ ($)')],['Net estimé ($)',x2(rev-rem-dep)],['Clients',RC.length],['',''],
+      ['Données de santé','Aucune (fiche santé, blessures, Tests Ruffier et notes privées exclus)'],['Source','Données en ligne de FidjiCoach (mode test tant que les paiements réels ne sont pas activés)'],
+      ...(errs.length?[['',''],['Parties manquantes',errs.join(' | ')]]:[])].map(([a,b])=>({'Rubrique':a,'Valeur':b}));
+    const ws=XLSX.utils.json_to_sheet(sum);ws['!cols']=[{wch:28},{wch:60}];XLSX.utils.book_append_sheet(wb,ws,'Résumé');
+    wb.SheetNames.unshift(wb.SheetNames.pop());
+    const slug=(R.coachRow&&R.coachRow.slug)||'fidjicoach';
+    await offerFile('export-'+slug+'-'+(rg[0]==='2000-01-01'?'tout':rg[0]+'_'+rg[1])+'.xlsx',new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})]));
+    flash(errs.length?'Fichier créé, mais certaines parties manquent (voir l\'onglet Résumé)':'Fichier Excel créé');
+  }catch(e){console.error(e);flash('Export impossible : '+fr(e.message))}
+  finally{XP.busy=false;busyOff();render()}};
+/* la page Sauvegardes devient l'export en ligne (mode réel, côté entraîneur) */
+backupV=(old=>function(){if(R.on&&R.role==='admin')return exportV();return old()})(backupV);
+try{if(ASEC.backup){ASEC.backup.l='Exporter mes données';ASEC.backup.i=ASEC.backup.i||'save'}}catch(e){}
+try{if(typeof LBL==='object'&&LBL)LBL.backup='Exporter mes données'}catch(e){}
+
+/* ---------- B. Lien de démonstration ---------- */
+const DKEY='fc-demo';
+const dGet=()=>{try{return JSON.parse(localStorage.getItem(DKEY)||'null')}catch(e){return null}};
+const dSet=v=>{try{v?localStorage.setItem(DKEY,JSON.stringify(v)):localStorage.removeItem(DKEY)}catch(e){}};
+R.demoCode=null;
+try{const u=new URL(location.href);const c=u.searchParams.get('demo');if(c){if(String(c).toLowerCase()==='off'){dSet(null)}else R.demoCode=decodeURIComponent(c).trim();u.searchParams.delete('demo');history.replaceState(null,'',u.pathname+(u.search||'')+location.hash)}}catch(e){}
+async function demoLogin(code,as){busyOn(as==='client'?'Ouverture du client démo…':'Ouverture de la démo FidjiCoach…');
+  try{const {data,error}=await R.sb.functions.invoke('demo-login',{body:{action:'login',code,as}});
+    if(error){let m=error.message;try{const j=await error.context.json();if(j&&j.error)m=j.error}catch(_){}throw new Error(m)}
+    if(!data||!data.token_hash)throw new Error((data&&data.error)||'Démo indisponible');
+    try{await R.sb.auth.signOut()}catch(e){}resetLocal();
+    if(data.slug)try{localStorage.setItem(CKEY,data.slug)}catch(e){}
+    const {error:e2}=await R.sb.auth.verifyOtp({token_hash:data.token_hash,type:data.type||'magiclink'});if(e2)throw e2;
+    dSet({code,as:data.as||as,slug:data.slug||null,at:Date.now()});
+    if(!await loadMe())throw new Error('Compte de démo introuvable');
+    busyOff();afterLogin();window.scrollTo(0,0);flash(as==='client'?'Vous voyez maintenant la plateforme comme le client démo':'Bienvenue dans la démo FidjiCoach : vous êtes l\'entraîneur démo');return true}
+  catch(e){busyOff();console.error(e);dSet(null);flash('Démo : '+(/Failed to send|fetch|network/i.test(e.message||'')?'la démo ne répond pas pour le moment. Réessayez plus tard.':(e.message||e)));render();return false}}
+bootReal=(old=>async function(){await old();try{if(R.demoCode){const c=R.demoCode;R.demoCode=null;await demoLogin(c,'coach')}}catch(e){console.warn(e)}})(bootReal);
+A.fcDemoAs=async d=>{const D=dGet();if(!D||!D.code){flash('Rouvrez le lien de démonstration.');return}await demoLogin(D.code,d.v==='client'?'client':'coach')};
+A.fcDemoQuit=async()=>{dSet(null);try{await R.sb.auth.signOut()}catch(e){}try{localStorage.removeItem(CKEY)}catch(e){}resetLocal();location.replace(location.pathname)};
+A.logout=(old=>async function(){const D=dGet();if(D){dSet(null);try{localStorage.removeItem(CKEY)}catch(e){}}return old.apply(this,arguments)})(A.logout);
+document.head.insertAdjacentHTML('beforeend',`<style id="c9demo">
+.c9demo{position:sticky;top:0;z-index:60;display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;justify-content:center;background:#f08c00;color:#1b1300;padding:8px 14px;font-size:.88rem;font-weight:600}
+.c9demo b{font-weight:800}.c9demo .btn-xs{background:#fff;color:#1b1300;border:0}.c9demo .btn-xs.q{background:transparent;color:#1b1300;text-decoration:underline}
+</style>`);
+function demoBarH(){const D=dGet();if(!D||!R.on)return '';const cl=D.as==='client';
+  return `<div class="c9demo" role="status"><span>Démo FidjiCoach · vous êtes <b>${cl?'le client démo':'l\'entraîneur démo'}</b> (mode test, aucun vrai paiement)</span>
+    <button class="btn-xs" data-a="fcDemoAs" data-v="${cl?'coach':'client'}">${cl?'Passer à l\'entraîneur démo':'Passer au client démo'}</button><button class="btn-xs q" data-a="fcDemoQuit">Quitter la démo</button></div>`}
+render=(old=>function(){const r=old.apply(this,arguments);try{const app=document.getElementById('app');if(app&&!app.querySelector('.c9demo')){const h=demoBarH();if(h)app.insertAdjacentHTML('afterbegin',h)}}catch(e){}return r})(render);
+
+/* console de l'administrateur : Lien de démonstration */
+const DM={info:null,err:'',busy:false};
+async function dmLoad(){DM.busy=true;try{const {data,error}=await R.sb.rpc('admin_demo_info');if(error)throw error;DM.info=data;DM.err=''}catch(e){DM.err=/admin_demo_info/.test(e.message||'')?'Exécutez d\'abord le script SQL « Corrections 9 ».':fr(e.message)}finally{DM.busy=false}}
+function demoAdminV(){if(!R.on||R.realRole!=='admin')return '<p class="muted">Réservé à l\'administrateur de FidjiCoach.</p>';
+  if(!DM.info&&!DM.busy&&!DM.err)dmLoad().then(()=>{if(curSec()==='demo9')render()});
+  const I=DM.info||{};const link=st.c9dl||'';const base=location.origin+location.pathname;
+  return `<div style="display:grid;gap:16px">
+  <section class="panel" style="display:grid;gap:10px"><span class="eyebrow">Présenter FidjiCoach</span><h3>Lien de démonstration</h3>
+    <p class="small">Le lien ouvre la <b>vraie plateforme</b> avec deux comptes de démonstration (mode test, aucun vrai paiement) : l'<b>Entraîneur démo</b> (Tarification, mise en place guidée, vitrine, calendrier, comptabilité…) et le <b>Client démo</b> (réserver, payer avec une carte de test, modifier un cours…). Un bouton en haut de l'écran permet de passer de l'un à l'autre. La page de l'entraîneur démo n'apparaît jamais dans « Trouver un entraîneur ».</p>
+    ${DM.err?`<p class="alert bad small">${esc(DM.err)}</p>`:DM.busy&&!DM.info?'<p class="muted small">Lecture…</p>':''}
+    ${DM.info?`<ul class="small" style="margin:0;padding-left:18px;display:grid;gap:4px">
+      <li>Comptes de démo : ${I.ready?`<b>créés</b> (${esc(I.coach_email||'')} · ${esc(I.client_email||'')})`:'<b>pas encore créés</b>'}</li>
+      ${I.ready?`<li>Mise en place de l'entraîneur démo : ${I.setup_done?'terminée':'<b>à faire</b> (ouvrez la démo et suivez la mise en place guidée, Stripe en mode test)'} · Stripe : ${I.stripe?'connecté':'pas encore'}</li>
+      <li>Forfait : ${esc(I.plan||'—')} · ${esc(I.status||'—')} · Dernière réinitialisation : ${I.reset_at?esc(String(I.reset_at).slice(0,16).replace('T',' ')):'jamais'}</li>`:''}
+      <li>Code de démo : ${I.has_code?'<b>actif</b> (seule son empreinte est gardée : choisissez un nouveau code pour obtenir un lien)':'<b>aucun</b>'}</li></ul>`:''}
+  </section>
+  ${DM.info&&!DM.info.ready?`<section class="panel" style="display:grid;gap:10px"><span class="eyebrow">Étape 1</span><h3>Créer les comptes de démo</h3>
+    <p class="small">Deux comptes déjà activés, sans mot de passe à retenir. Les courriels de la démo (confirmations, avis) arrivent à ces adresses : les « + » de Outlook les envoient dans votre boîte.</p>
+    <form id="c9dmSetup" class="grid2" novalidate><label class="field"><span>Courriel de l'entraîneur démo</span><input name="a" type="email" value="colinchristophe.coach+demo-entraineur@outlook.com"></label>
+      <label class="field"><span>Courriel du client démo</span><input name="b" type="email" value="colinchristophe.coach+demo-client@outlook.com"></label>
+      <div class="actions" style="grid-column:1/-1"><button class="btn btn-accent" type="submit">Créer les comptes de démo</button></div></form></section>`:''}
+  ${DM.info&&DM.info.ready?`<section class="panel" style="display:grid;gap:10px"><span class="eyebrow">Code et lien</span><h3>Nouveau code de démo</h3>
+    <p class="small">Choisissez un code (6 caractères ou plus : lettres, chiffres, tirets). L'ancien lien cesse aussitôt de fonctionner.</p>
+    <form id="c9dmCode" class="actions" style="align-items:flex-end" novalidate><label class="field" style="margin:0;flex:1 1 220px"><span>Nouveau code</span><input name="c" type="text" autocomplete="off" spellcheck="false" placeholder="Ex. SKI-2027" value="${esc(st.c9dc||'')}"></label><button class="btn btn-accent" type="submit">Enregistrer le code</button><button type="button" class="btn btn-plain" data-a="c9dmGen">Générer un code</button></form>
+    ${link?`<div class="info small" style="display:grid;gap:8px"><span>Lien à envoyer aux futurs entraîneurs :</span><b style="user-select:all;word-break:break-all">${esc(link)}</b><div class="actions"><button class="btn btn-sm btn-accent" data-a="c9dmCopy">Copier le lien</button><a class="btn btn-sm btn-plain" href="${esc(link)}" target="_blank" rel="noopener">Ouvrir dans un nouvel onglet</a></div><span class="muted">Ouvrez-le de préférence dans une fenêtre privée : il remplace la session en cours de ce navigateur.</span></div>`:''}
+  </section>
+  <section class="panel" style="display:grid;gap:10px"><span class="eyebrow">Entretien</span><h3>Réinitialiser la démo</h3>
+    <p class="small">Efface les réservations, paiements de test, messages, avis et abonnements de la démo, et recrée les disponibilités des 14 prochains jours (9 h à 12 h et 13 h à 16 h). La mise en place de l'entraîneur démo (centres, prix, logo, Stripe) est gardée. Faite aussi automatiquement une fois par 24 h à l'ouverture de la démo.</p>
+    <div class="actions"><button class="btn btn-plain" data-a="c9dmReset">Réinitialiser maintenant</button><button class="btn btn-plain" data-a="c9dmReload">Actualiser</button></div></section>`:''}
+  <p class="muted small">L'ancien lien de démo locale (?testeur=CODE, données dans le navigateur) fonctionne encore, mais ne montre pas la Tarification, la mise en place guidée ni les vitrines. ${C9_VER}.</p></div>`}
+ASEC.demo9={l:'Lien de démonstration',i:'users',f:()=>demoAdminV()};REL.demo9=['coachs','fctarif'];
+AGROUPS=(old=>function(){let g=old();if(!R.on||R.realRole!=='admin'||g.some(([,ks])=>ks.includes('demo9')))return g;
+  const i=g.findIndex(([n])=>n==='Plateforme');if(i>=0)g[i]=[g[i][0],[...g[i][1],'demo9']];else g.push(['Plateforme',['demo9']]);return g})(AGROUPS);
+const genCode=()=>{const A0='ABCDEFGHJKMNPQRSTUVWXYZ23456789';const r=crypto.getRandomValues(new Uint8Array(8));return 'DEMO-'+[...r].map(x=>A0[x%A0.length]).join('').replace(/(.{4})/,'$1-')};
+A.c9dmGen=()=>{st.c9dc=genCode();render()};
+A.c9dmReload=async()=>{DM.info=null;DM.err='';busyOn('Lecture…');await dmLoad();busyOff();render()};
+A.c9dmCopy=()=>{const t=st.c9dl||'';if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(()=>flash('Lien copié'),()=>flash('Copie impossible : sélectionnez le lien'));else flash('Copie impossible : sélectionnez le lien')};
+A.c9dmReset=async()=>{if(!confirm('Réinitialiser la démo? Les réservations, paiements de test et messages de la démo seront effacés.'))return;busyOn('Réinitialisation…');
+  try{const {data,error}=await R.sb.rpc('demo_reset');if(error)throw error;await dmLoad();flash('Démo réinitialisée ('+((data&&data.slots)||0)+' plages de disponibilité)')}catch(e){flash(fr(e.message))}finally{busyOff();render()}};
+addEventListener('submit',async e=>{const f=e.target;if(!f||(f.id!=='c9dmSetup'&&f.id!=='c9dmCode'))return;e.preventDefault();e.stopImmediatePropagation();
+  if(f.id==='c9dmSetup'){busyOn('Création des comptes de démo…');
+    try{const {data,error}=await R.sb.functions.invoke('demo-login',{body:{action:'setup',coachEmail:f.a.value.trim(),clientEmail:f.b.value.trim()}});
+      if(error){let m=error.message;try{const j=await error.context.json();if(j&&j.error)m=j.error}catch(_){}throw new Error(m)}
+      if(data&&data.error)throw new Error(data.error);await dmLoad();flash('Comptes de démo créés. Choisissez maintenant un code.')}
+    catch(err){flash(/Failed to send|not found|404/i.test(err.message||'')?'Déployez d\'abord l\'Edge Function demo-login.':fr(err.message))}finally{busyOff();render()}return}
+  const c=String(f.c.value||'').trim();st.c9dc=c;
+  if(c.length<6||!/^[A-Za-z0-9-]+$/.test(c)){flash('Code : 6 caractères ou plus, lettres, chiffres et tirets seulement');return}
+  busyOn('Enregistrement…');try{const {error}=await R.sb.rpc('admin_demo_code',{p_code:c});if(error)throw error;st.c9dl=location.origin+location.pathname+'?demo='+encodeURIComponent(c);await dmLoad();flash('Nouveau code enregistré : l\'ancien lien ne fonctionne plus')}
+  catch(err){flash(fr(err.message))}finally{busyOff();render()}},true);
+
 /* PWA : fonctions internes dont l'app installable a besoin (notifications touchées, hors ligne) */
 window.fcPwaHooks={loadNotifs,nAny,syncAll,errTxt};
 R.bootP=bootReal();R.bootP.then(stripeReturn).catch(e=>console.error(e));
 })();
+</script>
+<script>
+/* ================= Corrections 9 (7 nov. 2026) : cartes interactives =================
+   Vraies cartes (déplacement aux doigts, zoom, rotation) à la place des cartes dessinées :
+   - Bibliothèque : MapLibre GL JS (libre, licence BSD), chargée seulement quand une carte s'affiche.
+   - Fond de carte : OpenFreeMap (gratuit, usage commercial permis, sans clé ni compte, sans limite de vues);
+     style « Liberty » en clair, « Dark » en mode sombre. Mention © OpenFreeMap © OpenMapTiles © OpenStreetMap affichée.
+   - Sentiers : tracés OpenStreetMap déjà dans l'app (piste:type=nordic); pour un lieu sans tracé connu, lecture
+     de l'API Overpass (OpenStreetMap, gratuite), gardée 7 jours dans l'appareil.
+   - Où : page Centres (entraîneur, client, vitrine, choix du lieu d'une réservation) et cartes des sentiers
+     (fiche d'un centre, Mon entraînement : position GPS et tracé en direct, résumé d'une sortie, partage).
+   - Itinéraire : « Ouvrir dans Google Maps » et « Ouvrir dans Plans » (liens simples, gratuits).
+   - Entraîneur : « Déplacer l'épingle » d'un centre (page Centres), enregistré dans ses centres en ligne.
+   - Repli : sans réseau, ou si la carte ne se charge pas en 12 s, l'ancienne carte dessinée reste affichée.
+   Une carte déjà ouverte est gardée d'un affichage à l'autre (pas de rechargement à chaque toucher). */
+{
+const FMV='4.7.1';
+const FMJS='https://cdn.jsdelivr.net/npm/maplibre-gl@'+FMV+'/dist/maplibre-gl.js';
+const FMCSS='https://cdn.jsdelivr.net/npm/maplibre-gl@'+FMV+'/dist/maplibre-gl.css';
+const STY={light:'https://tiles.openfreemap.org/styles/liberty',dark:'https://tiles.openfreemap.org/styles/dark'};
+const OVP='https://overpass-api.de/api/interpreter',OVK='fc-ovp-1',OVTTL=7*864e5;
+const FM={cfg:{},maps:{},p:null,failAt:0,ovp:{},ovBusy:{}};
+window.fcMaps=FM;
+const RR=()=>window.fcReal||{};
+const isDark=()=>{const t=document.documentElement.dataset.theme;return t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches)};
+const cssv=(n,d)=>{try{const v=getComputedStyle(document.documentElement).getPropertyValue(n).trim();return v||d}catch(e){return d}};
+const num=v=>{const n=Number(v);return isFinite(n)?n:NaN};
+const okLL=(la,lo)=>isFinite(la)&&isFinite(lo)&&Math.abs(la)>0.01&&Math.abs(lo)>0.01&&Math.abs(la)<=85&&Math.abs(lo)<=180;
+const xyLL=(c,x,y)=>[c.lon+x/mPerLon(c.lat),c.lat+y/110574];   /* mètres autour du centre → [lon, lat] */
+
+/* ---------- chargement de MapLibre (une seule fois) ---------- */
+function fmLoad(){
+  if(window.maplibregl)return Promise.resolve(window.maplibregl);
+  if(FM.p)return FM.p;
+  FM.p=new Promise((ok,ko)=>{
+    if(!document.querySelector('link[data-fmcss]')){const l=document.createElement('link');l.rel='stylesheet';l.href=FMCSS;l.dataset.fmcss='1';document.head.appendChild(l)}
+    const s=document.createElement('script');s.src=FMJS;s.async=true;
+    s.onload=()=>window.maplibregl?ok(window.maplibregl):ko(new Error('MapLibre absent'));
+    s.onerror=()=>ko(new Error('MapLibre non chargé'));document.head.appendChild(s);
+    setTimeout(()=>ko(new Error('MapLibre : délai dépassé')),20000)});
+  FM.p.catch(()=>{FM.p=null;FM.failAt=Date.now()});
+  return FM.p}
+
+/* ---------- styles ---------- */
+document.head.insertAdjacentHTML('beforeend',`<style id="fc9maps">
+.fmap{position:relative}
+.fmap>.fmgl{position:absolute;inset:0;display:none}
+.fmap.fmon>.fmgl{display:block}
+.fmap.fmon>.fmfb{visibility:hidden}
+.map.fmap.fmon{max-width:none;height:clamp(320px,58vh,560px)}
+.map.fmap.fmon>.fmfb{position:absolute;inset:0;overflow:hidden}
+.trmap>.fmap{position:absolute;inset:0}
+.trmap>.fmap>.fmfb,.trmap>.fmap>.fmfb>svg{display:block;width:100%;height:100%}
+.fmap .maplibregl-ctrl-attrib{font-size:10px}
+.fmap .maplibregl-ctrl-bottom-right{bottom:4px}
+.fmk{width:22px;height:22px;border-radius:50%;border:3px solid #fff;background:var(--accent);box-shadow:0 1px 4px rgba(0,0,0,.35);padding:0;cursor:pointer;display:block}
+.fmk.no{width:16px;height:16px;background:var(--personal)}
+.fmk.fee{background:var(--fee)}
+.fmk.on{width:28px;height:28px;background:var(--ink);border-color:var(--accent);border-width:4px}
+.fmk:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.fmk.drag{cursor:grab;box-shadow:0 0 0 6px rgba(240,140,0,.35),0 1px 4px rgba(0,0,0,.35)}
+.fmhome{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--navy,#13325b);color:#fff;font-size:15px;line-height:1;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.fmpoi{display:grid;place-items:center;min-width:22px;height:22px;padding:0 4px;border-radius:6px;font:700 12px/1 var(--f-body);color:#fff;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:default}
+.fmpoi.parking{background:#1c6fd1}.fmpoi.refuge{background:#8a5a2b}.fmpoi.chalet{background:#2b6b4a}
+.fmme{position:relative;width:22px;height:22px}
+.fmme b{position:absolute;inset:3px;border-radius:50%;background:var(--live,#1a73e8);border:3px solid #fff;box-shadow:0 0 0 7px rgba(26,115,232,.22)}
+.fmme i{position:absolute;left:50%;top:-14px;margin-left:-7px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid var(--live,#1a73e8);display:none}
+.fmme.hd i{display:block}
+.fmfr{display:grid;justify-items:center;gap:2px;pointer-events:none}
+.fmfr b{width:16px;height:16px;border-radius:50%;background:var(--c,#e0457b);border:3px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.fmfr em{font:700 11px/1.1 var(--f-body);font-style:normal;background:var(--surface);color:var(--ink);padding:2px 5px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.2);white-space:nowrap;order:-1}
+.fmends{width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.fmends.s{background:#2b9a43}.fmends.e{background:#d63b3b}
+.fmbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.fmbar .small{flex:1 1 220px}
+.fmdir{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.fmdir a{flex:1 1 150px;text-align:center}
+.fmnote{position:absolute;left:8px;bottom:8px;z-index:2;background:var(--surface);color:var(--ink);border-radius:8px;padding:4px 8px;font-size:.75rem;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+</style>`);
+
+/* ---------- itinéraire (Google Maps / Plans d'Apple) ---------- */
+function fmDirHtml(c){const la=num(c&&c.lat),lo=num(c&&c.lon);if(!okLL(la,lo))return '';
+  const p=la.toFixed(6)+','+lo.toFixed(6);const q=encodeURIComponent(c.name||'');
+  return `<div class="fmdir"><a class="btn btn-sm btn-plain" href="https://www.google.com/maps/dir/?api=1&destination=${p}" target="_blank" rel="noopener">Ouvrir dans Google Maps</a><a class="btn btn-sm btn-plain" href="https://maps.apple.com/?daddr=${p}&q=${q}" target="_blank" rel="noopener">Ouvrir dans Plans</a></div>`}
+window.fcDirHtml=fmDirHtml;
+centreCard=(old=>function(c,full){const h=old(c,full);try{if(!full||!c||c.kind||h.includes('class="fmdir"'))return h;return h+fmDirHtml(c)}catch(e){return h}})(centreCard);
+ctrTrailsBlock=(old=>function(c){const h=old(c);try{if(!c||h.includes('class="fmdir"'))return h;return h.replace(/(<div class="cth">[\s\S]*?<\/span><\/div>)/,'$1'+fmDirHtml(c))}catch(e){return h}})(ctrTrailsBlock);
+
+/* ---------- 1. carte des centres (mapV) ---------- */
+mapV=(old=>function(ctx,selId,only){const h=old(ctx,selId,only);
+  try{
+    const all=(only||(ctx==='R'?db.centres.filter(c=>c.ok):db.centres)).filter(c=>!c.kind&&okLL(num(c.lat),num(c.lon)));
+    const key='ctr-'+ctx;
+    const home=(typeof ui==='function'&&ui().home)||HOME;
+    FM.cfg[key]={kind:'ctr',ctx,sel:selId||null,list:all.map(c=>({id:c.id,name:c.name,lat:num(c.lat),lon:num(c.lon),ok:!!c.ok,fee:!!(c.ok&&typeof travelFee==='function'&&travelFee(c)>0)})),
+      home:home&&okLL(num(home.lat),num(home.lon))?{lat:num(home.lat),lon:num(home.lon),name:home.name||'Point de départ'}:null,
+      drag:ctx==='A'&&st.fmDrag&&st.fmDrag===selId?selId:null};
+    let out=h.replace(new RegExp('<div class="map" id="map_'+ctx+'">(<svg[\\s\\S]*?</svg>)'),`<div class="map fmap" id="map_${ctx}" data-fm="${key}"><div class="fmfb">$1</div>`);
+    if(ctx==='A'&&selId&&RR().on!==false&&all.some(c=>c.id===selId)){const c=all.find(x=>x.id===selId);
+      out+=st.fmDrag===selId?`<div class="fmbar"><span class="small"><b>Glissez l'épingle de ${esc(c.name)}</b> jusqu'à l'entrée ou au stationnement, puis touchez Terminer.</span><button class="btn btn-sm btn-accent" data-a="fmDragEnd">Terminer</button></div>`
+        :`<div class="fmbar"><span class="small muted">L'épingle de ${esc(c.name)} n'est pas au bon endroit?</span><button class="btn btn-sm btn-plain" data-a="fmDrag" data-c="${esc(selId)}">Déplacer l'épingle</button></div>`}
+    return out}catch(e){console.warn(e);return h}})(mapV);
+A.fmDrag=function(d){st.fmDrag=d.c;render();flash('Glissez l\'épingle sur la carte')};
+A.fmDragEnd=function(){st.fmDrag=null;render()};
+
+/* ---------- 2. cartes des sentiers (fiche d'un centre, Mon entraînement…) : nouveau fond « Carte » ---------- */
+if(!st.trStyle)st.trStyle='carte';
+if(!st.ctrStyle)st.ctrStyle='carte';
+trailMapSVG=(old=>function(c,o){o=o||{};if((o.style||'plan')!=='carte'||!c||!okLL(num(c.lat),num(c.lon)))return old(c,o.style==='carte'?{...o,style:'plan'}:o);
+  const fb=old(c,{...o,style:'plan'});
+  try{const key=String(o.key||'map');
+    FM.cfg[key]={kind:'trail',c:{id:c.id,name:c.name,lat:num(c.lat),lon:num(c.lon),free:!!c.free},cRef:c,
+      o:{track:o.track||null,me:o.me||null,others:o.others||null,hl:o.hl!=null?o.hl:null,pick:!!o.pick,pickA:o.pickA||null,fit:o.fit||null,bare:!!o.bare,ends:o.ends!==false}};
+    return `<div class="fmap" data-fm="${esc(key)}"><div class="fmfb">${fb}</div></div>`}catch(e){console.warn(e);return fb}})(trailMapSVG);
+mapBox=(old=>function(svg,key,o){o=o||{};const real=String(svg).startsWith('<div class="fmap"');
+  const o2=real?o:{...o};
+  let h=old(svg,key,o2);
+  /* bouton « Carte » ajouté devant Plan / Satellite / Routes */
+  h=h.replace(/<div class="mstyle" role="group" aria-label="Fond de carte">/,m=>m+`<button class="${(o.cur||'plan')==='carte'?'on':''}" data-a="${o.styleA||'trStyle'}" data-v="carte">Carte</button>`);
+  if(real){
+    if(/data-v="carte"/.test(h))h=h.replace(/(<button class=")on(" data-a="[^"]*" data-v="(?:plan|sat|routes)">)/g,'$1$2');
+    h=h.replace(/<button data-a="pzIn"[\s\S]*?aria-label="Recadrer"[^>]*>⤢<\/button>/,`<button data-a="fmFit" data-k="${esc(key)}" aria-label="Recadrer" title="Recadrer">⤢</button>`);
+    h=h.replace(/<span class="pzhint">[\s\S]*?<\/span>/,'');
+    h=h.replace(/<span class="osmattr">[\s\S]*?<\/span>/,'').replace(/<div class="topoleg"[\s\S]*?<\/span><\/div>/,'');
+    h=h.replace('Carte simple · sans sentiers','Carte · position GPS');
+    h=h.replace('<div class="trmap pzbox"','<div class="trmap pzbox fmbox"')}
+  return h})(mapBox);
+A.fmFit=function(d){const E=FM.maps[d.k];if(E&&E.ready){E.fitSig=null;fmData(E)}};
+
+/* ---------- montage après chaque affichage ---------- */
+render=(old=>function(){const r=old.apply(this,arguments);try{fmDedupe();fmMount()}catch(e){console.warn(e)}return r})(render);
+/* un seul jeu de boutons d'itinéraire par centre dans la page */
+function fmDedupe(){const seen=new Set();document.querySelectorAll('.fmdir').forEach(d=>{const a=d.querySelector('a');const k=a&&a.getAttribute('href');if(!k)return;if(seen.has(k))d.remove();else seen.add(k)})}
+function fmMount(){const ph=[...document.querySelectorAll('.fmap[data-fm]')];if(!ph.length)return;
+  if(FM.failAt&&Date.now()-FM.failAt<60000)return;
+  fmLoad().then(ml=>{ph.forEach(p=>{if(p.isConnected)try{fmAttach(ml,p)}catch(e){console.warn(e)}});fmPrune()}).catch(e=>console.warn('Carte interactive indisponible :',e.message))}
+function fmPrune(){const keys=Object.keys(FM.maps).filter(k=>!FM.maps[k].el.isConnected);
+  if(Object.keys(FM.maps).length<=6)return;keys.sort((a,b)=>FM.maps[a].used-FM.maps[b].used).slice(0,Object.keys(FM.maps).length-6).forEach(fmKill)}
+function fmKill(k){const E=FM.maps[k];if(!E)return;try{E.map.remove()}catch(e){}try{E.el.remove()}catch(e){}delete FM.maps[k]}
+function fmAttach(ml,p){const key=p.dataset.fm;const cfg=FM.cfg[key];if(!cfg)return;let E=FM.maps[key];
+  if(E&&E.dark!==isDark())fmKill(key),E=null;
+  if(!E){const el=document.createElement('div');el.className='fmgl';p.appendChild(el);
+    const c0=cfg.kind==='trail'?cfg.c:(cfg.list.find(x=>x.id===cfg.sel)||cfg.list[0]||cfg.home||{lat:46.81,lon:-71.21});
+    let map;
+    try{map=new ml.Map({container:el,style:isDark()?STY.dark:STY.light,center:[c0.lon,c0.lat],zoom:cfg.kind==='trail'?13:9,attributionControl:{compact:true},
+      dragRotate:true,pitchWithRotate:false,touchPitch:false,maxZoom:18})}
+    catch(e){console.warn('Carte interactive impossible (WebGL?)',e);el.remove();return}
+    map.addControl(new ml.NavigationControl({showCompass:true,visualizePitch:false}),'bottom-right');
+    if(cfg.kind==='ctr')map.addControl(new ml.FullscreenControl(),'top-right');
+    E=FM.maps[key]={key,map,el,ml,dark:isDark(),ready:false,fitSig:null,mk:[],used:Date.now()};
+    map.on('load',()=>{E.ready=true;fmLayers(E);const pp=E.el.parentElement;if(pp)pp.classList.add('fmon');map.resize();fmData(E)});
+    map.on('error',ev=>{if(!E.ready)console.warn('Carte :',ev&&ev.error&&ev.error.message)});
+    setTimeout(()=>{if(FM.maps[key]===E&&!E.ready){console.warn('Fond de carte trop lent : carte dessinée gardée');fmKill(key)}},12000);
+  }else{
+    if(E.el.parentElement!==p){p.appendChild(E.el)}
+    E.used=Date.now();
+    if(E.ready){p.classList.add('fmon');requestAnimationFrame(()=>{try{E.map.resize()}catch(e){}});fmData(E)}}
+}
+
+/* sources et couches (une fois par carte) */
+function fmLayers(E){const m=E.map;const empty={type:'FeatureCollection',features:[]};
+  const col=['match',['get','dif'],'vert',cssv('--tr-vert','#2b9a43'),'bleu',cssv('--tr-bleu','#1c6fd1'),'noir',cssv('--tr-noir','#1d2430'),'ray',cssv('--tr-ray','#8a5a2b'),'#6f7f94'];
+  m.addSource('fc-trails',{type:'geojson',data:empty});
+  m.addSource('fc-trk',{type:'geojson',data:empty});
+  m.addLayer({id:'fc-trails-c',type:'line',source:'fc-trails',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':isDark()?'#0e141b':'#ffffff','line-width':['interpolate',['linear'],['zoom'],11,4,16,9],'line-opacity':0.9}});
+  m.addLayer({id:'fc-trails',type:'line',source:'fc-trails',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':col,'line-width':['interpolate',['linear'],['zoom'],11,2.2,16,5.5]}});
+  m.addLayer({id:'fc-trails-l',type:'symbol',source:'fc-trails',minzoom:13.5,filter:['!=',['get','n'],''],layout:{'symbol-placement':'line','text-field':['get','n'],'text-font':['Noto Sans Regular'],'text-size':12,'text-letter-spacing':0.02},
+    paint:{'text-color':isDark()?'#e6ebf2':'#22344d','text-halo-color':isDark()?'#0c131b':'#ffffff','text-halo-width':1.6}});
+  m.addLayer({id:'fc-trk-c',type:'line',source:'fc-trk',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#ffffff','line-width':8,'line-opacity':0.85}});
+  m.addLayer({id:'fc-trk',type:'line',source:'fc-trk',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':cssv('--live','#1a73e8'),'line-width':4.5}});
+  m.on('click','fc-trails',ev=>{const C=FM.cfg[E.key];if(!C||C.kind!=='trail'||!C.o.pick)return;const f=ev.features&&ev.features[0];if(!f||f.properties.i==null||f.properties.i<0)return;
+    const fn=A[C.o.pickA||'trPick'];if(typeof fn==='function')fn({i:String(f.properties.i)})});
+  m.on('mouseenter','fc-trails',()=>{const C=FM.cfg[E.key];if(C&&C.o&&C.o.pick)m.getCanvas().style.cursor='pointer'});
+  m.on('mouseleave','fc-trails',()=>{m.getCanvas().style.cursor=''})}
+
+/* marqueurs */
+function fmMk(E,el,ll,opt){const M=new E.ml.Marker({element:el,anchor:'center',...(opt||{})}).setLngLat(ll).addTo(E.map);E.mk.push(M);return M}
+function fmClear(E){E.mk.forEach(M=>{try{M.remove()}catch(e){}});E.mk=[];E.me=null;E.fr={}}
+const elOf=h=>{const t=document.createElement('div');t.innerHTML=h.trim();return t.firstElementChild};
+
+/* contenu de la carte selon sa configuration */
+function fmData(E){const C=FM.cfg[E.key];if(!C||!E.ready)return;try{(C.kind==='ctr'?fmCtr:fmTrail)(E,C)}catch(e){console.warn(e)}}
+
+function fmCtr(E,C){fmClear(E);const m=E.map;const B=new E.ml.LngLatBounds();
+  E.map.getSource('fc-trails').setData({type:'FeatureCollection',features:[]});E.map.getSource('fc-trk').setData({type:'FeatureCollection',features:[]});
+  if(C.home){const el=elOf(`<span class="fmhome" title="${esc(C.home.name)}" aria-label="Point de départ : ${esc(C.home.name)}">⌂</span>`);fmMk(E,el,[C.home.lon,C.home.lat]);B.extend([C.home.lon,C.home.lat])}
+  C.list.forEach(c=>{const on=c.id===C.sel;const drag=C.drag===c.id;
+    const el=elOf(`<button type="button" class="fmk ${c.ok?'ok':'no'} ${c.fee?'fee':''} ${on?'on':''} ${drag?'drag':''}" ${drag?'':`data-ctr="${esc(c.id)}" data-ctx="${esc(C.ctx)}"`} aria-label="${esc(c.name)}${c.fee?', frais de déplacement':''}" title="${esc(c.name)}"></button>`);
+    if(on)el.style.zIndex='3';const M=fmMk(E,el,[c.lon,c.lat],{draggable:drag});
+    if(drag)M.on('dragend',()=>{const ll=M.getLngLat();fmMoveCentre(c.id,ll.lat,ll.lng)});
+    if(c.ok||C.ctx!=='R')B.extend([c.lon,c.lat])});
+  const sig=C.ctx+'|'+C.list.map(c=>c.id).join(',');
+  if(E.fitSig!==sig){E.fitSig=sig;E.selSeen=C.sel;if(!B.isEmpty()){const ne=B.getNorthEast(),sw=B.getSouthWest();
+      if(Math.abs(ne.lat-sw.lat)<0.002&&Math.abs(ne.lng-sw.lng)<0.002)m.jumpTo({center:B.getCenter(),zoom:13});
+      else m.fitBounds(B,{padding:{top:40,bottom:40,left:30,right:30},maxZoom:13,duration:0})}}
+  else if(C.sel&&C.sel!==E.selSeen){E.selSeen=C.sel;const s=C.list.find(c=>c.id===C.sel);if(s&&!m.getBounds().contains([s.lon,s.lat]))m.easeTo({center:[s.lon,s.lat],duration:500})}
+  if(C.drag){const s=C.list.find(c=>c.id===C.drag);if(s&&m.getZoom()<14)m.easeTo({center:[s.lon,s.lat],zoom:15,duration:600})}}
+
+function fmMoveCentre(id,la,lo){const c=(db.centres||[]).find(x=>x.id===id);if(!c)return;
+  c.lat=Math.round(la*1e6)/1e6;c.lon=Math.round(lo*1e6)/1e6;delete c.road;if(c.src==='osm'||!c.src)c.src='manuel';
+  save();flash('Épingle de '+c.name+' déplacée et enregistrée');render()}
+
+function fmTrail(E,C){fmClear(E);const m=E.map,c=C.c,o=C.o;const ref=C.cRef||c;let net=null;
+  try{net=c.free?null:trailNet(ref)}catch(e){net=null}
+  const feats=[];
+  if(net&&net.real&&!o.bare)net.trails.forEach(t=>(t.segs||[t.pts]).forEach(sg=>{if(sg.length>1)feats.push({type:'Feature',properties:{i:t.i,dif:t.dif,n:t.named?(t.short||t.n):''},geometry:{type:'LineString',coordinates:sg.map(p=>xyLL(c,p[0],p[1]))}})}));
+  if((!net||!net.real)&&!o.bare){const ov=fmOvpGet(c);if(ov)ov.forEach(f=>feats.push(f));else fmOvpFetch(E.key,c)}
+  m.getSource('fc-trails').setData({type:'FeatureCollection',features:feats});
+  const hl=o.hl;m.setPaintProperty('fc-trails','line-opacity',hl==null?1:['case',['==',['get','i'],hl],1,0.3]);
+  m.setPaintProperty('fc-trails','line-width',hl==null?['interpolate',['linear'],['zoom'],11,2.2,16,5.5]:['case',['==',['get','i'],hl],['interpolate',['linear'],['zoom'],11,4,16,8],['interpolate',['linear'],['zoom'],11,2.2,16,5.5]]);
+  /* chalets, refuges, stationnements */
+  if(!o.bare&&!c.free){let P=[];try{P=net&&net.real?poisOf(ref):[...(typeof poiMine==='function'?poiMine(ref):[]),...(typeof poisOsm==='function'?poisOsm(ref):[])]}catch(e){P=[]}
+    P.forEach(p=>{const ll=okLL(num(p.lat),num(p.lon))?[num(p.lon),num(p.lat)]:(isFinite(p.x)?xyLL(c,p.x,p.y):null);if(!ll)return;
+      const t=p.t||'chalet';const lbl=t==='parking'?'P':t==='refuge'?'R':'⌂';const nm=p.n||({parking:'Stationnement',refuge:'Refuge',chalet:'Chalet'})[t];
+      fmMk(E,elOf(`<span class="fmpoi ${t}" title="${esc(nm)}" aria-label="${esc(nm)}">${lbl}</span>`),ll)})}
+  /* tracé */
+  const trk=(o.track||[]).filter(p=>okLL(num(p[0]),num(p[1]))).map(p=>[num(p[1]),num(p[0])]);
+  m.getSource('fc-trk').setData({type:'FeatureCollection',features:trk.length>1?[{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:trk}}]:[]});
+  if(trk.length>1&&o.ends){fmMk(E,elOf('<span class="fmends s" title="Départ"></span>'),trk[0]);if(!o.me)fmMk(E,elOf('<span class="fmends e" title="Arrivée"></span>'),trk[trk.length-1])}
+  /* amis qui partagent leur position */
+  E.fr={};(o.others||[]).forEach((f,j)=>{if(!okLL(num(f.lat),num(f.lon)))return;const col=f.color||(typeof FRC!=='undefined'?FRC[j%FRC.length]:'#e0457b');
+    E.fr[f.id||('f'+j)]=fmMk(E,elOf(`<span class="fmfr" style="--c:${col}"><em>${esc(f.name||'')}</em><b></b></span>`),[num(f.lon),num(f.lat)])});
+  /* ma position */
+  if(o.me&&okLL(num(o.me.lat),num(o.me.lon)))fmMe(E,o.me);
+  /* cadrage */
+  const sig=c.id+'|'+(o.fit||'net')+'|'+(o.fit==='track'?trk.length>1:'')+'|'+(feats.length?1:0);
+  if(E.fitSig!==sig){E.fitSig=sig;const B=new E.ml.LngLatBounds();
+    if(o.fit==='track'&&trk.length>1)trk.forEach(p=>B.extend(p));
+    else if(o.fit==='pts'){(o.others||[]).forEach(f=>okLL(num(f.lat),num(f.lon))&&B.extend([num(f.lon),num(f.lat)]));if(o.me&&okLL(num(o.me.lat),num(o.me.lon)))B.extend([num(o.me.lon),num(o.me.lat)])}
+    else{feats.forEach(f=>f.geometry.coordinates.forEach(p=>B.extend(p)));trk.forEach(p=>B.extend(p))}
+    if(B.isEmpty())m.jumpTo({center:[c.lon,c.lat],zoom:14});
+    else{const ne=B.getNorthEast(),sw=B.getSouthWest();if(Math.abs(ne.lat-sw.lat)<0.0008&&Math.abs(ne.lng-sw.lng)<0.0008)m.jumpTo({center:B.getCenter(),zoom:16});else m.fitBounds(B,{padding:36,maxZoom:16,duration:0})}}}
+
+function fmMe(E,me){const ll=[num(me.lon),num(me.lat)];
+  if(!E.me){const el=elOf('<span class="fmme" aria-label="Ma position"><i></i><b></b></span>');E.me=fmMk(E,el,ll,{rotationAlignment:'map'});}
+  else E.me.setLngLat(ll);
+  const el=E.me.getElement().querySelector('.fmme')||E.me.getElement();
+  if(me.hd!=null&&isFinite(me.hd)){el.classList.add('hd');E.me.setRotation(Number(me.hd))}else{el.classList.remove('hd');E.me.setRotation(0)}}
+
+/* pendant la sortie : position et tracé mis à jour sans réafficher la page */
+recDraw=(old=>function(){old();try{const R0=st.rec;const E=FM.maps.live;if(!R0||!E||!E.ready||!E.el.isConnected)return;
+  const trk=(R0.pts||[]).filter(p=>okLL(num(p[0]),num(p[1]))).map(p=>[num(p[1]),num(p[0])]);
+  E.map.getSource('fc-trk').setData({type:'FeatureCollection',features:trk.length>1?[{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:trk}}]:[]});
+  if(R0.me&&okLL(num(R0.me.lat),num(R0.me.lon))){fmMe(E,R0.me);
+    if(R0.follow){const b=E.map.getBounds();const ll=[num(R0.me.lon),num(R0.me.lat)];const w=b.getEast()-b.getWest(),h=b.getNorth()-b.getSouth(),cc=b.getCenter();
+      if(Math.abs(ll[0]-cc.lng)>w*.2||Math.abs(ll[1]-cc.lat)>h*.2)E.map.easeTo({center:ll,duration:600})}}
+  const u=me();if(u&&typeof sharedWithMe==='function')sharedWithMe(u).forEach(f=>{const M=E.fr&&E.fr[f.id];if(M&&okLL(num(f.lat),num(f.lon)))M.setLngLat([num(f.lon),num(f.lat)])})}catch(e){}})(recDraw);
+
+/* ---------- sentiers d'OpenStreetMap pour un lieu sans tracé connu (API Overpass) ---------- */
+const ovKey=c=>num(c.lat).toFixed(3)+','+num(c.lon).toFixed(3);
+function ovStore(){try{return JSON.parse(localStorage.getItem(OVK)||'{}')}catch(e){return {}}}
+function fmOvpGet(c){const k=ovKey(c);if(FM.ovp[k])return FM.ovp[k];const S=ovStore();const v=S[k];if(v&&Date.now()-v.at<OVTTL){FM.ovp[k]=v.f;return v.f}return null}
+function fmOvpFetch(key,c){const k=ovKey(c);if(FM.ovBusy[k])return;FM.ovBusy[k]=Date.now();
+  const q=`[out:json][timeout:20];way["piste:type"="nordic"](around:4000,${num(c.lat).toFixed(5)},${num(c.lon).toFixed(5)});out tags geom;`;
+  fetch(OVP,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.ok?r.json():Promise.reject(new Error('Overpass '+r.status))).then(j=>{
+    const D={novice:'vert',easy:'vert',intermediate:'bleu',advanced:'noir',expert:'noir',freeride:'noir'};
+    const f=(j.elements||[]).filter(w=>w.type==='way'&&Array.isArray(w.geometry)&&w.geometry.length>1).slice(0,600).map(w=>({type:'Feature',properties:{i:-1,dif:D[(w.tags||{})['piste:difficulty']]||'inc',n:((w.tags||{})['piste:name']||(w.tags||{}).name||'').slice(0,60)},geometry:{type:'LineString',coordinates:w.geometry.map(g=>[Math.round(g.lon*1e6)/1e6,Math.round(g.lat*1e6)/1e6])}}));
+    FM.ovp[k]=f;try{const S=ovStore();Object.keys(S).forEach(x=>{if(Date.now()-S[x].at>OVTTL)delete S[x]});S[k]={at:Date.now(),f};localStorage.setItem(OVK,JSON.stringify(S))}catch(e){}
+    const E=FM.maps[key];if(E&&E.ready&&f.length){E.fitSig=null;fmData(E)}}).catch(e=>{console.warn('Sentiers OpenStreetMap indisponibles :',e.message)}).finally(()=>{setTimeout(()=>{delete FM.ovBusy[k]},60000)})}
+
+/* le thème change (clair ↔ sombre) : la carte reprend le bon fond au prochain affichage */
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{try{render()}catch(e){}})}catch(e){}
+}
 </script>
 <script>
 /* ================= Lecteur 3D FidjiCoach — phase 1 (24 oct. 2026) =================
