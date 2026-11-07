@@ -12698,7 +12698,7 @@ MOD3.p7fi=()=>{const x=userById(st.modal.u);if(!x)return ['<p>Membre introuvable
 A.p7fi=function(d){st.modal={kind:'p7fi',u:d.u};render()};
 
 /* ---------- compétitions : importer plusieurs dates d'un coup (lien, texte, fichier .ics ou calendrier Coupe Québec) ---------- */
-const CQ2627=[['Coupe Québec 1','2026-12-19','2026-12-20','Nakkertok, Gatineau','officielle'],['Coupe Québec 2','2027-01-09','2027-01-10','CNMSA, Saint-Ferréol-les-Neiges','officielle'],['Coupe Québec 3','2027-01-23','2027-01-24','Fondeurs-Laurentides, Saint-Jérôme','officielle'],
+const CQ2627=[['Coupe Québec 1','2026-12-19','2026-12-20','Nakkertok, Gatineau','officielle'],['Coupe Québec 2','2027-01-09','2027-01-10','CNMSA, Saint-Ferréol-les-Neiges','officielle'],['Coupe Québec 3','2027-01-23','2027-01-24','Fondeurs-Laurentides, Saint-Jérôme','officielle'],['Coupe Québec 4','2027-02-06','2027-02-07','Nakkertok, Gatineau','officielle'],['Coupe Québec 5','2027-02-20','2027-02-21','Ski de fond Orford, Sherbrooke','officielle'],
  ['US Super Tour','2027-01-30','2027-01-31','','officielle'],['Marathon canadien de ski','2027-02-05','2027-02-07','Montebello','officielle'],['Gatineau Loppet','2027-02-19','2027-02-21','Gatineau','officielle'],['Championnat jeunesse NorAm','2027-02-26','2027-03-01','','officielle'],
  ['Jeux du Canada 2027','2027-02-27','2027-03-05','','officielle'],['Coupe Québec 6','2027-03-12','2027-03-14','Mouski Nordique, Rimouski','officielle'],['Championnats canadiens','2027-03-22','2027-03-28','','officielle']];
 const MOIS=[['janv',1],['jan',1],['fevr',2],['fev',2],['mars',3],['mar',3],['avr',4],['mai',5],['juin',6],['juil',7],['aout',8],['sept',9],['sep',9],['oct',10],['nov',11],['dec',12]];
@@ -12725,7 +12725,7 @@ function ciSet(L,src){const M=st.modal;M.rows=L.map(x=>Object.assign({},x,{dup:c
 MOD3.ci5=()=>{const M=st.modal;const c=M.t==='club'?CC():null;const tab=M.tab||'cq';const R=M.rows;
   const T=[['cq','Coupe Québec 2026-2027'],['url','Lien web'],['txt','Copier-coller'],['ics','Fichier .ics']];
   let src='';
-  if(tab==='cq')src=`<p class="small">Le calendrier général de <b>Ski de fond Québec</b> (Coupe Québec et grands événements de la saison), tel que publié le 21 octobre 2026. Les Coupes Québec 4 et 5 n'y sont pas encore. Vérifiez les dates avant d'inscrire les athlètes.</p><div class="actions"><button class="btn btn-sm btn-accent" data-a="ciCQ">Afficher les ${CQ2627.length} événements</button></div>`;
+  if(tab==='cq')src=`<p class="small">Le calendrier général de <b>Ski de fond Québec</b> (Coupe Québec et grands événements de la saison), tel que publié le 6 novembre 2026 (Coupes Québec 1 à 6). Vérifiez les dates avant d'inscrire les athlètes.</p><div class="actions"><button class="btn btn-sm btn-accent" data-a="ciCQ">Afficher les ${CQ2627.length} événements</button></div>`;
   if(tab==='url')src=`<label class="field"><span>Adresse de la page ou du calendrier (.ics)</span><input type="url" id="ciU" value="${esc(M.url||'https://skidefondquebec.ca/evenements/calendrier-general/')}" placeholder="https://…"></label><div class="actions" style="margin-top:8px"><button class="btn btn-sm btn-accent" data-a="ciUrl">Lire le lien</button></div>
     <p class="small muted">L'app lit les dates, les noms et les lieux. Si le site bloque la lecture, ouvrez la page, sélectionnez tout (Ctrl+A ou ⌘A), copiez et collez le texte dans l'onglet « Copier-coller ».</p>`;
   if(tab==='txt')src=`<label class="field"><span>Texte de la page du calendrier</span><textarea id="ciT" rows="6" placeholder="Ex. :&#10;sam. 19 - dim. 20 déc. 2026&#10;Coupe Québec 1&#10;Lieu Nakkertok, Gatineau">${esc(M.txt||'')}</textarea></label><div class="actions" style="margin-top:8px"><button class="btn btn-sm btn-accent" data-a="ciTxt">Trouver les compétitions</button></div>`;
@@ -23083,6 +23083,297 @@ AGROUPS=(old=>function(){let g=old();if(!R.on)return g;
 /* forfait Solo : une section Pro ouvre « Mon forfait » (avec les forfaits à comparer) */
 curSec=(old=>function(){const s=old();return isSolo9()&&PRO_SECS.includes(s)?'fcforfait':s})(curSec);
 
+/* ================= Corrections 7 (7 nov. 2026) =================
+   A1. Forfait obligatoire : bandeau pour l'entraîneur sans forfait actif (ou en délai de grâce), message au client
+       quand son entraîneur ne prend plus de réservations; le serveur bloque (script SQL Corrections 7, create-checkout, subscriptions).
+   A2. Comptabilité : frais retenus par FidjiCoach et Stripe, commission rendue et forfait FidjiCoach en dépenses automatiques
+       (lecture seule); revenus des abonnements mensuels; « Net reçu » sous les revenus.
+   A3. Administrateur : Finances › Revenus de la plateforme (par mois et par entraîneur, export Excel, liens Stripe);
+       délai de grâce réglable dans Tarification des entraîneurs.
+   A4 et B. Mise en place guidée : Forfait (2e), Stripe, identité, Centres, Frais de déplacement, Tarifs (résumé), Taxes, puis le reste.
+   C6. Premier jour de la semaine (dimanche par défaut) : entraîneur et client, tous les calendriers.
+   C7. Calendrier du client : annuler un cours ou supprimer une compétition depuis le calendrier et la liste.
+   C8 et C9. Calendriers importés (lien webcal ou https, lecture seule) : vraiment lus en ligne (fonction ics-fetch),
+       relus à l'ouverture et chaque heure; renommer et retirer.
+   C10. Coupe Québec 4 et 5 : note mise à jour (pas encore publiées au 7 nov. 2026). */
+{
+const C7={cs:null,closed:null,auto:[],sub:[],rev:null,revErr:'',revBusy:false,extBusy:false,extAt:0};
+window.fcC7=C7;
+const owner7=()=>R.realRole==='admin';
+const isCoach7=()=>R.on&&R.role==='admin';
+const day7=s=>{try{return s?new Date(s).toLocaleDateString('fr-CA',{day:'numeric',month:'long',year:'numeric'}):''}catch(e){return String(s||'')}};
+const addD7=(s,n)=>{const d=new Date(s+'T12:00:00');d.setDate(d.getDate()+n);return iso(d)};
+const m7=n=>money(Math.round((Number(n)||0)*100)/100);
+
+/* ---------- A1. Forfait obligatoire ---------- */
+async function c7LoadCS(){if(!R.sb||!R.coachId||R.realRole!=='coach'){C7.cs=null;return}
+  try{const {data,error}=await R.sb.rpc('coach_charge_state',{p_coach:R.coachId});if(error)throw error;C7.cs=data||null}catch(e){C7.cs=null;if(!missing(e))console.warn('Forfait (paiements)',e.message)}}
+loadBill=(old=>async function(){await old();await c7LoadCS()})(loadBill);
+async function c7LoadClosed(){C7.closed=null;if(!R.sb||!R.coachId||R.role!=='client')return;
+  try{const {data,error}=await R.sb.rpc('coach_pay_rules',{p_coach:R.coachId});if(error)throw error;C7.closed=data&&data.closed||null}catch(e){C7.closed=null}}
+loadMe=(old=>async function(){const r=await old();try{await c7LoadClosed()}catch(e){}return r})(loadMe);
+resetLocal=(old=>function(){old();C7.cs=null;C7.closed=null;C7.auto=[];C7.sub=[];C7.rev=null})(resetLocal);
+function c7CoachNote(){const cs=C7.cs;if(!cs||cs.owner)return '';
+  if(cs.status==='en_retard'&&cs.ok)return `<p class="fc7ban warn small">Le paiement de votre forfait FidjiCoach a été refusé. Vos clients peuvent encore réserver et payer jusqu'au <b>${esc(day7(cs.grace_end))}</b>; ensuite, les réservations et les paiements en ligne seront fermés. <button class="linkbtn" data-a="fctPortal">Mettre ma carte à jour</button></p>`;
+  if(cs.ok)return '';
+  if(cs.status==='pause')return `<p class="fc7ban small">Votre forfait est en <b>pause hors saison</b> : les réservations, la location et les nouveaux abonnements en ligne sont fermés. Les parts déjà dues d'une réservation peuvent encore se payer. Écrivez à FidjiCoach pour reprendre.</p>`;
+  return `<p class="fc7ban bad small"><b>Aucun forfait FidjiCoach actif :</b> vos clients ne peuvent ni réserver, ni payer, ni s'abonner en ligne. <button class="linkbtn" data-a="nav" data-s="fcforfait">Choisir ou régler mon forfait</button></p>`}
+ASEC.fcforfait.f=(old=>()=>{const n=c7CoachNote();return (n?n:'')+old()})(ASEC.fcforfait.f);
+
+/* ---------- A2. Comptabilité de l'entraîneur ---------- */
+loadLedger=(old=>async function(){await old();if(R.role!=='admin'||!R.coachId)return;
+  try{const [a,s]=await Promise.all([R.sb.rpc('coach_auto_expenses',{p_coach:R.coachId}),R.sb.rpc('coach_sub_ledger',{p_coach:R.coachId})]);
+    if(a.error)throw a.error;if(s.error)throw s.error;C7.auto=Array.isArray(a.data)?a.data:[];C7.sub=Array.isArray(s.data)?s.data:[]}
+  catch(e){if(!missing(e))console.warn('Comptabilité (frais)',e.message)}})(loadLedger);
+const autoExp=()=>(C7.auto||[]).map(x=>({id:String(x.id),date:String(x.date||'').slice(0,10),cat:x.cat||'Frais',desc:x.desc||'',amount:Number(x.amount)||0,tps:0,tvq:0,receipt:null,auto:true,com:Number(x.com)||0,stripe:Number(x.stripe)||0}));
+moneyIn=(old=>function(){const base=old();if(!R.on||R.role!=='admin'||!(C7.sub||[]).length)return base;
+  const rows=C7.sub.map(x=>({date:x.date,who:x.client||'',what:'Abonnement '+(x.ref||''),inv:'',method:'carte',cours:r2(Number(x.cours)||0),access:0,travel:0,rent:0,total:r2(Number(x.total)||0),taxes:x.taxes||{},tax:r2(Number(x.tax_total)||0),kind:'paiement',src:'abonnement'}));
+  return base.concat(rows).sort((a,b)=>String(a.date).localeCompare(String(b.date)))})(moneyIn);
+function withAuto(fn){if(!R.on||R.role!=='admin')return fn();const keep=db.expenses;const A_=autoExp();if(!A_.length)return fn();
+  db.expenses=(keep||[]).concat(A_);try{return fn()}finally{db.expenses=keep}}
+comptaV=(old=>function(){let h=withAuto(()=>old());if(!R.on||R.role!=='admin')return h;const P=st.cp;if(!P)return h;
+  const inP=d=>d&&(P.mode==='mois'?d.slice(0,7)===P.m:d.slice(0,4)===P.y);const A_=autoExp().filter(x=>inP(x.date));
+  /* dépenses automatiques : en lecture seule */
+  A_.forEach(x=>{const id=x.id.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    h=h.replace(new RegExp('<span class="pill warn">Sans reçu</span><button class="btn-xs" data-a="expEdit" data-e="'+id+'">Modifier</button><button class="btn-xs" data-a="expDel" data-e="'+id+'">Supprimer</button>'),'<span class="pill">Automatique</span>')});
+  const fees=r2(A_.filter(x=>/^Frais de paiement/.test(x.cat)).reduce((n,x)=>n+x.amount,0));const plan=r2(A_.filter(x=>x.cat==='Forfait FidjiCoach').reduce((n,x)=>n+x.amount,0));
+  const gross=r2(moneyIn().filter(x=>inP(x.date)).reduce((n,x)=>n+(Number(x.total)||0),0));
+  if(fees||plan){const box=`<div class="cline fc7c"><span>Frais retenus par FidjiCoach et Stripe</span><b>−${money(fees)}</b></div><div class="cline fc7c tot"><span>Net reçu dans votre compte Stripe</span><b>${money(r2(gross-fees))}</b></div>`
+      +`<p class="muted small">Frais de paiement et forfait FidjiCoach${plan?' ('+money(plan)+')':''} : inscrits automatiquement dans vos dépenses ci-dessous (lecture seule).${R.realRole==='admin'?' Pour vous, les frais de Stripe sont estimés (2,9 % + 0,30 $).':''}</p>`;
+    h=h.replace(/(<span class="eyebrow">Revenus<\/span>[\s\S]*?<div class="cline tot"><span>Total<\/span><b>[^<]*<\/b><\/div>)/,'$1'+box)}
+  return h})(comptaV);
+cpXls=(old=>async function(){return await withAuto(()=>old())})(cpXls);
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-a="expEdit"],[data-a="expDel"],[data-a="expRcpt"]');if(b&&/^auto-/.test(b.dataset.e||'')){e.preventDefault();e.stopImmediatePropagation();flash('Dépense automatique : elle se met à jour toute seule.')}},true);
+
+/* ---------- A3. Revenus de la plateforme (administrateur) ---------- */
+async function c7LoadRev(){C7.revBusy=true;try{const {data,error}=await R.sb.rpc('admin_platform_revenue');if(error)throw error;C7.rev=data||{rows:[]};C7.revErr=''}
+  catch(e){C7.revErr=missing(e)?'Exécutez d\'abord le script SQL « Corrections 7 » dans Supabase.':errTxt(e)}finally{C7.revBusy=false}}
+const REVK=[['nb','Paiements'],['retenus','Frais retenus'],['stripe','Frais de Stripe'],['rendus','Commission rendue'],['commissions','Commissions nettes'],['forfaits','Forfaits payés'],['activation','dont activation'],['forfaits_stripe','Stripe (forfaits)'],['total','Total net']];
+function revPage(){if(!R.on||R.realRole!=='admin')return '<div class="empty">Réservé à l\'administrateur.</div>';
+  if(!C7.rev&&!C7.revErr&&!C7.revBusy){c7LoadRev().then(()=>render())}
+  if(C7.revErr)return `<p class="fcmsgoff">${esc(C7.revErr)}</p>`;if(!C7.rev)return '<div class="empty">Chargement…</div>';
+  const F=st.c7rf||(st.c7rf={y:new Date().getFullYear().toString(),m:'',c:''});const all=C7.rev.rows||[];
+  const years=[...new Set([F.y,...all.map(r=>String(r.mois).slice(0,4))])].sort().reverse();const coaches=[...new Map(all.map(r=>[r.coach_id,r.nom])).entries()];
+  const rows=all.filter(r=>String(r.mois).startsWith(F.y)&&(!F.m||r.mois===F.m)&&(!F.c||r.coach_id===F.c));
+  const S=k=>r2(rows.reduce((n,r)=>n+(Number(r[k])||0),0));const base=C7.rev.stripe_test?'https://dashboard.stripe.com/test/':'https://dashboard.stripe.com/';
+  const months=[...new Set(all.filter(r=>String(r.mois).startsWith(F.y)).map(r=>r.mois))].sort().reverse();
+  return `<p class="muted" style="max-width:48rem">Ce que FidjiCoach gagne sur les autres entraîneurs : commissions (après les frais de Stripe et la commission rendue lors des remboursements) et forfaits. Ces montants ne se mêlent pas à la comptabilité de vos propres cours.</p>
+  <div class="actions fc7rf" style="margin:10px 0 14px"><select data-c7rf="y" aria-label="Année">${years.map(y=>`<option ${y===F.y?'selected':''}>${y}</option>`).join('')}</select>
+    <select data-c7rf="m" aria-label="Mois"><option value="">Toute l'année</option>${months.map(m=>`<option value="${m}" ${m===F.m?'selected':''}>${esc(new Date(m+'-15').toLocaleDateString('fr-CA',{month:'long',year:'numeric'}))}</option>`).join('')}</select>
+    <select data-c7rf="c" aria-label="Entraîneur"><option value="">Tous les entraîneurs</option>${coaches.map(([id,n])=>`<option value="${esc(id)}" ${id===F.c?'selected':''}>${esc(n)}</option>`).join('')}</select>
+    <button class="btn btn-sm btn-accent" data-a="c7RevXls">Exporter en Excel</button><button class="btn btn-sm btn-plain" data-a="c7RevReload">Actualiser</button></div>
+  <div class="stats"><div class="stat"><b>${money(S('commissions'))}</b><span>commissions nettes</span></div><div class="stat"><b>${money(r2(S('forfaits')-S('forfaits_stripe')))}</b><span>forfaits nets</span></div><div class="stat"><b>${money(S('total'))}</b><span>total net</span></div></div>
+  ${rows.length?`<div class="tablewrap fc7rev"><table class="rtab"><thead><tr><th>Mois</th><th>Entraîneur</th>${REVK.map(([,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.mois)}</td><td>${esc(r.nom)}</td>${REVK.map(([k])=>`<td class="num">${k==='nb'?Number(r[k])||0:money(Number(r[k])||0)}</td>`).join('')}</tr>`).join('')}
+    <tr class="tot"><td colspan="2"><b>Total</b></td>${REVK.map(([k])=>`<td class="num"><b>${k==='nb'?S(k):money(S(k))}</b></td>`).join('')}</tr></tbody></table></div>`:'<p class="muted small">Aucun revenu pour cette période.</p>'}
+  <p class="muted small" style="margin-top:10px">Frais de Stripe estimés (${'2,9 % + 0,30 $'} par paiement, plus Stripe Billing pour les abonnements et les forfaits). Les montants exacts sont chez Stripe :
+    <a href="${base}connect/application_fees" target="_blank" rel="noopener">Connect › Frais d'application</a> · <a href="${base}subscriptions" target="_blank" rel="noopener">Facturation › Abonnements</a> · <a href="${base}balance" target="_blank" rel="noopener">Solde</a>.</p>`}
+ASEC.fcrev={l:'Revenus de la plateforme',i:'money',f:()=>revPage()};REL.fcrev=['fctarif','fcpay','compta'];
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.c7rf)return;const F=st.c7rf||(st.c7rf={y:'',m:'',c:''});F[t.dataset.c7rf]=t.value;if(t.dataset.c7rf==='y')F.m='';render()});
+A.c7RevReload=async()=>{C7.rev=null;C7.revErr='';busyOn('Lecture…');await c7LoadRev();busyOff();render()};
+A.c7RevXls=async()=>{if(!window.XLSX){flash('Le module Excel n\'est pas chargé');return}const F=st.c7rf||{};const rows=((C7.rev&&C7.rev.rows)||[]).filter(r=>String(r.mois).startsWith(F.y||'')&&(!F.m||r.mois===F.m)&&(!F.c||r.coach_id===F.c));
+  const out=rows.map(r=>{const o={'Mois':r.mois,'Entraîneur':r.nom};REVK.forEach(([k,l])=>o[l+(k==='nb'?'':' ($)')]=Number(r[k])||0);return o});
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(out.length?out:[{'(aucun revenu)':''}]),'Revenus plateforme');
+  await offerFile('revenus-fidjicoach-'+(F.m||F.y||'tout')+'.xlsx',new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})]))};
+AGROUPS=(old=>function(){let g=old();if(!R.on||R.realRole!=='admin'||g.some(([,ks])=>ks.includes('fcrev')))return g;
+  const i=g.findIndex(([n])=>n==='Finances');if(i>=0){const ks=g[i][1].slice();const j=ks.indexOf('fctarif');ks.splice(j>=0?j+1:ks.length,0,'fcrev');g[i]=[g[i][0],ks]}else g.push(['Finances',['fcrev']]);return g})(AGROUPS);
+/* délai de grâce, dans Tarification des entraîneurs */
+ASEC.fctarif.f=(old=>()=>{const h=old();if(!R.on||R.realRole!=='admin')return h;const gd=C7.rev?C7.rev.grace_days:(st.c7gd!=null?st.c7gd:14);
+  if(!C7.rev&&!C7.revBusy&&!C7.revErr)c7LoadRev().then(()=>{if(curSec()==='fctarif')render()});
+  return h+`<section class="panel fc8p"><span class="eyebrow">Forfait obligatoire</span><h3>Paiement du forfait refusé</h3>
+    <p class="small">Sans forfait actif (ou pendant la pause hors saison), un entraîneur ne reçoit plus de réservations ni de paiements en ligne. Si le paiement de son forfait est refusé, ses clients peuvent encore réserver et payer pendant le délai de grâce.</p>
+    <form id="c7grace" class="actions" style="align-items:flex-end" novalidate><label class="field" style="max-width:220px;margin:0"><span>Délai de grâce (jours)</span><input name="d" type="number" min="0" max="60" step="1" value="${esc(gd)}"></label><button class="btn btn-accent" type="submit">Enregistrer</button><button type="button" class="btn btn-plain" data-a="nav" data-s="fcrev">Revenus de la plateforme</button></form></section>`})(ASEC.fctarif.f);
+addEventListener('submit',async e=>{const f=e.target;if(!f||f.id!=='c7grace')return;e.preventDefault();e.stopImmediatePropagation();const d=Math.round(Number(f.d.value));
+  busyOn('Enregistrement…');try{const {error}=await R.sb.rpc('admin_grace_set',{p_days:d});if(error)throw error;if(C7.rev)C7.rev.grace_days=d;st.c7gd=d;flash('Délai de grâce : '+d+' jour'+(d>1?'s':'')+'.')}
+  catch(err){flash(missing(err)?'Exécutez d\'abord le script SQL « Corrections 7 ».':errTxt(err))}finally{busyOff();render()}},true);
+
+/* ---------- A4 et B. Mise en place guidée ---------- */
+const ORDER7=['contrat','forfait','stripe','identite','centres','deplacement','tarifs','taxes','dispo','logo','photo','histoire','conditions','annulation','infolettre','commanditaires'];
+const NEW7={centres:'Vos centres',deplacement:'Vos frais de déplacement',taxes:'Vos taxes (TPS et TVQ)'};
+function c7Steps(){try{if(!R.setup||!R.setup.c7)return false;
+  Object.entries(NEW7).forEach(([k,l])=>{if(!STEPS9.some(x=>x[0]===k))STEPS9.push([k,l])});
+  if(!STEPS9.some(x=>x[0]==='forfait'))STEPS9.push(['forfait','Forfait FidjiCoach']);
+  const t=STEPS9.find(x=>x[0]==='tarifs');if(t)t[1]='Vos cours et leurs prix';
+  STEPS9.sort((a,b)=>ORDER7.indexOf(a[0])-ORDER7.indexOf(b[0]));
+  const req=['contrat','forfait','stripe','identite','centres','deplacement','tarifs','taxes','dispo','logo','photo','histoire','conditions','annulation'];
+  REQ9.splice(0,REQ9.length,...req);return true}catch(e){console.warn(e);return false}}
+loadSetup=(old=>async function(){const r=await old();c7Steps();return r})(loadSetup);
+const okCentres=()=>(db.centres||[]).filter(c=>c.ok);
+function centresBody(){const L=okCentres();
+  return `<p class="small">Cochez « Autorisé » pour chaque centre où vous donnez des cours : seuls ceux-ci sont offerts à vos clients. Complétez le coût d'accès de chaque centre dans sa fiche.</p>
+  ${L.length?`<div class="fc7list">${L.map(c=>`<span>${esc(c.name)}<small>${accessFee(c)?'accès '+money(accessFee(c)):'accès non facturé'}</small></span>`).join('')}</div>`:'<p class="small fc7miss">Aucun centre autorisé pour l\'instant.</p>'}`}
+function travelBody(){const t=travelCfg()||{};const H=(ui().home||{}).name||'votre point de départ';const L=okCentres();const ok=stOk('deplacement');
+  const how=t.mode==='km'?`au kilomètre : ${money(Number(t.rate)||0)} par km${t.rt?' (aller-retour)':''}${Number(t.kmFree)?', '+t.kmFree+' km gratuits':''}${Number(t.minFee)?', minimum '+money(t.minFee):''}${Number(t.maxFee)?', maximum '+money(t.maxFee):''}`
+    :`par zones : gratuit jusqu'à ${Number(t.freeKm)||0} km, ${money(Number(t.z2Fee)||0)} jusqu'à ${Number(t.z2Km)||0} km, ${money(Number(t.z3Fee)||0)} au-delà`;
+  return `<p class="small">Calculés à partir de <b>${esc(H)}</b>, ${esc(how)}, par cours. Ils s'affichent à vos clients avant le paiement.</p>
+  ${L.length?`<div class="fc7list">${L.map(c=>{let f=0;try{f=travelFee(c)}catch(e){}return `<span>${esc(c.name)}<small>${f?money(f)+' par cours':'aucuns frais'}</small></span>`}).join('')}</div>`:'<p class="small muted">Autorisez d\'abord vos centres pour voir les montants.</p>'}
+  ${ok?'<p class="small">✓ Vous avez confirmé ces frais.</p>':''}`}
+function tarifsBody(){const T=(db.ctypes||[]).filter(c=>c.actif!==false&&!c.public&&!(c.id==='tpub1'&&/\(exemple\)/.test(c.title||''))&&Array.isArray(c.rows)&&c.rows.length);
+  const F=[['ind','individuel'],['duo','duo'],['groupe','petit groupe']];
+  return `<p class="small">${stOk('tarifs')?'Ce que vos clients voient :':'Créez au moins un type de cours avec ses prix (individuel, duo, petit groupe) dans Cours et niveaux.'}</p>
+  ${T.length?`<div class="fc7list col">${T.slice(0,6).map(c=>`<span><b>${esc(c.title||'Cours')}</b><small>${c.rows.slice(0,4).map(r=>{const p=F.filter(([k])=>r[k]!==''&&r[k]!=null&&!isNaN(Number(r[k]))).map(([k,l])=>l+' '+money(Number(r[k])));let d='';try{d=durLbl(r.dur)}catch(e){d=r.dur+' min'}return p.length?esc(d)+' : '+esc(p.join(', ')):''}).filter(Boolean).join(' · ')||'prix à entrer'}</small></span>`).join('')}</div>`:''}`}
+function taxBody(){const F=fin();const ok=stOk('taxes');const miss=F.taxOn&&F.taxes.some(t=>Number(t.rate)>0&&String(t.no||'').trim().length<4);
+  return `<p class="small">C'est votre responsabilité de percevoir la TPS et la TVQ dès que vos revenus taxables dépassent <b>30 000 $</b> sur quatre trimestres de suite (petit fournisseur). En dessous, c'est facultatif. Les taxes s'ajoutent alors à vos cours, à la location et aux abonnements, et figurent sur les factures. Vérifiez avec votre comptable.</p>
+  <label class="toggle"><span>Ajouter les taxes à mes prix</span><input type="checkbox" data-fc7tax="on" ${F.taxOn?'checked':''}></label>
+  ${F.taxOn?F.taxes.map((t,i)=>`<div class="grid2 fc7taxrow"><label class="field"><span>${esc(t.name||'Taxe')} (${esc(String(t.rate).replace('.',','))} %)</span><input type="text" data-fc7tax="no:${i}" value="${esc(t.no||'')}" placeholder="N° d'inscription ${esc(t.name||'')}" maxlength="40"></label></div>`).join(''):''}
+  ${miss?'<p class="small fc7miss">Entrez le numéro d\'inscription de chaque taxe.</p>':''}
+  ${ok?`<p class="small">✓ ${F.taxOn?'Taxes perçues et numéros entrés.':'Vous ne percevez pas de taxes pour l\'instant.'}</p>`:''}`}
+const sec7=(k,body,act)=>`<section class="fc9step${!stOk(k)&&REQ9.includes(k)?' fc7todo':''}" id="fc9-${k}"><div class="hd"><h3>${okTag(k)} ${esc((STEPS9.find(x=>x[0]===k)||[k,k])[1])}</h3>${act||''}</div>${body}</section>`;
+setupV=(old=>function(){let h=old();if(!R.on||!c7Steps()||!h.includes('id="fc9-stripe"'))return h;
+  const add=sec7('centres',centresBody(),`<span class="actions"><button type="button" class="btn btn-sm ${stOk('centres')?'btn-plain':'btn-accent'}" data-a="nav" data-s="centres">Choisir mes centres</button></span>`)
+    +sec7('deplacement',travelBody(),`<span class="actions"><button type="button" class="btn btn-sm btn-plain" data-a="nav" data-s="centres">Modifier</button>${stOk('deplacement')?'':'<button type="button" class="btn btn-sm btn-accent" data-a="c7ack" data-k="travelOk">Ces frais sont bons</button>'}</span>`)
+    +sec7('taxes',taxBody(),`<span class="actions"><button type="button" class="btn btn-sm btn-plain" data-a="nav" data-s="factu">Facturation</button>${stOk('taxes')?'':'<button type="button" class="btn btn-sm btn-accent" data-a="c7ack" data-k="taxOk">Confirmer mes taxes</button>'}</span>`);
+  h=h.replace('<section class="fc9step" id="fc9-tarifs">',add+'<section class="fc9step" id="fc9-tarifs">');
+  h=h.replace(/(<section class="fc9step" id="fc9-tarifs"><div class="hd"><h3>[\s\S]*?<\/h3>[\s\S]*?<\/div>)<p class="small">[\s\S]*?<\/p>/,(m,a)=>a.replace(/(<h3>.*?) Vos tarifs<\/h3>/,'$1 Vos cours et leurs prix</h3>')+tarifsBody());
+  /* ordre des étapes */
+  const re=/<section class="fc9step[^"]*" id="fc9-([a-z0-9]+)">[\s\S]*?<\/section>/g;const parts={};let first=-1,last=-1,m;
+  while((m=re.exec(h))){parts[m[1]]=m[0];if(first<0)first=m.index;last=m.index+m[0].length}
+  if(first>=0){const keys=Object.keys(parts).sort((a,b)=>(ORDER7.indexOf(a)+100*(ORDER7.indexOf(a)<0))-(ORDER7.indexOf(b)+100*(ORDER7.indexOf(b)<0)));
+    h=h.slice(0,first)+keys.map(k=>k==='forfait'&&!stOk('forfait')&&!owner7()?parts[k].replace('class="fc9step','class="fc9step fc7hot'):parts[k]).join('')+h.slice(last)}
+  h=h.replace(/quand les \d+ étapes obligatoires seront faites/,'quand les '+REQ9.length+' étapes obligatoires seront faites');
+  if(!owner7()&&!stOk('forfait'))h=h.replace('<form id="fc9setup"','<p class="fc7ban bad small"><b>Étape 2 : choisissez votre forfait FidjiCoach.</b> Sans forfait actif, vos clients ne peuvent ni réserver ni payer en ligne. L\'essai gratuit compte comme un forfait actif.</p><form id="fc9setup"');
+  return h})(setupV);
+A.c7ack=async d=>{const k=d.k;if(k==='taxOk'){const F=fin();if(F.taxOn&&F.taxes.some(t=>Number(t.rate)>0&&String(t.no||'').trim().length<4)){flash('Entrez d\'abord le numéro d\'inscription de chaque taxe.');return}}
+  if(k==='travelOk'&&!okCentres().length){flash('Autorisez d\'abord au moins un centre.');return}
+  const s=show9();s[k]=true;R.snap.pub=null;save();busyOn('Enregistrement…');try{await pushChanges();await loadSetup();flash(k==='taxOk'?'Taxes confirmées.':'Frais de déplacement confirmés.')}catch(e){flash(errTxt(e))}finally{busyOff();render()}};
+/* taxes dans la mise en place : mises à jour sans redessiner la page (le texte tapé ailleurs reste) */
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.fc7tax)return;const F=fin();const v=t.dataset.fc7tax;
+  if(v==='on')F.taxOn=t.checked;else if(v.startsWith('no:')){const i=Number(v.slice(3));if(F.taxes[i])F.taxes[i].no=t.value.trim()}
+  const s=show9();if(s.taxOk){s.taxOk=false}R.snap.pub=null;save();
+  const sec=document.getElementById('fc9-taxes');if(sec)sec.outerHTML=sec7('taxes',taxBody(),`<span class="actions"><button type="button" class="btn btn-sm btn-plain" data-a="nav" data-s="factu">Facturation</button><button type="button" class="btn btn-sm btn-accent" data-a="c7ack" data-k="taxOk">Confirmer mes taxes</button></span>`)});
+/* si la ville de départ ou les frais changent, la confirmation est à refaire */
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!(t.dataset.trk||t.dataset.trv))return;try{if(R.on&&R.role==='admin'){const s=show9();if(s.travelOk){s.travelOk=false;R.snap.pub=null;save()}}}catch(err){}});
+
+/* ---------- C6. Premier jour de la semaine (dimanche par défaut) ---------- */
+const WKK=()=>'fc-wk-'+(R.uid||'demo');
+function wkStart(){try{if(st.view==='admin'&&db&&db.settings)return Number(db.settings.weekStart)===1?1:0;const v=localStorage.getItem(WKK());return v==='1'?1:0}catch(e){return 0}}
+window.fcWkStart=wkStart;
+mondayOf=function(ds){const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()-((d.getDay()-wkStart()+7)%7));return iso(d)};
+const DOWC=['dow','v5dow','dw'];const isDow=el=>DOWC.some(c=>el.classList.contains(c));
+const isFill=el=>el.classList.contains('out')||el.classList.contains('nil')||(!el.children.length&&!String(el.textContent||'').trim());
+function rotGrid(g){if(g.dataset.fcwk)return;const kids=[...g.children];const hi=kids.findIndex(isDow);if(hi<0)return;const hs=kids.slice(hi,hi+7);
+  if(hs.length<7||!hs.every(isDow)||!/^(l|lun|mo|mon)/i.test(String(hs[0].textContent||'').trim()))return;
+  g.dataset.fcwk='0';const cells=kids.slice(hi+7);const full=cells.length>0&&cells.length%7===0;g.insertBefore(hs[6],hs[0]);
+  let k=0;while(k<cells.length&&isFill(cells[k]))k++;
+  const mk=ref=>{const el=document.createElement(ref?ref.tagName:'span');if(ref&&ref.classList.contains('p3d'))el.className='p3d out';else if(ref&&ref.classList.contains('v5cell'))el.className='v5cell nil';el.setAttribute('aria-hidden','true');return el};
+  if(k>=6&&cells.length>6){for(let i=0;i<6;i++)cells[i].remove();cells.splice(0,6)}
+  else{const f=mk(cells[0]);g.insertBefore(f,cells[0]||null);cells.unshift(f)}
+  if(full&&cells.length%7){const rem=cells.length%7;const tail=cells.slice(-rem);if(tail.every(isFill))tail.forEach(x=>x.remove());else for(let i=rem;i<7;i++)g.appendChild(mk(cells[cells.length-1]))}}
+function rotAll(){if(wkStart()!==0)return;const seen=new Set();document.querySelectorAll('.dow,.v5dow,.dw').forEach(h=>{const g=h.parentElement;if(g&&!seen.has(g)){seen.add(g);try{rotGrid(g)}catch(e){console.warn(e)}}})}
+let wkRaf=0;try{new MutationObserver(()=>{if(wkRaf)return;wkRaf=requestAnimationFrame(()=>{wkRaf=0;rotAll()})}).observe(document.body,{childList:true,subtree:true})}catch(e){}
+const wkSel=()=>`<label class="fc7wk small">La semaine commence le <select data-fc7wk aria-label="Premier jour de la semaine"><option value="0" ${wkStart()===0?'selected':''}>dimanche</option><option value="1" ${wkStart()===1?'selected':''}>lundi</option></select></label>`;
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||t.dataset.fc7wk===undefined)return;const v=t.value==='1'?1:0;
+  try{if(st.view==='admin'){db.settings.weekStart=v;save()}else localStorage.setItem(WKK(),String(v))}catch(err){}render();flash(v?'La semaine commence le lundi.':'La semaine commence le dimanche.')});
+
+/* ---------- C7. Calendrier du client : annuler un cours, supprimer une compétition ---------- */
+function c7Own(u,from,to){const out=[];try{
+  (db.bookings||[]).filter(b=>!b.cancelled&&(b.parts||[]).some(p=>p.userId===u.id)).forEach(b=>(b.sessions||[]).forEach(s=>{if(s.date>=from&&s.date<=to)out.push({k:'cours',d:s.date,t:s.start,b,s})}));
+  (db.events||[]).filter(e=>e.userId===u.id).forEach(e=>{const end=e.end||e.date;if(e.date<=to&&end>=from)out.push({k:'evt',d:e.date<from?from:e.date,t:'',e})})}catch(err){console.warn(err)}
+  return out.sort((a,b)=>(a.d+(a.t||'00')).localeCompare(b.d+(b.t||'00')))}
+function c7Row(u,x){if(x.k==='cours'){const b=x.b,s=x.s;const own=b.owner===u.id;const fut=hoursUntil(s)>0;let lbl='Cours';try{lbl=bDesc(b)}catch(e){}
+    const act=own&&fut&&!s.pendingMove?`<button class="btn-xs" data-a="move" data-b="${b.id}" data-s="${s.id}">Déplacer</button><button class="btn-xs" data-a="cancelS" data-b="${b.id}" data-s="${s.id}">Annuler</button>`
+      :!fut?'<span class="muted small">Passé</span>':s.pendingMove?'<span class="muted small">Déplacement demandé</span>':'<span class="muted small">Seule la personne qui a réservé peut annuler</span>';
+    return `<div class="invrow"><span><b>${esc(dfmt(s.date))} · ${esc(hfmt(s.start))}</b><br><small>${esc(lbl)}${b.lieu?' · '+esc(b.lieu):''}</small></span><span class="actions">${act}</span></div>`}
+  const e=x.e;let k=['Compétition'];try{k=EVK[e.kind]||k}catch(err){}
+  return `<div class="invrow"><span><b>${esc(dfmt(e.date))}${e.end&&e.end!==e.date?' au '+esc(dfmt(e.end)):''}</b><br><small>${esc(k[0])} · ${esc(e.title||'')}${e.lieu?' · '+esc(e.lieu):''}</small></span><span class="actions"><button class="btn-xs" data-a="c7evDel" data-e="${esc(e.id)}">Supprimer</button></span></div>`}
+clientCalV=(old=>function(u){let h=old(u);try{const C=st.v5cal;if(!C||!u)return h;
+  const list=C.view==='liste';const from=list?today():C.day,to=list?addD7(today(),45):C.day;if(!from)return h;
+  const L=c7Own(u,from,to);if(!L.length)return h;
+  const box=`<section class="panel fc7own"><span class="eyebrow">${list?'Mes cours et compétitions à venir':'Mes cours et compétitions de ce jour'}</span><div class="list" style="gap:6px;margin-top:6px">${L.map(x=>c7Row(u,x)).join('')}</div></section>`;
+  if(!list&&h.includes('<section class="panel v5dayp">'))return h.replace(/(<section class="panel v5dayp">[\s\S]*?)(<\/section>)/,'$1'+box.replace('<section class="panel fc7own">','<div class="fc7own in">').replace(/<\/section>$/,'</div>')+'$2');
+  return h.replace('<details class="panel v5exp">',box+'<details class="panel v5exp">')}catch(e){console.warn(e);return h}})(clientCalV);
+A.c7evDel=d=>{const e=(db.events||[]).find(x=>x.id===d.e);if(!e)return;if(!confirm('Supprimer « '+(e.title||'cet événement')+' » de votre calendrier?'))return;A.evDel({e:d.e});flash('Supprimé de votre calendrier.')};
+
+/* ---------- C8 et C9. Calendriers importés (Apple, Google, Outlook, club) ---------- */
+const extList=()=>{const S=db.settings;if(!Array.isArray(S.extCals))S.extCals=[];return S.extCals};
+function icsParse(txt,from,to){txt=String(txt||'').replace(/\r?\n[ \t]/g,'');const out=[];const pad=n=>String(n).padStart(2,'0');const dstr=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  const pd=(v,prm)=>{const m=String(v||'').match(/(\d{4})(\d\d)(\d\d)(?:T(\d\d)(\d\d)(\d\d)?)?(Z)?/);if(!m)return null;if(!m[4]||/VALUE=DATE(?!-)/.test(prm||''))return {all:true,d:new Date(+m[1],m[2]-1,+m[3],12)};
+    return {all:false,d:m[7]?new Date(Date.UTC(+m[1],m[2]-1,+m[3],+m[4],+m[5])):new Date(+m[1],m[2]-1,+m[3],+m[4],+m[5])}};
+  const un=s=>String(s||'').replace(/\\n/gi,' ').replace(/\\([,;\\])/g,'$1').trim();
+  const BD={SU:0,MO:1,TU:2,WE:3,TH:4,FR:5,SA:6};
+  String(txt).split(/BEGIN:VEVENT/).slice(1).forEach(blk=>{blk=blk.split(/END:VEVENT/)[0];const g=k=>{const m=blk.match(new RegExp('^'+k+'((?:;[^:\\n]*)?):(.*)$','m'));return m?{p:m[1],v:m[2].trim()}:null};
+    if(/^STATUS:CANCELLED/m.test(blk))return;const S0=g('DTSTART');if(!S0)return;const s=pd(S0.v,S0.p);if(!s)return;const E0=g('DTEND');let e=E0?pd(E0.v,E0.p):null;
+    if(!e)e={all:s.all,d:new Date(s.d.getTime()+(s.all?864e5:36e5))};const dur=Math.max(0,e.d-s.d);const title=un((g('SUMMARY')||{}).v)||'Occupé';
+    const ex=new Set();(blk.match(/^EXDATE[^:\n]*:(.*)$/gm)||[]).forEach(l=>l.split(':').pop().split(',').forEach(x=>{const q=pd(x);if(q)ex.add(dstr(q.d))}));
+    const push=st0=>{const ds=dstr(st0);if(ex.has(ds))return;if(ds<from||ds>to)return;const en=new Date(st0.getTime()+dur);
+      out.push(s.all?{date:ds,start:'00:00',end:'23:59',title,allday:true}:{date:ds,start:pad(st0.getHours())+':'+pad(st0.getMinutes()),end:dstr(en)===ds?pad(en.getHours())+':'+pad(en.getMinutes()):'23:59',title})};
+    const rr=(g('RRULE')||{}).v||'';if(!rr){push(s.d);return}
+    const P=Object.fromEntries(rr.split(';').map(x=>x.split('=')));const iv=Math.max(1,Number(P.INTERVAL)||1);const cnt=Number(P.COUNT)||0;const until=P.UNTIL?pd(P.UNTIL):null;
+    const days=(P.BYDAY||'').split(',').map(x=>BD[x.slice(-2)]).filter(x=>x!==undefined);let n=0;const lim=new Date(to+'T23:59:59');
+    for(let i=0;i<800;i++){let c;if(P.FREQ==='DAILY')c=[new Date(s.d.getTime()+i*iv*864e5)];
+      else if(P.FREQ==='WEEKLY'){const w0=new Date(s.d.getTime()+i*iv*7*864e5);const ds=days.length?days:[s.d.getDay()];c=ds.map(dw=>{const x=new Date(w0);x.setDate(x.getDate()+((dw-w0.getDay()+7)%7));return x}).sort((a,b)=>a-b)}
+      else if(P.FREQ==='MONTHLY'){const x=new Date(s.d);x.setMonth(x.getMonth()+i*iv);c=x.getDate()===s.d.getDate()?[x]:[]}
+      else if(P.FREQ==='YEARLY'){const x=new Date(s.d);x.setFullYear(x.getFullYear()+i*iv);c=[x]}else{push(s.d);return}
+      let stop=false;for(const x of c){if(x<s.d)continue;if(until&&x>until.d){stop=true;break}if(cnt&&n>=cnt){stop=true;break}n++;if(x>lim){stop=true;break}push(x)}
+      if(stop)break}});
+  return out.slice(0,3000)}
+async function extRefresh(force){if(!R.on||R.role!=='admin'||C7.extBusy)return;const L=extList();if(!L.length)return;if(!force&&Date.now()-C7.extAt<55*60000)return;
+  C7.extBusy=true;let bad=0;const from=addD7(today(),-14),to=addD7(today(),180);
+  try{for(const c of L){try{const r=await fcInvoke('ics-fetch',{url:c.url});const ev=icsParse(r&&r.text,from,to);c.err='';c.n=ev.length;c.at=new Date().toISOString();
+        db.perso=(db.perso||[]).filter(p=>p.cal!==c.id).concat(ev.map((x,i)=>Object.assign({id:'x'+c.id+'-'+i,cal:c.id,ext:true},x)))}
+      catch(e){bad++;c.err=missing(e)?'Fonction « ics-fetch » à créer dans Supabase.':await errMsg(e)}}
+    extSyncCals();save();C7.extAt=Date.now()}finally{C7.extBusy=false}
+  if(bad&&force)flash('Calendrier : '+(L.find(c=>c.err)||{}).err)}
+function extSyncCals(){const L=extList();db.cals=(db.cals||[]).filter(c=>!c.ext||L.some(x=>x.id===c.id));
+  L.forEach(x=>{let c=db.cals.find(y=>y.id===x.id);if(!c){c={id:x.id,ext:true,color:x.color||'var(--wax-blue)',show:x.show!==false};db.cals.push(c)}c.name=x.name;c.url=x.url;c.ext=true});
+  db.perso=(db.perso||[]).filter(p=>!p.ext||L.some(x=>x.id===p.cal))}
+loadCoachSide=(old=>async function(){await old();try{extSyncCals();extRefresh(true).then(()=>render())}catch(e){console.warn(e)}})(loadCoachSide);
+setInterval(()=>{if(R.on&&R.role==='admin'&&document.visibilityState==='visible')extRefresh(false).then(()=>{if(!st.modal)render()})},10*60000);
+addEventListener('submit',async e=>{const f=e.target;if(!f||f.id!=='calForm'||!R.on||R.role!=='admin')return;e.preventDefault();e.stopImmediatePropagation();
+  const inp=document.getElementById('calUrl');const v=(inp&&inp.value||'').trim();if(!/^(webcal|webcals|https):\/\//i.test(v)){flash('Collez un lien qui commence par webcal:// ou https://');return}
+  const L=extList();if(L.some(x=>x.url===v)){flash('Ce calendrier est déjà ajouté.');return}
+  busyOn('Lecture du calendrier…');try{const r=await fcInvoke('ics-fetch',{url:v});const ev=icsParse(r&&r.text,addD7(today(),-14),addD7(today(),180));
+    const nm=((String(r&&r.text||'').match(/^X-WR-CALNAME:(.*)$/m)||[])[1]||'').trim()||('Calendrier '+(L.length+1));
+    const id='ext'+Date.now().toString(36);L.push({id,name:nm.slice(0,60),url:v,show:true,color:['var(--wax-blue)','var(--wax-violet)','var(--wax-klister)','var(--ok)'][L.length%4],n:ev.length,at:new Date().toISOString()});
+    extSyncCals();db.perso=(db.perso||[]).concat(ev.map((x,i)=>Object.assign({id:'x'+id+'-'+i,cal:id,ext:true},x)));save();C7.extAt=Date.now();
+    flash('Calendrier « '+nm+' » ajouté : '+ev.length+' événement'+(ev.length>1?'s':'')+' à venir.')}
+  catch(err){flash(missing(err)?'Fonction « ics-fetch » à créer dans Supabase (guide, partie B).':'Calendrier : '+await errMsg(err))}finally{busyOff();render()}},true);
+A.fc7calRen=d=>{const c=(db.cals||[]).find(x=>x.id===d.c);if(!c)return;const v=prompt('Nouveau nom du calendrier :',c.name||'');if(v==null)return;const n=v.trim().slice(0,60);if(!n){flash('Le nom ne peut pas être vide.');return}
+  c.name=n;const x=extList().find(y=>y.id===c.id);if(x)x.name=n;save();render();flash('Calendrier renommé.')};
+A.fc7calDel=d=>{const c=(db.cals||[]).find(x=>x.id===d.c);if(!c)return;if(!confirm('Retirer le calendrier « '+c.name+' » de FidjiCoach? (Rien n\'est effacé dans votre calendrier d\'origine.)'))return;
+  const S=db.settings;S.extCals=extList().filter(y=>y.id!==c.id);db.cals=db.cals.filter(y=>y.id!==c.id);db.perso=(db.perso||[]).filter(p=>p.cal!==c.id);save();render();flash('Calendrier retiré.')};
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.cal)return;const x=R.on&&extList().find(y=>y.id===t.dataset.cal);if(x){x.show=t.checked;save()}},true);
+A.c7extNow=async()=>{busyOn('Lecture des calendriers…');await extRefresh(true);busyOff();render();flash('Calendriers relus.')};
+
+/* ---------- décor : bandeaux, renommer, premier jour, Coupe Québec ---------- */
+decorate=(old=>function(){old();try{
+  const main=document.querySelector('.admmain')||document.querySelector('main');
+  /* entraîneur : forfait inactif ou délai de grâce */
+  if(R.on&&R.role==='admin'&&st.view==='admin'&&R.realRole==='coach'&&main&&!main.querySelector('.fc7ban')&&curSec()!=='fcforfait'&&curSec()!=='setup9'){const n=c7CoachNote();if(n)main.insertAdjacentHTML('afterbegin',n)}
+  /* client : entraîneur qui ne prend plus de réservations */
+  if(R.on&&R.role==='client'&&C7.closed&&main&&!main.querySelector('.fc7ban'))main.insertAdjacentHTML('afterbegin',`<p class="fc7ban warn small">${esc(C7.closed)}</p>`);
+  /* calendriers : renommer, retirer, relire */
+  document.querySelectorAll('input[data-cal]').forEach(i=>{const lab=i.closest('label');if(!lab||lab.nextElementSibling&&lab.nextElementSibling.classList.contains('fc7calact'))return;
+    const c=(db.cals||[]).find(x=>x.id===i.dataset.cal);const x=R.on&&extList().find(y=>y.id===i.dataset.cal);
+    lab.insertAdjacentHTML('afterend',`<span class="fc7calact">${x&&x.err?`<span class="small fc7miss">${esc(x.err)}</span>`:x?`<span class="muted small">${x.n||0} événement${(x.n||0)>1?'s':''} · lu ${esc(x.at?new Date(x.at).toLocaleTimeString('fr-CA',{hour:'2-digit',minute:'2-digit'}):'')}</span>`:''}<button class="btn-xs" data-a="fc7calRen" data-c="${esc(i.dataset.cal)}">Renommer</button>${c&&(c.ext||!R.on)?`<button class="btn-xs" data-a="fc7calDel" data-c="${esc(i.dataset.cal)}">Retirer</button>`:''}</span>`)});
+  const cf=document.getElementById('calForm');if(cf&&R.on&&!cf.dataset.c7){cf.dataset.c7='1';const sp=cf.querySelector('.field>span');if(sp)sp.textContent='Ajouter un calendrier (lien webcal:// ou https:// d\'Apple, Google, Outlook ou d\'un club)';
+    const p=cf.nextElementSibling;if(p&&p.tagName==='P')p.innerHTML='Apple : partagez le calendrier en « Calendrier public » et copiez le lien. Google : Paramètres de l\'agenda › Adresse secrète au format iCal. Le calendrier est relu à l\'ouverture et chaque heure, en lecture seule; vos clients ne le voient jamais.'+(extList().length?' <button class="linkbtn" data-a="c7extNow">Relire maintenant</button>':'')}
+  /* premier jour de la semaine */
+  const ca=document.querySelector('.cal.adm .legend');if(ca&&!ca.parentElement.querySelector('.fc7wk'))ca.insertAdjacentHTML('afterend',wkSel());
+  const ct=document.querySelector('.v5caltool');if(ct&&!ct.querySelector('.fc7wk'))ct.insertAdjacentHTML('beforeend',wkSel());
+  /* Coupe Québec 4 et 5 */
+  document.querySelectorAll('p.small').forEach(p=>{if(!p.dataset.c7cq&&/Les Coupes Québec 4 et 5 n'y sont pas encore\./.test(p.textContent)){p.dataset.c7cq='1';p.innerHTML=p.innerHTML.replace(/Les Coupes Québec 4 et 5 n'y sont pas encore\./,'Les Coupes Québec 4 et 5 n\'y sont pas encore (vérifié le 7 nov. 2026; la Coupe Québec 5 est annoncée à Orford, à Sherbrooke). Ajoutez-les avec « + Compétition » dès que les dates sont publiées.')}});
+  rotAll()}catch(e){console.warn('Corrections 7',e)}})(decorate);
+
+document.head.insertAdjacentHTML('beforeend',`<style>
+.fc7ban{border-radius:10px;padding:10px 14px;margin:0 0 14px;background:var(--surface-2);border-left:4px solid var(--accent)}
+.fc7ban.warn{background:var(--warn-soft);border-left-color:var(--warn)}
+.fc7ban.bad{background:var(--warn-soft);border-left-color:var(--bad,#c0392b)}
+.fc9step.fc7hot{outline:2px solid var(--accent);outline-offset:2px}
+.fc7list{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.fc7list>span{display:flex;flex-direction:column;background:var(--surface-2);border-radius:8px;padding:6px 10px;font-size:.9rem;min-width:0;overflow-wrap:anywhere}
+.fc7list.col{flex-direction:column}
+.fc7list small{color:var(--muted)}
+.fc7miss{color:var(--bad,#c0392b)}
+.fc7calact{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end;margin:-4px 0 8px}
+.fc7wk{display:inline-flex;gap:6px;align-items:center;margin:8px 0 0}
+.fc7wk select{width:auto;padding:5px 8px}
+.fc7own{margin-top:12px}.fc7own.in{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.fc7rf select{width:auto;max-width:100%}
+.fc7rev table{min-width:860px}.fc7rev td.num{text-align:right;white-space:nowrap}.fc7rev tr.tot td{border-top:2px solid var(--line)}
+.cline.fc7c b{white-space:nowrap}
+</style>`);
+}
+
 /* PWA : fonctions internes dont l'app installable a besoin (notifications touchées, hors ligne) */
 window.fcPwaHooks={loadNotifs,nAny,syncAll,errTxt};
 R.bootP=bootReal();R.bootP.then(stripeReturn).catch(e=>console.error(e));
@@ -23911,100 +24202,10 @@ if(typeof render==='function')render=(old=>function(){const r=old.apply(this,arg
 if(typeof EN5==='object')Object.assign(EN5,{'Application et notifications':'App and notifications','Installer':'Install','Comment installer':'How to install','Activer sur cet appareil':'Turn on on this device','Couper sur cet appareil':'Turn off on this device','Envoyer un essai':'Send a test','Plus tard':'Later','Actualiser':'Refresh','Rappels de cours':'Lesson reminders'});
 })();
 </script>
-<style>
-/* ================= Corrections 5 (5 nov. 2026) : verrou Face ID / Touch ID / empreinte ================= */
-#fclock{position:fixed;inset:0;z-index:300;background:var(--navy,#13325b);color:#fff;display:grid;place-items:center;padding:24px;text-align:center}
-#fclock .box{max-width:360px;width:100%}
-#fclock img{width:150px;max-width:70%;height:auto;margin:0 auto 14px;display:block;background:#fff;border-radius:16px;padding:10px}
-#fclock h2{color:#fff;margin:0 0 6px;font-family:var(--f-display,inherit)}
-#fclock p{color:rgba(255,255,255,.85);min-height:1.4em;margin:0 0 16px}
-#fclock .btn{margin:4px}
-#fclock .btn-plain{background:transparent;color:#fff;border-color:rgba(255,255,255,.5)}
-.fclockrow .small{display:block;margin-top:3px}
-</style>
 <script>
-/* ================= Corrections 5 (5 nov. 2026) : verrou à l'ouverture (Face ID, Touch ID, empreinte, Windows Hello) =================
-   - Réglage PAR APPAREIL (gardé dans ce navigateur ou cette app installée), proposé dans « Application et notifications ».
-   - À l'ouverture de FidjiCoach (et après 5 minutes en arrière-plan), un voile demande la vérification biométrique de l'appareil (WebAuthn,
-     authentificateur de la plateforme). Rien ne change à la connexion Supabase : la session reste la même; le verrou s'ajoute par-dessus.
-   - Sans capteur ou si la vérification échoue : « Se déconnecter » ramène à la page de connexion (mot de passe). */
-(function(){
-const R=window.fcReal||{};
-const KEY='fc-lock',RELOCK_MS=5*60000;
-const LS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return null}};
-const cfg=()=>{try{const c=JSON.parse(LS(KEY)||'null');return c&&c.id?c:null}catch(e){return null}};
-const b64u=buf=>btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-const unb64=s=>{const t=String(s||'').replace(/-/g,'+').replace(/_/g,'/');const p=t+'='.repeat((4-t.length%4)%4);return Uint8Array.from(atob(p),c=>c.charCodeAt(0))};
-const rnd=n=>crypto.getRandomValues(new Uint8Array(n));
-const can=()=>!!(window.PublicKeyCredential&&navigator.credentials&&navigator.credentials.get&&location.protocol==='https:');
-const ua=navigator.userAgent;
-const isIOS=/iP(hone|ad|od)/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-const bioName=()=>isIOS?'Face ID ou Touch ID':/Android/i.test(ua)?'l\'empreinte ou le visage':/Mac/.test(ua)?'Touch ID':/Windows/.test(ua)?'Windows Hello':/CrOS/.test(ua)?'l\'empreinte ou le NIP du Chromebook':'la vérification de l\'appareil';
-const L={locked:false,busy:false,hiddenAt:0,avail:null,booted:false};
-window.FCLOCK=L;
-const logged=()=>{try{const u=me();return !!(R.on&&u)}catch(e){return false}};
-const errMsg=e=>{const n=e&&e.name||'';if(n==='NotAllowedError')return 'Vérification annulée ou refusée.';if(n==='InvalidStateError')return 'Ce verrou n\'est plus reconnu par l\'appareil.';if(n==='SecurityError')return 'Vérification refusée par le navigateur.';return (e&&e.message)||String(e||'erreur')};
-async function checkAvail(){if(L.avail!==null)return L.avail;try{L.avail=can()&&!!(await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())}catch(e){L.avail=false}return L.avail}
-
-/* ---------- voile ---------- */
-const ov=document.createElement('div');ov.id='fclock';ov.hidden=true;ov.setAttribute('role','dialog');ov.setAttribute('aria-label','FidjiCoach verrouillée');
-ov.innerHTML=`<div class="box"><img src="/fidjicoach-logo.png" alt="FidjiCoach"><h2>FidjiCoach est verrouillée</h2><p data-m>Déverrouillez avec ${bioName()}.</p><div><button class="btn btn-accent" data-a="fcUnlock">Déverrouiller</button><button class="btn btn-plain" data-a="fcLockLogout">Se déconnecter</button></div></div>`;
-document.body.appendChild(ov);
-const msg=t=>{const m=ov.querySelector('[data-m]');if(m)m.textContent=t};
-function show(){if(!cfg())return;L.locked=true;ov.hidden=false;try{document.activeElement&&document.activeElement.blur()}catch(e){}}
-function hide(){L.locked=false;ov.hidden=true}
-async function unlock(auto){const c=cfg();if(!c){hide();return}if(L.busy)return;L.busy=true;msg('Vérification…');
-  try{const cred=await navigator.credentials.get({publicKey:{challenge:rnd(32),rpId:location.hostname,allowCredentials:[{id:unb64(c.id),type:'public-key',transports:['internal']}],userVerification:'required',timeout:60000}});
-    if(cred){hide();return}msg('Touchez « Déverrouiller » pour utiliser '+bioName()+'.')}
-  catch(e){console.warn('verrou',e);
-    if(e&&e.name==='InvalidStateError'){msg('Ce verrou n\'est plus reconnu : déconnectez-vous, puis réactivez-le dans les réglages.');}
-    else msg(auto?'Touchez « Déverrouiller » pour utiliser '+bioName()+'.':errMsg(e)+' Réessayez, ou déconnectez-vous pour entrer votre mot de passe.')}
-  finally{L.busy=false}}
-A.fcUnlock=()=>unlock(false);
-A.fcLockLogout=()=>{hide();try{if(typeof A.logout==='function')A.logout()}catch(e){console.warn(e)}};
-
-/* ---------- activer / désactiver (réglages) ---------- */
-A.fcLockOn=async()=>{const u=me();if(!u){flash('Connectez-vous d\'abord.');return}
-  if(!(await checkAvail())){flash('Aucune vérification biométrique disponible sur cet appareil (ou navigateur non compatible).');return}
-  try{const cred=await navigator.credentials.create({publicKey:{challenge:rnd(32),rp:{name:'FidjiCoach',id:location.hostname},
-      user:{id:rnd(16),name:u.email||'fidjicoach',displayName:(typeof name==='function'&&name(u))||'FidjiCoach'},
-      pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
-      authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'discouraged'},timeout:60000,attestation:'none'}});
-    if(!cred)throw new Error('Aucune clé créée.');
-    LS(KEY,JSON.stringify({id:b64u(cred.rawId),at:Date.now(),who:u.email||''}));
-    flash('Verrou activé sur cet appareil : '+bioName()+' sera demandé à l\'ouverture de FidjiCoach.');inject(true)}
-  catch(e){console.warn(e);flash('Activation impossible : '+errMsg(e))}};
-A.fcLockOff=async()=>{const c=cfg();if(!c){inject(true);return}
-  try{const cred=await navigator.credentials.get({publicKey:{challenge:rnd(32),rpId:location.hostname,allowCredentials:[{id:unb64(c.id),type:'public-key',transports:['internal']}],userVerification:'required',timeout:60000}});
-    if(!cred)throw new Error('Vérification non faite.')}
-  catch(e){if(!(e&&e.name==='InvalidStateError')){flash('Pour désactiver le verrou, la vérification est demandée : '+errMsg(e));return}}
-  LS(KEY,null);hide();flash('Verrou désactivé sur cet appareil.');inject(true)};
-
-/* ---------- rangée dans le panneau « Application et notifications » ---------- */
-function rowHtml(){const c=cfg();const av=L.avail;
-  const st_=c?'<span class="st on">Activé</span>':av===false?'<span class="st bad">Non disponible</span>':'<span class="st">Désactivé</span>';
-  const btn=c?`<button class="btn btn-sm btn-plain" data-a="fcLockOff">Désactiver</button>`:av===false?'':`<button class="btn btn-sm btn-accent" data-a="fcLockOn">Activer</button>`;
-  const note=av===false?'Aucune vérification biométrique trouvée sur cet appareil (ou navigateur non compatible). Sur iPhone, utilisez l\'app installée depuis l\'écran d\'accueil.'
-    :`Demande ${bioName()} quand FidjiCoach s'ouvre sur cet appareil (et après 5 minutes en arrière-plan). Réglage propre à cet appareil : il ne change rien à votre connexion ni aux autres appareils.`;
-  return `<div class="row fclockrow"><span><b>Verrou à l'ouverture</b> ${st_}<span class="muted small">${note}</span></span><span>${btn}</span></div>`}
-function inject(force){const p=document.getElementById('fcpwaP');if(!p)return;const old=p.querySelector('.fclockrow');
-  if(old&&!force)return;const h=rowHtml();if(old)old.outerHTML=h;else{const last=[...p.querySelectorAll(':scope > .row')].pop();if(last)last.insertAdjacentHTML('afterend',h);else p.insertAdjacentHTML('beforeend',h)}}
-let mo_t=0;new MutationObserver(()=>{if(mo_t)return;mo_t=requestAnimationFrame(()=>{mo_t=0;try{inject(false)}catch(e){}})}).observe(document.body,{childList:true,subtree:true});
-
-/* ---------- quand verrouiller ---------- */
-if(cfg())show();                                   /* dès l'ouverture, avant même de savoir si on est connecté (rien ne s'affiche en dessous) */
-async function boot(){await checkAvail();L.booted=true;
-  if(!cfg()){hide();return}
-  if(!logged()){hide();return}                       /* pas connecté : la page de connexion (mot de passe) suffit */
-  if(!L.avail){hide();flash('Verrou à l\'ouverture : aucune vérification biométrique disponible sur cet appareil.');return}
-  show();unlock(true)}
-(R.bootP||Promise.resolve()).then(()=>setTimeout(boot,150)).catch(()=>setTimeout(boot,150));
-setTimeout(()=>{if(!L.booted)boot()},6000);         /* filet : jamais un voile coincé */
-if(typeof afterLogin==='function')afterLogin=(old=>function(){const r=old.apply(this,arguments);if(L.booted&&L.locked&&!L.busy)hide();return r})(afterLogin);
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){L.hiddenAt=Date.now();return}
-  if(cfg()&&logged()&&L.avail&&!L.locked&&L.hiddenAt&&Date.now()-L.hiddenAt>RELOCK_MS){show();unlock(true)}});
-if(typeof EN5==='object')Object.assign(EN5,{'Verrou à l\'ouverture':'Lock on open','Déverrouiller':'Unlock','Se déconnecter':'Sign out','FidjiCoach est verrouillée':'FidjiCoach is locked','Activé':'On','Désactivé':'Off','Non disponible':'Unavailable'});
-})();
+/* ================= Corrections 7 (7 nov. 2026) : verrou Face ID retiré =================
+   Le gestionnaire de mots de passe de Google ou d'Apple fait déjà Face ID à la connexion. On efface le réglage resté sur l'appareil. */
+try{localStorage.removeItem('fc-lock')}catch(e){}
 </script>
 
 <style>
