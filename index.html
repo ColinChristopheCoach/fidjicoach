@@ -23374,6 +23374,224 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 </style>`);
 }
 
+/* ================= Corrections 8 (7 nov. 2026) =================
+   A1. Changement de compte sur le même appareil : les données locales du compte précédent sont rangées à part
+       (sous son identifiant) et le nouveau compte repart de ses propres données. L'image de marque, les réglages
+       et la vitrine ne passent plus d'un compte à l'autre (bogue : logo de l'entraîneur test chez l'administrateur).
+       Nettoyage unique du compte fondateur : image de marque venue d'un autre compte retirée (retour aux logos d'origine).
+   A2. Numéro de version visible (menu et Réglages); vérification d'une version plus récente (version.txt) à l'ouverture
+       et au retour dans l'app; l'app installée se met à jour seule au retour si rien n'est en cours.
+   B3. Bouton Actualiser à côté de Précédent (app installée et web) : recharge la nouvelle version, garde la connexion et l'écran.
+   C4. Centres : liste de tous les lieux de ski de fond du Québec avec une case à cocher chacun, filtres région et ville,
+       recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
+   D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
+{
+const FC_BUILD='2026-11-07-c8';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='7 nov. 2026 · Corrections 8';
+window.FC_BUILD=FC_BUILD;
+const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
+window.fcC8=C8;
+const LSg=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
+const LSs=(k,v)=>{try{if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,v);return true}catch(e){return false}};
+
+/* ---------- A1. Un appareil, plusieurs comptes ---------- */
+const OWN='fc-owner',PARK='fidjicoach-reel-1@',PARKL='fc-owner-parked';
+function c8Park(prev){
+  const big=(k,v)=>typeof v==='string'&&v.length>60000&&/^data:/.test(v)?'':v;
+  let ok=LSs(PARK+prev,JSON.stringify(db));if(!ok)ok=LSs(PARK+prev,JSON.stringify(db,big));
+  let L=[];try{L=JSON.parse(LSg(PARKL)||'[]')}catch(e){L=[]}L=[prev].concat(L.filter(x=>x!==prev));
+  while(L.length>3){LSs(PARK+L.pop(),null)}                      /* au plus 3 comptes rangés sur l'appareil */
+  if(!ok)L=L.filter(x=>x!==prev);LSs(PARKL,JSON.stringify(L))}
+function c8Swap(id){let next=null;try{const s=LSg(PARK+id);if(s)next=JSON.parse(s)}catch(e){next=null}
+  LSs(PARK+id,null);try{let L=JSON.parse(LSg(PARKL)||'[]');LSs(PARKL,JSON.stringify(L.filter(x=>x!==id)))}catch(e){}
+  if(!next||typeof next!=='object')next=cleanDb(seed());
+  Object.keys(db).forEach(k=>{delete db[k]});Object.assign(db,next);db.users=[];db.session=null;
+  R.snap={};fcPersist()}
+C8.t={park:c8Park,swap:c8Swap};
+loadMe0=(old=>async function(){try{if(R.sb){const {data}=await R.sb.auth.getSession();const id=data&&data.session&&data.session.user&&data.session.user.id;
+    if(id){const prev=LSg(OWN);if(prev&&prev!==id){c8Park(prev);c8Swap(id)}LSs(OWN,id)}}}
+  catch(e){console.warn('Corrections 8 (compte)',e&&e.message||e)}
+  return old.apply(this,arguments)})(loadMe0);
+/* compte fondateur : une seule fois, on retire l'image de marque venue d'un autre compte (les logos d'origine reviennent) */
+loadCoachSide=(old=>async function(){await old();try{if(R.realRole==='admin'){const s=db.settings||(db.settings={});
+    if(!s.c8brand){s.c8brand=1;if(s.brand)delete s.brand;R.snap.priv=null;fcPersist();setTimeout(queueSync,300)}}}
+  catch(e){console.warn(e)}})(loadCoachSide);
+
+/* ---------- A2. Version visible et nouvelle version ---------- */
+const standalone8=()=>{try{return !!(navigator.standalone===true||matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: minimal-ui)').matches)}catch(e){return false}};
+const verTxt=()=>'Version du '+FC_BUILD_LBL+(standalone8()?' · app installée':' · navigateur');
+async function c8Remote(){if(navigator.onLine===false||!/^https?:/.test(location.protocol))return null;
+  try{const r=await fetch('/version.txt?t='+Date.now(),{cache:'no-store'});if(!r.ok)return null;const t=(await r.text()).trim();return /^\d{4}-\d{2}-\d{2}[-a-z0-9]*$/i.test(t)?t:null}catch(e){return null}}
+function c8Safe(){try{if(st.modal||st.R||st.rec||st.v5open)return false;const a=document.activeElement;if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))return false;
+    if(document.querySelector('.stctl,#fdRadar,.mqrun,.fcq:not([hidden])'))return false;return true}catch(e){return false}}
+async function c8Check(resume){const t=await c8Remote();if(!t||!(t>FC_BUILD))return;C8.newer=t;c8Paint();
+  if(resume&&c8Safe()){c8Reload();return}
+  if(!C8.told){C8.told=true;try{flash(lang()==='en'?'A new version of FidjiCoach is available: tap ↻ Refresh.':'Nouvelle version de FidjiCoach : touchez ↻ Actualiser.')}catch(e){}}}
+setTimeout(()=>c8Check(false),5000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){C8.hiddenAt=Date.now();return}
+  const away=C8.hiddenAt&&Date.now()-C8.hiddenAt>60000;C8.hiddenAt=0;
+  try{if('serviceWorker' in navigator)navigator.serviceWorker.getRegistration('/').then(r=>{if(r)r.update().catch(()=>{})}).catch(()=>{})}catch(e){}
+  if(away)c8Check(true)});
+/* version du service worker (réserve hors ligne), pour la comparer d'un appareil à l'autre */
+try{if('serviceWorker' in navigator){navigator.serviceWorker.addEventListener('message',e=>{const d=e.data||{};if(d.type==='VERSION'){C8.sw=d.version||null;c8Decor()}});
+  navigator.serviceWorker.ready.then(r=>{const w=navigator.serviceWorker.controller||r.active;if(w)w.postMessage({type:'VERSION'})}).catch(()=>{})}}catch(e){}
+
+/* ---------- B3. Actualiser (garde la connexion et l'écran) ---------- */
+const NAVK=['view','tab','ptab','gtab','aSec','p3on','p3c','p3p','p3sub','p3pg','p3pl','pubPage','trTab','selfTab','inSelf','mtab','supTab','coTab','fbTab','agv','client','conv'];
+function c8SaveNav(){try{const o={};NAVK.forEach(k=>{const v=st[k];if(v==null||['string','number','boolean'].includes(typeof v))o[k]=v==null?null:v});
+  sessionStorage.setItem('fc8-nav',JSON.stringify({at:Date.now(),who:R.uid||null,y:window.scrollY||0,o}))}catch(e){}}
+function c8RestoreNav(){let s=null;try{s=JSON.parse(sessionStorage.getItem('fc8-nav')||'null');sessionStorage.removeItem('fc8-nav')}catch(e){s=null}
+  if(!s||Date.now()-s.at>120000||(s.who||null)!==(R.uid||null))return;
+  try{Object.keys(s.o||{}).forEach(k=>{st[k]=s.o[k]});render();setTimeout(()=>window.scrollTo(0,s.y||0),80)}catch(e){console.warn('Actualiser',e)}}
+loadMe=(old=>async function(){const r=await old.apply(this,arguments);if(r)setTimeout(c8RestoreNav,450);return r})(loadMe);
+setTimeout(()=>{try{if(R.bootP)R.bootP.then(()=>setTimeout(()=>{if(!R.on)c8RestoreNav()},500)).catch(()=>{})}catch(e){}},0);
+async function c8Reload(){if(C8.busy)return;C8.busy=true;try{busyOn(lang()==='en'?'Refreshing…':'Actualisation…')}catch(e){}
+  try{if(R.on)await Promise.race([pushChanges(),new Promise(r=>setTimeout(r,3000))])}catch(e){}
+  c8SaveNav();
+  try{if('serviceWorker' in navigator){const reg=await navigator.serviceWorker.getRegistration('/');
+    if(reg){try{await Promise.race([reg.update(),new Promise(r=>setTimeout(r,2500))])}catch(e){}
+      const w=reg.waiting||reg.installing;if(w){try{w.postMessage({type:'SKIP_WAITING'})}catch(e){}await new Promise(r=>setTimeout(r,800))}}}}catch(e){}
+  location.reload()}
+A.c8refresh=()=>c8Reload();
+const RICON='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v6h-6"/></svg>';
+function c8Paint(){try{const w=document.querySelector('#app header.top .wrap');if(!w)return;const en=lang()==='en';const t=en?'Refresh':'Actualiser';
+  let b=w.querySelector('.fcrefresh');
+  if(!b){w.insertAdjacentHTML('afterbegin',`<button type="button" class="hicon fcrefresh" data-a="c8refresh" aria-label="${t}" title="${t}">${RICON}<span>${t}</span></button>`);b=w.querySelector('.fcrefresh')}
+  b.classList.toggle('new',!!C8.newer);b.title=C8.newer?(en?'New version available: refresh':'Nouvelle version disponible : actualiser'):t;
+  const back=w.querySelector('.fcback');if(back){if(back.nextElementSibling!==b)back.after(b)}else if(w.firstElementChild!==b)w.prepend(b);}catch(e){console.warn(e)}}
+/* numéro de version : au bas du menu (près de « Se déconnecter ») et dans Réglages › Application */
+function c8Decor(){try{const v=verTxt()+(C8.sw?' · réserve '+C8.sw.replace(/^fc-/,''):'');
+  document.querySelectorAll('[data-a="logout"],[data-x="logout"]').forEach(el=>{if(el.closest('header'))return;const box=el.parentElement;if(!box||box.querySelector(':scope > .fc8ver'))return;
+    el.insertAdjacentHTML('afterend',`<p class="fc8ver" data-fc8ver>${esc(v)}</p>`)});
+  document.querySelectorAll('.fc8ver').forEach(p=>{if(p.textContent!==v)p.textContent=v});
+  const pp=document.getElementById('fcpwaP');if(pp&&!pp.querySelector('.fc8ver'))pp.insertAdjacentHTML('beforeend',`<p class="fc8ver in">${esc(v)}${C8.newer?' — <b>nouvelle version disponible</b> <button type="button" class="linkbtn" data-a="c8refresh">Actualiser</button>':''}</p>`)}catch(e){console.warn(e)}}
+addEventListener('popstate',()=>setTimeout(c8Paint,0));
+setTimeout(()=>{c8Paint();c8Decor()},0);
+
+/* ---------- C4. Centres : cases à cocher, filtres, tout cocher, tout retirer ---------- */
+const C8F=()=>st.c8F||(st.c8F={q:'',reg:'',city:''});
+const c8Home=()=>{const H=ui().home||{};return Number(H.lat)&&Number(H.lon)?{lat:+H.lat,lon:+H.lon}:{lat:HOME.lat,lon:HOME.lon}};
+const c8Norm=s=>deacc(String(s||'').toLowerCase()).trim();
+function c8All(){const F=C8F();const h=c8Home();const q=c8Norm(F.q);
+  return QC.filter(x=>(!F.reg||x.r===F.reg)&&(!F.city||x.v===F.city)&&(!q||c8Norm(x.n+' '+x.v).includes(q)))
+    .map(x=>Object.assign({},x,{km:Math.round(havKm(h,x)*1.3)})).sort((a,b)=>a.km-b.km||a.n.localeCompare(b.n,'fr'))}
+const c8On=q=>{const c=qcMine(q);return !!(c&&c.ok)};
+const c8Mine=()=>(db.centres||[]).filter(c=>c.ok&&!isVirt(c));
+function c8Set(q,on){let c=qcMine(q);if(c){c.ok=!!on;return c}if(!on)return null;
+  c=ctrDefaults({id:'c'+uid(),name:q.n,area:q.v,lieu:q.v,url:q.url,lat:q.lat,lon:q.lon,ok:true,tech:q.c&&q.p?'Classique et patin':q.p?'Patin':'Classique',km:'',accessFee:'',fraisDep:'',lit:q.soir,offerEve:false,kind:'centre',srv:q.srv.map(s=>QCSRV[s]).join(', ')});
+  db.centres=db.centres||[];db.centres.push(c);return c}
+function c8Dyn(){const L=c8All();const mine=c8Mine().length;const off=L.filter(q=>!c8On(q)).length;const F=C8F();const filt=!!(F.q||F.reg||F.city);
+  return `<div class="c8bar"><span class="small"><b>${mine}</b> centre${mine>1?'s':''} dans votre offre · ${L.length} lieu${L.length>1?'x':''} affiché${L.length>1?'s':''}</span>
+   <span class="actions"><button type="button" class="btn-xs" data-a="c8all" ${off?'':'disabled'}>Tout cocher${filt?' (liste filtrée)':''}</button><button type="button" class="btn-xs" data-a="c8none" ${mine?'':'disabled'}>Tout retirer</button></span></div>
+  <div class="c8list" role="group" aria-label="Lieux de ski de fond">${L.map(q=>{const on=c8On(q);
+    return `<label class="c8row${on?' on':''}"><input type="checkbox" data-c8c="${q.id}" ${on?'checked':''}><span><b>${esc(q.n)}</b><small>${esc(q.v)} · ${esc(QCREG[q.r]||'')} · ${q.km} km · ${q.c&&q.p?'classique et patin':q.p?'patin seulement':'classique'}</small></span></label>`}).join('')
+    ||'<p class="muted small" style="padding:10px 12px;margin:0">Aucun lieu ne correspond. Changez la recherche, la région ou la ville.</p>'}</div>`}
+function c8Cities(){const F=C8F();const V=[...new Set(QC.filter(x=>!F.reg||x.r===F.reg).map(x=>x.v).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
+  return `<option value="">Toutes les villes</option>`+V.map(v=>`<option value="${esc(v)}" ${F.city===v?'selected':''}>${esc(v)}</option>`).join('')}
+function c8Picker(where){if(typeof hasSki==='function'&&!hasSki())return '';const F=C8F();
+  return `<div class="c8pick" data-where="${where}">
+   <div class="c8f"><label class="field"><span>Recherche</span><input type="search" data-c8f="q" value="${esc(F.q)}" placeholder="Nom du centre ou ville" autocomplete="off"></label>
+    <label class="field"><span>Région</span><select data-c8f="reg"><option value="">Toutes les régions</option>${Object.entries(QCREG).filter(([k])=>QC.some(x=>x.r===k)).map(([k,l])=>`<option value="${k}" ${F.reg===k?'selected':''}>${esc(l)}</option>`).join('')}</select></label>
+    <label class="field"><span>Ville</span><select data-c8f="city">${c8Cities()}</select></label></div>
+   <div class="c8dyn">${c8Dyn()}</div>
+   <p class="small muted" style="margin:8px 0 0">Cochez un centre pour l'ajouter à votre offre; décochez-le pour le retirer (sa fiche est gardée : frais d'accès, horaires). Source : Ski de fond Québec, « Lieux de pratique ».</p></div>`}
+function c8Redraw(){document.querySelectorAll('.c8pick .c8dyn').forEach(d=>{const l=d.querySelector('.c8list');const sc=l?l.scrollTop:0;d.innerHTML=c8Dyn();const n=d.querySelector('.c8list');if(n)n.scrollTop=sc})}
+let c8T=null;
+function c8Later(){clearTimeout(c8T);c8T=setTimeout(async()=>{try{if(R.on&&R.role==='admin'){R.snap.pub=null;try{const s=show9();if(s.travelOk){s.travelOk=false}}catch(e){}
+      await pushChanges();if(typeof loadSetup==='function'){try{await loadSetup()}catch(e){}}}}catch(e){console.warn(e)}
+    if(!st.modal&&!(document.activeElement&&document.activeElement.dataset&&document.activeElement.dataset.c8f))render()},1600)}
+document.addEventListener('input',e=>{const t=e.target;if(!t||!t.dataset||t.dataset.c8f!=='q')return;C8F().q=t.value;clearTimeout(C8.qt);C8.qt=setTimeout(c8Redraw,180)});
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset)return;
+  if(t.dataset.c8f==='reg'){const F=C8F();F.reg=t.value;F.city='';document.querySelectorAll('select[data-c8f="city"]').forEach(s=>{s.innerHTML=c8Cities()});document.querySelectorAll('select[data-c8f="reg"]').forEach(s=>{s.value=F.reg});c8Redraw();return}
+  if(t.dataset.c8f==='city'){C8F().city=t.value;c8Redraw();return}
+  if(t.dataset.c8c){const q=QC.find(x=>x.id===t.dataset.c8c);if(!q)return;c8Set(q,t.checked);save();c8Redraw();c8Later();
+    try{flash(q.n+(t.checked?' ajouté à vos centres':' retiré de vos centres'))}catch(x){}}});
+A.c8all=()=>{const L=c8All().filter(q=>!c8On(q));if(!L.length)return;
+  if(L.length>12&&!confirm('Ajouter '+L.length+' centres à votre offre?'))return;
+  L.forEach(q=>c8Set(q,true));save();c8Redraw();c8Later();flash(L.length+' centre'+(L.length>1?'s ajoutés':' ajouté')+' à votre offre.')};
+A.c8none=()=>{const L=c8Mine();if(!L.length)return;
+  if(!confirm('Retirer les '+L.length+' centres de votre offre? Vos clients ne pourront plus y réserver de cours. Les fiches (frais d\'accès, horaires) sont gardées : vous pourrez les recocher.'))return;
+  L.forEach(c=>{c.ok=false});save();c8Redraw();c8Later();flash('Tous vos centres sont retirés de votre offre.')};
+/* page Centres : la liste à cocher en haut (ski de fond) */
+adminCentres=(old=>function(){const h=old();if(st.qcAdmin||(typeof hasSki==='function'&&!hasSki()))return h;
+  return `<details class="panel c8box" open><summary><span class="eyebrow">Choisir mes centres</span><b>Tous les lieux de ski de fond du Québec (${QC.length})</b></summary>${c8Picker('page')}</details>`+h})(adminCentres);
+/* mise en place guidée : la même liste dans l'étape « Vos centres » */
+setupV=(old=>function(){let h=old();try{if(!R.on||(typeof hasSki==='function'&&!hasSki()))return h;
+    const i=h.indexOf('id="fc9-centres"');if(i<0)return h;const j=h.indexOf('</section>',i);if(j<0)return h;
+    let sec=h.slice(i,j).replace(/data-a="nav" data-s="centres">Choisir mes centres<\/button>/,'data-a="nav" data-s="centres">Fiches des centres</button>');
+    h=h.slice(0,i)+sec+c8Picker('setup')+h.slice(j)}catch(e){console.warn(e)}return h})(setupV);
+/* garder la position de défilement de la liste quand l'écran se redessine */
+render=(old=>function(){let sc=null;try{const l=document.querySelector('.c8list');if(l)sc=l.scrollTop}catch(e){}
+  const r=old.apply(this,arguments);
+  try{if(sc!=null){const l=document.querySelector('.c8list');if(l)l.scrollTop=sc}}catch(e){}
+  Promise.resolve().then(()=>{c8Paint();c8Decor()});return r})(render);
+
+/* ---------- D6. Calendrier : + Compétition ---------- */
+const evKinds=()=>[['compet','Compétition'],['camp','Camp d\'entraînement']];
+MOD3.c8ev=()=>{const M=st.modal;const d=M.d||today();
+  return [`<span class="eyebrow">Calendrier</span><h3>Ajouter une compétition ou un camp</h3>
+  <form id="c8evForm" novalidate><div class="grid2">
+   <label class="field"><span>Type</span><select name="kind">${evKinds().map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label>
+   <label class="field"><span>Nom <i>*</i></span><input type="text" name="title" maxlength="90" placeholder="Ex. : Coupe Québec 3"></label>
+   <label class="field"><span>Date <i>*</i></span><input type="date" name="date" value="${esc(d)}"></label>
+   <label class="field"><span>Date de fin</span><input type="date" name="end"></label>
+   <label class="field"><span>Lieu</span><input type="text" name="lieu" maxlength="90"></label>
+   <label class="field"><span>Priorité</span><select name="prio"><option value="">—</option><option value="A">A · objectif principal</option><option value="B">B · important</option><option value="C">C · préparation</option></select></label></div>
+   <label class="field"><span>Objectif</span><input type="text" name="goal" maxlength="140" placeholder="Ex. : terminer dans le premier tiers"></label>
+   ${M.err?`<p class="alert" style="margin-top:8px">${esc(M.err)}</p>`:''}
+   <div class="actions" style="margin-top:12px"><button class="btn btn-accent" type="submit">Ajouter au calendrier</button><button type="button" class="btn btn-plain" data-a="close">Annuler</button></div></form>
+  <p class="small" style="margin:14px 0 0">Plusieurs dates d'un coup? <button type="button" class="linkbtn" data-a="ciOpen" data-t="perso" data-u="${esc(M.u)}">⇩ Importer la Coupe Québec, un lien ou un fichier .ics</button></p>`,false]};
+A.c8evNew=d=>{const u=me();if(!u)return;const who=d.u||u.id;const day=d.d||(st.v5cal&&st.v5cal.day)||today();st.modal={kind:'c8ev',u:who,d:day<today()&&!d.d?today():day};render()};
+addEventListener('submit',e=>{const f=e.target;if(!f||f.id!=='c8evForm')return;e.preventDefault();e.stopImmediatePropagation();
+  const M=st.modal;if(!M||M.kind!=='c8ev')return;const v=Object.fromEntries(new FormData(f).entries());const t=String(v.title||'').trim();
+  if(!t||!v.date){M.err='Indiquez le nom et la date.';render();return}if(v.end&&v.end<v.date){M.err='La date de fin est avant la date de début.';render();return}
+  const u=me();const self=M.u===u.id||(window.fcSelfId&&M.u===window.fcSelfId());
+  (db.events=db.events||[]).push({id:'ev'+uid(),userId:M.u,kind:v.kind==='camp'?'camp':'compet',title:t,date:v.date,end:v.end&&v.end!==v.date?v.end:'',lieu:String(v.lieu||'').trim(),prio:v.prio||'',goal:String(v.goal||'').trim(),by:u.role==='admin'?'admin':'client',at:nowStr()});
+  try{if(u.role==='admin'&&!self)notifyClient(M.u,'doc','Objectif ajouté',(ui().coach.name||'').split(' ')[0]+' a ajouté « '+t+' » à vos compétitions et camps.');
+    else if(u.role!=='admin')notify('Message',name(u)+' a ajouté « '+t+' » ('+dfmt(v.date)+') à ses objectifs.')}catch(x){}
+  if(st.v5cal){st.v5cal.month=v.date.slice(0,7);st.v5cal.day=v.date;if(st.v5cal.off)st.v5cal.off.evt=false}
+  st.modal=null;save();render();flash((v.kind==='camp'?'Camp':'Compétition')+' ajouté'+(v.kind==='camp'?'':'e')+' au calendrier.')},true);
+clientCalV=(old=>function(u){let h=old(u);try{if(!feat('compet'))return h;
+    const btn=`<button type="button" class="btn btn-accent btn-sm c8evb" data-a="c8evNew" data-u="${esc(u.id)}">+ Compétition</button>`;
+    h=h.replace(/(<div class="v5caltool">[\s\S]*?)(<div class="seg mini">)/,(m,a,b)=>a+btn+b);
+    h=h.replace(/(<section class="panel v5dayp"><h3>[\s\S]*?<\/h3>)/,(m,a)=>{const d=(st.v5cal&&st.v5cal.day)||today();return a+`<div class="actions c8dayact"><button type="button" class="btn-xs" data-a="c8evNew" data-u="${esc(u.id)}" data-d="${esc(d)}">+ Compétition ce jour-là</button></div>`})}
+  catch(e){console.warn(e)}return h})(clientCalV);
+
+/* ---------- styles ---------- */
+document.head.insertAdjacentHTML('beforeend',`<style id="fc8css">
+.hicon.fcrefresh{display:inline-grid;place-items:center;cursor:pointer}
+.hicon.fcrefresh svg{display:block;flex:none}
+.hicon.fcrefresh span{display:none}
+.hicon.fcrefresh.new::after{content:'';position:absolute;top:1px;right:1px;width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--navy,#13325b)}
+@media (max-width:440px){.top .wrap:has(.fcrefresh){gap:6px}.top .wrap:has(.fcrefresh) .brand{flex:1 1 0;width:0;min-width:0}.top .wrap:has(.fcrefresh) .brandmark{max-width:96px;height:auto}}
+@media (max-width:380px){.top .wrap:has(.fcrefresh) .brandmark{max-width:64px}}
+@media print{.hicon.fcrefresh,.fc8ver{display:none!important}}
+.fc8ver{margin:10px 4px 2px;font-size:.78rem;color:var(--muted);text-align:center}
+.fc8ver.in{text-align:left;margin:12px 0 0;padding-top:10px;border-top:1px solid var(--line)}
+.c8box>summary{cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:2px}
+.c8box>summary::-webkit-details-marker{display:none}
+.c8box{margin-bottom:14px}
+.c8pick{margin-top:12px}
+.c8f{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);gap:8px 10px}
+.c8f .field{margin:0;min-width:0}.c8f select,.c8f input{width:100%;min-width:0}
+@media (max-width:640px){.c8f{grid-template-columns:1fr 1fr}.c8f .field:first-child{grid-column:1/-1}}
+.c8bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 10px;margin:10px 0 6px}
+.c8bar .actions{gap:6px;margin:0}
+.c8list{max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);overscroll-behavior:contain}
+.c8row{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer;margin:0}
+.c8row:last-child{border-bottom:0}
+.c8row input{margin-top:3px;flex:none;width:18px;height:18px;accent-color:var(--accent)}
+.c8row span{min-width:0;display:flex;flex-direction:column}
+.c8row b{font-weight:600;overflow-wrap:anywhere}
+.c8row small{color:var(--muted);overflow-wrap:anywhere}
+.c8row.on{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.fc9step .c8pick{margin-top:10px}
+.c8evb{white-space:nowrap}
+#c8evForm>.field{margin-top:10px}
+.c8dayact{margin:4px 0 8px}
+</style>`);
+}
+
 /* PWA : fonctions internes dont l'app installable a besoin (notifications touchées, hors ligne) */
 window.fcPwaHooks={loadNotifs,nAny,syncAll,errTxt};
 R.bootP=bootReal();R.bootP.then(stripeReturn).catch(e=>console.error(e));

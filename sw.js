@@ -1,9 +1,11 @@
-/* FidjiCoach — service worker (PWA, 5 nov. 2026)
+/* FidjiCoach — service worker (PWA, 5 nov. 2026; Corrections 8, 7 nov. 2026)
    1. Hors ligne minimal : la page d'accueil, les icônes et les bibliothèques sont gardées en réserve; sans réseau, l'app s'ouvre quand même.
    2. Jamais de vieille version coincée : la page index.html est toujours demandée au réseau d'abord (la réserve ne sert qu'hors ligne).
    3. Notifications poussées : affichage, et ouverture au bon endroit quand on touche la notification (?n=<avis>).
+   4. Corrections 8 : la page est redemandée au réseau sans jamais retomber par erreur sur la vieille copie (cause probable
+      de « l'app installée ne montre pas la même version que Chrome »); version.txt n'est jamais gardé en réserve.
    Les appels à Supabase (comptes, réservations, messages…) ne passent jamais par la réserve. */
-const VERSION = 'fc-pwa-2026-11-05';
+const VERSION = 'fc-2026-11-07-c8';
 const CACHE = VERSION;
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/fidjicoach-logo.png', '/icon-192.png', '/icon-512.png', '/icon-512-maskable.png', '/apple-touch-icon.png', '/badge-96.png'];
 const LIBS = [
@@ -42,8 +44,11 @@ self.addEventListener('message', (e) => {
 async function networkFirstPage(req) {
   const c = await caches.open(CACHE);
   try {
-    const r = await fetch(new Request(req, { cache: 'no-cache' }));   // revalidé auprès du serveur : jamais une vieille copie du cache HTTP
-    if (r && r.ok) { c.put('/index.html', r.clone()); c.put('/', r.clone()); }
+    // Corrections 8 : on redemande l'adresse elle-même (une requête « navigate » recopiée avec des options peut être refusée
+    // par le navigateur, et l'app retombait alors sur la vieille copie gardée en réserve)
+    let r = await fetch(req.url, { cache: 'no-store', credentials: 'same-origin' });
+    if (r && r.redirected) r = new Response(await r.blob(), { status: r.status, statusText: r.statusText, headers: r.headers });
+    if (r && r.ok && !/\/version\.txt/.test(req.url)) { c.put('/index.html', r.clone()); c.put('/', r.clone()); }
     return r;
   } catch (_) {
     return (await c.match('/index.html')) || (await c.match('/')) || new Response('<!doctype html><meta charset="utf-8"><title>FidjiCoach</title><p style="font-family:sans-serif;padding:24px">Vous êtes hors ligne. Ouvrez FidjiCoach de nouveau quand le réseau sera revenu.</p>', { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
@@ -70,6 +75,7 @@ self.addEventListener('fetch', (e) => {
   const same = url.startsWith(self.location.origin);
   if (same) {
     if (/\/sw\.js(\?|$)/.test(url)) return;                      // le service worker lui-même : jamais en réserve
+    if (/\/version\.txt(\?|$)/.test(url)) return;                 // numéro de version : toujours le réseau
     if (/\.(txt|png|jpg|jpeg|webp|svg|gif|json|webmanifest|css|js|woff2?)(\?|$)/i.test(url) || /\/index\.html(\?|$)/.test(url)) { e.respondWith(staleWhileRevalidate(req)); }
     return;
   }
