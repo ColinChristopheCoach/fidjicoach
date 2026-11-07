@@ -23392,7 +23392,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c12';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-07-c13';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='7 nov. 2026 · Corrections 10c (factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
@@ -24064,20 +24064,20 @@ function inv10HTML(o){const C=o.coach;
   return `<div class="fcinv" id="fcInvDoc">
   <div class="fcinv-h"><div class="fcinv-b">${C.logo?`<img src="${esc(C.logo)}" alt="">`:''}<div><b>${esc(C.name)}</b><span>${esc([C.region,C.tel,C.email].filter(Boolean).join(' · '))}</span></div></div>
    <div class="fcinv-n"><b>${esc(o.title||'Facture')} ${esc(o.no)}</b><span>Date : ${esc(dlong10(o.date))}</span><span>${esc(o.refTxt||('Réservation '+o.ref))}</span></div></div>
-  <div class="fcinv-to"><span>${o.title?'Crédité à':'Facturé à'}</span><b>${esc(o.cl.name)}</b>${o.cl.email?`<span>${esc(o.cl.email)}</span>`:''}</div>
+  <div class="fcinv-to"><span>${o.title==='Note de crédit'?'Crédité à':'Facturé à'}</span><b>${esc(o.cl.name)}</b>${o.cl.email?`<span>${esc(o.cl.email)}</span>`:''}</div>
   <table><thead><tr><th>Description</th><th>Montant</th></tr></thead><tbody>
    ${o.items.map(([d,a])=>`<tr><td>${esc(d)}</td><td>${mon10(a)}</td></tr>`).join('')}
    ${o.tax.length?`<tr class="st"><td>Sous-total</td><td>${mon10(o.sub)}</td></tr>`+o.tax.map(([d,a])=>`<tr class="st"><td>${esc(d)}</td><td>${mon10(a)}</td></tr>`).join(''):''}
    <tr class="tot"><td>${esc(o.totLbl||'Total payé')}</td><td>${mon10(o.total)}</td></tr>
    ${o.refunded>0?`<tr class="st"><td>Remboursé</td><td>${mon10(-o.refunded)}</td></tr><tr class="tot"><td>Montant net</td><td>${mon10(r2(o.total-o.refunded))}</td></tr>`:''}
   </tbody></table>
-  <p class="fcinv-m">${esc(inv10Note(o))}</p><p class="fcinv-f">${o.title?esc(o.title)+' émise avec FidjiCoach':'Merci de votre confiance! · Facture émise avec FidjiCoach'}</p></div>`}
+  <p class="fcinv-m">${esc(inv10Note(o))}</p><p class="fcinv-f">${o.foot?esc(o.foot):o.title?esc(o.title)+' émise avec FidjiCoach':'Merci de votre confiance! · Facture émise avec FidjiCoach'}</p></div>`}
 MOD3.fcInv=function(u,m){const c=invCur();
   if(!c)return [`<p>Facture introuvable.</p><div class="actions"><button class="btn btn-accent" data-a="close">Fermer</button></div>`,true];
   const o=c.o;const coach=R.role==='admin';const canMail=coach&&c.real;
   return [`<span class="eyebrow">Facture</span>${inv10HTML(o)}
-  ${coach&&o.sent?`<p class="small muted">Envoyée au client par courriel le ${esc(dlong10(o.sent))}.</p>`:''}
-  <div class="actions fcinv-act"><button class="btn btn-accent" data-a="fcInvPdf">Enregistrer le PDF</button><button class="btn btn-plain" data-a="fcInvPrint">Imprimer</button>${canMail?`<button class="btn btn-plain" data-a="fcInvMail">${o.sent?'Renvoyer':'Envoyer'} au client par courriel</button>`:''}<button class="btn btn-plain" data-a="close">Fermer</button></div>`,true]};
+  ${coach&&o.sent?`<p class="small muted">Envoyée ${esc(o.mailLbl||'au client')} par courriel le ${esc(dlong10(o.sent))}.</p>`:''}
+  <div class="actions fcinv-act"><button class="btn btn-accent" data-a="fcInvPdf">Enregistrer le PDF</button><button class="btn btn-plain" data-a="fcInvPrint">Imprimer</button>${canMail?`<button class="btn btn-plain" data-a="fcInvMail">${o.sent?'Renvoyer':'Envoyer'} ${o.mailLbl||'au client'} par courriel</button>`:''}<button class="btn btn-plain" data-a="close">Fermer</button></div>`,true]};
 A.invoice=(old=>function(d){const b=B(d.b);if(!R.on||!b||!b.real)return old(d);const p=b.parts[Number(d.i)];
   if(!p||!p.paid){flash('Pas de facture : ce paiement n\'est pas reçu.');return}
   if(!p.invNo){flash('Le numéro de facture arrive dans un instant : touchez Actualiser.');return}
@@ -24102,7 +24102,7 @@ async function inv10Pdf(o){const J=window.jspdf&&window.jspdf.jsPDF;if(!J)throw 
   doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(T(o.coach.name),X,y);
   doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);
   const ci=[o.coach.region,o.coach.tel,o.coach.email].filter(Boolean).join(' · ');if(ci)doc.text(T(ci),X,y+13);
-  y+=40;doc.setFontSize(8);doc.text(T(o.title?'CRÉDITÉ À':'FACTURÉ À'),X,y);doc.setFontSize(11);doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.text(T(o.cl.name),X,y+15);
+  y+=40;doc.setFontSize(8);doc.text(T(o.title==='Note de crédit'?'CRÉDITÉ À':'FACTURÉ À'),X,y);doc.setFontSize(11);doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.text(T(o.cl.name),X,y+15);
   doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);if(o.cl.email)doc.text(T(o.cl.email),X,y+28);
   y+=46;doc.setFillColor(238,244,251);doc.rect(X,y,RX-X,22,'F');doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(9.5);
   doc.text('Description',X+8,y+15);doc.text('Montant',RX-8,y+15,{align:'right'});y+=22;doc.setFont('helvetica','normal');doc.setLineWidth(.5);
@@ -24115,7 +24115,7 @@ async function inv10Pdf(o){const J=window.jspdf&&window.jspdf.jsPDF;if(!J)throw 
   row(o.totLbl||'Total payé',M(o.total),{b:1,top:1});
   if(o.refunded>0){row('Remboursé',M(-o.refunded),{g:1});row('Montant net',M(r2(o.total-o.refunded)),{b:1})}
   y+=18;doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);const nl=doc.splitTextToSize(T(inv10Note(o)),RX-X);doc.text(nl,X,y);
-  doc.setFontSize(8);doc.text(T(o.title?o.title+' émise avec FidjiCoach (fidjicoach.ca)':'Merci de votre confiance! · Facture émise avec FidjiCoach (fidjicoach.ca)'),X,760);
+  doc.setFontSize(8);doc.text(T(o.foot?o.foot:o.title?o.title+' émise avec FidjiCoach (fidjicoach.ca)':'Merci de votre confiance! · Facture émise avec FidjiCoach (fidjicoach.ca)'),X,760);
   return doc}
 A.fcInvPdf=async function(){const c=invCur();if(!c)return;busyOn('Préparation du PDF…');
   try{const o=c.o;const blob=(await inv10Pdf(o)).output('blob');const fn=(o.title||'Facture')+' '+o.no+'.pdf';let done=false;
@@ -24328,6 +24328,69 @@ bookingCard=(old=>function(b,u,admin){let h=old(b,u,admin);try{if(!R.on||!b||!b.
   const N=(db.cnotes||[]).filter(n=>n.bid===b.id&&(admin||(u&&(n.userId===u.id||((userById(n.userId)||{}).guardian===u.id)))));if(!N.length)return h;
   const blk=`<div class="fcinvblk"><b class="small">${N.length>1?'Notes de crédit':'Note de crédit'}</b><span class="actions">${N.map(n=>cnBtn12(n)).join('')}</span></div>`;
   const k=h.lastIndexOf('</article>');return k<0?h+blk:h.slice(0,k)+blk+h.slice(k)}catch(e){console.warn(e);return h}})(bookingCard);
+
+/* Corrections 13 (7 nov. 2026)
+   1. Interac : « Pas encore reçu » et « Envoyer un rappel » à côté de chaque « Virement reçu » (avis + courriel au client, historique sur la part).
+   2. Factures de la plateforme : P- (forfait d'un entraîneur) et R- (relevé mensuel des frais retenus), dans Finances › Facturation. */
+toLocal=(old=>function(row){const b=old(row);try{const P=row.payments||[];(b.parts||[]).forEach(p=>{const r=P.find(x=>x.id===p.pid);p.nudges=(r&&r.interac_nudges)||[]})}catch(e){}return b})(toLocal);
+const NUDGE13={rappel:'Rappel envoyé',non_recu:'« Pas encore reçu » envoyé'};
+function inv13Interac(){try{if(!R.on||R.role!=='admin')return;
+  document.querySelectorAll('[data-a="interacOk"]').forEach(btn=>{if(btn.dataset.fc13)return;btn.dataset.fc13='1';
+    const b=B(btn.dataset.b);const p=b&&b.parts&&b.parts[Number(btn.dataset.i)];if(!b||!b.real||!p||!p.pid||p.invited||p.paid)return;
+    const N=(p.nudges||[]).slice().sort((x,y)=>String(y.at).localeCompare(String(x.at)));const last=N[0];
+    const w=document.createElement('span');w.className='fc13i';
+    w.innerHTML=`<button type="button" class="btn btn-sm btn-plain" data-a="fcIxNudge" data-k="non_recu" data-p="${esc(p.pid)}">Pas encore reçu</button><button type="button" class="btn btn-sm btn-plain" data-a="fcIxNudge" data-k="rappel" data-p="${esc(p.pid)}">Envoyer un rappel</button>`
+      +(last?`<small class="muted fc13last">${esc(NUDGE13[last.kind]||'Avis envoyé')} le ${esc(dlong10(day11(last.at)))}${N.length>1?' · '+N.length+' avis en tout':''}</small>`:'');
+    btn.insertAdjacentElement('afterend',w)})}catch(e){console.warn(e)}}
+render=(old=>function(){const r=old.apply(this,arguments);inv13Interac();return r})(render);
+A.fcIxNudge=async d=>{const q=d.k==='rappel'?'Envoyer au client un rappel avec les instructions du virement Interac (montant, destinataire, message)?'
+    :'Aviser le client que son virement n\'est pas encore reçu? Il recevra un avis et un courriel lui demandant de vérifier auprès de sa banque, ou de payer par carte.';
+  if(!confirm(q))return;busyOn(d.k==='rappel'?'Envoi du rappel…':'Envoi de l\'avis…');
+  try{const r=await fcInvoke('interac-nudge',{payment_id:d.p,kind:d.k});await syncAll();
+    flash((d.k==='rappel'?'Rappel envoyé':'Avis envoyé')+(r&&r.mailed?' par courriel à '+r.to+' et dans l\'app.':' dans l\'app (courriel non envoyé).'))}
+  catch(e){flash(/Failed to send|404|not found/i.test(e&&e.message||'')?'La fonction interac-nudge n\'est pas disponible.':await errMsg(e))}
+  finally{busyOff();render()}};
+
+/* factures de la plateforme */
+db.platInv=db.platInv||[];
+async function loadPlatInv(){if(!R.on||!R.uid)return;const adm=R.realRole==='admin';if(!adm&&!R.coachId)return;
+  try{let q=R.sb.from('platform_invoices').select('*').order('inv_at',{ascending:false}).limit(500);if(!adm)q=q.eq('coach_id',R.coachId);
+    const {data,error}=await q;if(error)throw error;
+    db.platInv=(data||[]).map(v=>({id:v.id,coachId:v.coach_id,k:v.kind,no:v.inv_no,at:day11(v.inv_at),from:v.period_from,to:v.period_to,total:(v.amount_cents||0)/100,
+      lines:v.lines||[],note:v.note||'',name:v.bill_name||'',email:v.bill_email||'',sent:day11(v.sent_at)}))}
+  catch(e){if(!missing(e))console.warn('Factures FidjiCoach',e.message);db.platInv=[]}}
+loadSubs=(old=>async function(){await old();await loadPlatInv()})(loadSubs);
+function inv13Data(x){const sp=inv11Split(x.lines,x.total,x.k==='R'?'Frais de plateforme':'Forfait FidjiCoach');
+  return Object.assign({title:x.k==='R'?'Relevé':'Facture',totLbl:x.k==='R'?'Total des frais retenus':'Total payé',no:x.no,date:x.at||today(),ref:'',
+    refTxt:x.k==='R'?'Période : '+dlong10(x.from)+' au '+dlong10(x.to):'Forfait de la plateforme',
+    coach:{name:'FidjiCoach',tel:'',email:'fidjicoach.ca',region:'Plateforme des entraîneurs',logo:'fidjicoach-logo.png'},cl:{name:x.name||'Entraîneur',email:x.email||''},
+    total:x.total,method:'carte',paidAt:x.at,refunded:0,sessions:[],lieu:'',sent:x.sent||null,note:x.note||'',foot:'FidjiCoach · fidjicoach.ca',mailLbl:'à l\'entraîneur'},sp)}
+invCur0=(old=>function(){const m=st.modal;if(m&&m.kind==='fcInv'&&m.src==='plat'){const x=(db.platInv||[]).find(v=>v.id===m.id);
+    return x?{o:inv13Data(x),real:R.realRole==='admin',body:{platform_invoice_id:x.id},mark:()=>{x.sent=today()}}:null}return old()})(invCur0);
+A.fcPlatInv=d=>{if(!(db.platInv||[]).some(v=>v.id===d.id)){flash('Facture introuvable : touchez Actualiser.');return}st.modal={kind:'fcInv',src:'plat',id:d.id};render()};
+st.fcP=st.fcP||{t:'tout'};
+A.fcPt=d=>{st.fcP.t=d.v;render()};
+A.fcPlatRun=async()=>{if(!confirm('Émettre maintenant les relevés R- des mois terminés qui n\'en ont pas encore? (C\'est fait automatiquement le 1er de chaque mois.)'))return;
+  busyOn('Émission des relevés…');try{const {data,error}=await R.sb.rpc('fc_plat_statements');if(error)throw error;await loadPlatInv();flash(data?data+' relevé(s) émis.':'Aucun relevé à émettre : les mois terminés sont déjà faits.')}
+  catch(e){flash(await errMsg(e))}finally{busyOff();render()}};
+function fcPlatSection(){const adm=R.realRole==='admin';let L=(db.platInv||[]).filter(v=>adm||v.coachId===R.coachId);
+  const mine=L.filter(v=>v.coachId===R.coachId),others=adm?L.filter(v=>v.coachId!==R.coachId):[];
+  const row=v=>`<div class="invrow"><span><b>${esc(v.no)}</b>${adm?' · '+esc(v.name):''} · <span class="num">${v.total<0?'−'+money(-v.total):money(v.total)}</span> <span class="pill neutral">${v.k==='R'?'Relevé':'Forfait'}</span>${v.sent?' <span class="pill ok">envoyée</span>':''}<br><small>${esc(dlong10(v.at))} · ${esc(v.k==='R'?'Frais retenus du '+dlong10(v.from)+' au '+dlong10(v.to):((v.lines[0]||[])[0]||'Forfait FidjiCoach'))}</small></span><button class="btn btn-sm btn-plain" data-a="fcPlatInv" data-id="${esc(v.id)}">Voir</button></div>`;
+  let h='';
+  if(mine.length||!adm)h+=`<section class="panel fs" style="margin:0 0 22px;border-top-color:var(--line)"><span class="eyebrow">FidjiCoach</span><h3>Factures reçues de FidjiCoach</h3>
+    <p class="muted small">Votre forfait (P-) et le relevé mensuel des frais de plateforme retenus sur vos paiements (R-, émis le 1er du mois). Rien à payer pour les relevés : les frais sont déjà retenus.</p>
+    ${mine.length?`<div class="list fcinvlist">${mine.map(row).join('')}</div>`:'<div class="empty">Aucune facture de FidjiCoach pour l\'instant.</div>'}</section>`;
+  if(adm){const F=st.fcP;const n={tout:others.length,P:others.filter(v=>v.k==='P').length,R:others.filter(v=>v.k==='R').length};const V=F.t==='tout'?others:others.filter(v=>v.k===F.t);
+    const tot=r2(V.reduce((s,v)=>s+v.total,0));
+    h+=`<section class="panel fs" style="margin:0 0 22px;border-top-color:var(--line)"><span class="eyebrow">Administrateur</span><h3>Factures émises par FidjiCoach aux entraîneurs</h3>
+    <p class="muted small">P- : chaque paiement du forfait d'un entraîneur (Solo, Pro, activation, pause). R- : relevé mensuel des frais retenus (commission + Stripe, moins les frais rendus lors des remboursements), émis automatiquement le 1er du mois. Suite propre à FidjiCoach.</p>
+    <div class="fcf-bar"><div class="fcf-chips">${[['tout','Toutes'],['P','Forfaits (P)'],['R','Relevés (R)']].map(([k,l])=>`<button type="button" class="chip ${F.t===k?'on':''}" data-a="fcPt" data-v="${k}">${l}${n[k]?` <span class="muted">${n[k]}</span>`:''}</button>`).join('')}</div></div>
+    <p class="muted small" style="margin:0 0 8px">${V.length} document${V.length>1?'s':''} · total <b>${money(tot)}</b> <button type="button" class="linkbtn" data-a="fcPlatRun">Émettre les relevés des mois terminés</button></p>
+    ${V.length?`<div class="list fcinvlist">${V.map(row).join('')}</div>`:'<div class="empty">Aucune facture émise aux entraîneurs pour l\'instant. Les factures P- arrivent à chaque paiement de forfait, les relevés R- le 1er du mois.</div>'}</section>`}
+  return h}
+adminFactu=(old=>function(){const h=old();try{if(!R.on||R.role!=='admin')return h;const s=fcPlatSection();const k=h.indexOf('</section>');return k<0?h+s:h.slice(0,k+10)+s+h.slice(k+10)}catch(e){console.warn(e);return h}})(adminFactu);
+(function(){const s=document.createElement('style');s.textContent=`.fc13i{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;margin-left:6px}.fc13i .fc13last{flex-basis:100%}
+@media (max-width:520px){.fc13i{margin-left:0;margin-top:6px}}`;document.head.appendChild(s)})();
 
 CLIENT_TABS.push('fact10');
 /* PWA : fonctions internes dont l'app installable a besoin (notifications touchées, hors ligne) */
