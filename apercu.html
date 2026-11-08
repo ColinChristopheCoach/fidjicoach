@@ -26608,7 +26608,7 @@ const JKEY='fc-club-join';
 try{const q=new URLSearchParams(location.search);const c=q.get('club');if(c&&/^[A-Za-z0-9_-]{2,80}$/.test(c)){localStorage.setItem(JKEY,JSON.stringify({c,g:q.get('groupe')||q.get('tok')||''}));
   q.delete('club');q.delete('groupe');q.delete('tok');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);
   /* c22 : on attend la session gardée sur l'appareil; un membre connecté n'a ni bandeau ni accueil d'invitation */
-  const g0=q.get('groupe')||q.get('tok')||'';
+  let g0='';try{g0=(JSON.parse(localStorage.getItem(JKEY)||'{}').g)||''}catch(_){}
   (async()=>{try{let R=FR();for(let i=0;i<40&&!(R&&R.sb);i++){await new Promise(r=>setTimeout(r,250));R=FR()}if(!R||!R.sb)return;
     const {data:s}=await R.sb.auth.getSession();if(s&&s.session)return;
     const {data}=await R.sb.rpc('club_preview',{p_club:c});if(!data||!data.name)return;
