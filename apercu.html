@@ -13279,7 +13279,7 @@ document.addEventListener('click',e=>{if(!CLX)return;const el=e.target.closest&&
   const okRem=ds.some(x=>/^(ot|sig|eq)/.test(x))&&eqRem(c,u);if(eqW(c,u)||okRem)return;e.stopImmediatePropagation();e.preventDefault();if(ev==='change'){flash('Lecture seulement : votre rôle ne permet pas de modifier l\'inventaire.');render()}},true));
 
 /* ---------- pages du club ---------- */
-Object.assign(PG,{inv:{l:'Inventaire',i:'box',who:'s',perm:'inv'},eq_scan:{l:'Scan et étiquettes',i:'scan',who:'s',perm:'remise'},eq_loc:{l:'Locations',i:'ski',who:'s',perm:'remise'},
+Object.assign(PG,{inv:{l:'Inventaire',i:'box',who:'s',perm:'inv'},eq_scan:{l:'Scan et étiquettes',i:'scan',who:'s',perm:'remise'},eq_loc:{l:'Locations',i:'skis',who:'s',perm:'remise'},
   eq_req:{l:'Demandes des membres',i:'msg',who:'s',perm:'inv'},eq_saison:{l:'Location à la saison (jeunes)',i:'cal',who:'s',perm:'inv'},eq_dep:{l:'Dépôts',i:'money',who:'s',perm:'inv'},
   eq_prix:{l:'Prix de location',i:'tag',who:'s',perm:'inv'},eq_codes:{l:'Codes, contrat et frais',i:'doc',who:'s',perm:'inv'}});
 {const gi=SGROUPS.findIndex(g=>g[0]==='Gestion');SGROUPS[gi][1]=SGROUPS[gi][1].filter(k=>k!=='inv');SGROUPS.splice(gi,0,['Équipement',['inv','eq_scan','eq_loc','eq_req','eq_saison','eq_dep','eq_prix','eq_codes']])}
