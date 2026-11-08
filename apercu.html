@@ -26862,11 +26862,12 @@ async function libCount(){if(LIB.load||LIB.total!=null||LIB.scope===false)return
   finally{LIB.load=false;render()}}
 const row=(img,t,s,uri,pickN,S)=>`<div class="sp16"><span class="sp16i">${img?`<img src="${esc(img)}" alt="" loading="lazy">`:'♪'}</span><span class="sp16t"><b>${esc(t)}</b><small>${esc(s||'')}</small></span><button class="btn-xs" data-a="spPlay" data-u="${esc(uri)}" aria-label="Jouer">▶</button><button class="btn-xs ${S.spPl===uri?'on':''}" data-a="spPick" data-u="${esc(uri)}" data-n="${esc(pickN)}" title="Pour l'entraînement">${S.spPl===uri?'✓ Entraînement':'Pour l\'entraînement'}</button></div>`;
 window.fcSpLib=function(S){const f=F();if(!f||!f.on())return '';const SP=window.fcSpotify||{};const tok=SP.tok||{};
-  const hasScope=/user-library-read/.test(tok.sc||'')||LIB.scope===true;
-  if(hasScope&&LIB.total==null&&!LIB.load&&LIB.scope!==false&&!LIB.err)setTimeout(libCount,0);
+    /* jeton obtenu par une autre version de la page (portée non notée) : on essaie, Spotify répond 403 si la permission manque */
+  if(LIB.total==null&&!LIB.load&&LIB.scope!==false&&!LIB.err)setTimeout(libCount,0);
   const lu=likedUri();let h=`<h3 class="sech">Titres aimés</h3>`;
-  if(!hasScope&&LIB.scope!==true)h+=`<div class="info" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:200px">Pour voir vos Titres aimés, FidjiCoach a besoin d'une permission de plus : reconnectez Spotify (quelques secondes).</span><button class="btn btn-sm btn-accent" data-a="spGo">Reconnecter Spotify</button></div>`;
+  if(LIB.scope===false)h+=`<div class="info" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:200px">Pour voir vos Titres aimés, FidjiCoach a besoin d'une permission de plus : reconnectez Spotify (quelques secondes).</span><button class="btn btn-sm btn-accent" data-a="spGo">Reconnecter Spotify</button></div>`;
   else if(LIB.err)h+=`<div class="info">${esc(LIB.err)}</div>`;
+  else if(LIB.load&&LIB.total==null)h+='<p class="muted small">Chargement…</p>';
   else h+=`<div class="sp16g">${row(null,'Titres aimés',LIB.total!=null?LIB.total+' titres · votre bibliothèque Spotify':'Votre bibliothèque Spotify',lu||'spotify:collection:tracks','Titres aimés',S)}</div>`;
   h+=`<h3 class="sech">Rechercher dans Spotify</h3><div class="actions" style="align-items:center"><input type="search" id="sp25q" value="${esc(LIB.q)}" placeholder="Titre, artiste, album ou liste" style="flex:1;min-width:200px;max-width:420px" autocomplete="off"><button class="btn btn-sm btn-accent" data-a="sp25Search">Rechercher</button></div>`;
   if(LIB.busy)h+='<p class="muted small" style="margin-top:8px">Recherche…</p>';
