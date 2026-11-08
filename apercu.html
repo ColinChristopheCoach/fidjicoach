@@ -1886,7 +1886,7 @@ function bookingCard(b,u,admin){
   const my=u?b.parts.find(p=>p.userId===u.id):null;
   const rent=Object.entries(b.rental||{}).filter(([k,v])=>v).map(([k,v])=>{const i=db.inventory.find(x=>x.id===k);return i?`${v} × ${itemLabel(i)}`:''}).filter(Boolean).join(', ');
   const parts=b.parts.map((p,i)=>{const pu=userById(p.userId);
-    const st2=p.paid?'<span class="pill ok">Payé</span>':p.method==='interac'?'<span class="pill warn">Virement attendu</span>':'<span class="pill neutral">Non payé</span>';
+    const st2=p.paid?'<span class="pill ok">Payé</span>':p.method==='interac'&&!b.cancelled?'<span class="pill warn">Virement attendu</span>':'<span class="pill neutral">Non payé</span>';
     const act=admin&&!p.paid&&p.method==='interac'&&!b.cancelled?`<button class="btn btn-sm btn-accent" data-a="interacOk" data-b="${b.id}" data-i="${i}">Virement reçu</button>`:'';
     return `<div class="part"><span>${esc(name(pu))}${p.userId?'':' <span class="muted small">(lien de paiement)</span>'}${p.coveredBy?` <span class="muted small">(payé par ${esc(name(userById(p.coveredBy)).split(' ')[0])})</span>`:` · <span class="num">${money(p.amount)}</span>`}</span><span class="actions">${st2}${act}</span></div>`}).join('');
   const share=b.shareCode&&b.parts.some(p=>!p.userId)&&!b.cancelled;let actions='';
@@ -3523,7 +3523,7 @@ bookingCard=function(b,u,admin){
   const [s,c]=bookingStatus(b);const owner=userById(b.owner);const left=creditsLeft(b);const r=rentalOf(b);
   const my=u?b.parts.find(p=>p.userId===u.id):null;const isOwner=u&&b.owner===u.id;
   const parts=b.parts.map((p,i)=>{const pu=userById(p.userId);
-    const st2=p.paid?'<span class="pill ok">Payé</span>':p.coveredBy?'<span class="pill neutral">Payé par '+esc(name(userById(p.coveredBy)).split(' ')[0])+(b.parts[0].paid?'':' (en attente)')+'</span>':p.method==='interac'?'<span class="pill warn">Virement attendu</span>':'<span class="pill neutral">Non payé</span>';
+    const st2=p.paid?'<span class="pill ok">Payé</span>':p.coveredBy?'<span class="pill neutral">Payé par '+esc(name(userById(p.coveredBy)).split(' ')[0])+(b.parts[0].paid?'':' (en attente)')+'</span>':p.method==='interac'&&!b.cancelled?'<span class="pill warn">Virement attendu</span>':'<span class="pill neutral">Non payé</span>';
     const acc=pu&&pu.pending?`<span class="pill warn">Compte à créer</span>${(admin||isOwner)&&!b.cancelled?`<button class="btn-xs" data-a="resendInv" data-u="${pu.id}" data-b="${b.id}">Renvoyer l'invitation</button>`:''}`:'';
     const act=admin&&!p.paid&&p.method==='interac'&&!b.cancelled?`<button class="btn btn-sm btn-accent" data-a="interacOk" data-b="${b.id}" data-i="${i}">Virement reçu</button>`:'';
     return `<div class="part"><span>${esc(name(pu))}${p.payerOnly?' <span class="muted small">(paie le cadeau)</span>':pu&&pu.lien?` <span class="muted small">(${esc(pu.lien.toLowerCase())})</span>`:''}${p.coveredBy?'':` · <span class="num">${money(p.amount)}</span>`}</span><span class="actions">${acc}${st2}${act}</span></div>`}).join('');
