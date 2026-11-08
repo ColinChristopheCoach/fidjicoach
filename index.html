@@ -23825,8 +23825,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-08-c17';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='8 nov. 2026 · Athlète Plus (abonnement réel, famille, payé par le club, consentement)';
+const FC_BUILD='2026-11-08-c18';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='8 nov. 2026 · Poses 3D corrigées (appuis au sol, vues de face, accessoires)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -25199,7 +25199,51 @@ const css=document.createElement('style');css.textContent=`
 const S2=(L.th+L.sh)/40;
 /* poses couchées sur le ventre dessinées tête à gauche : on les retourne pour que la poitrine fasse face au sol */
 const PRONE=new Set(['pushup','plank','climber','superman','birddog','catcow','legcurl','bear','burpee','roll','sideplank','copen',
- 'st_pigeon','st_child','st_dog','st_cobra','st_frog','st_lizard','st_sphinx','st_thread','st_puppy','st_rock','st_dogpedal']);
+ 'st_pigeon','st_child','st_dog','st_cobra','st_frog','st_lizard','st_sphinx','st_thread','st_puppy','st_rock','st_dogpedal',
+ /* 8 nov. 2026 : le Nordic curl est dessiné tourné vers la gauche (tibias vers l'avant = genoux à l'envers en 3D) */
+ 'nordic']);
+/* ---------- Poses 3D fautives (8 nov. 2026) ----------
+   FRONT   : dessins 2D vus de FACE (écarts, flexions latérales, jumping jacks, couché sur le côté, bonds latéraux).
+             Le x du dessin devient le côté du mannequin; quand un segment paraît plus court que sa vraie longueur,
+             la partie manquante part vers l'avant (th : cuisse, sh : tibia, ua/fa : bras, avant-bras; 1 = avant, -1 = arrière).
+   ARMSOUT : bras levés sur les CÔTÉS (élévations latérales dessinées de profil).
+   HANDFIX : mains fixées sur une barre (tractions, suspension, dips) : le corps monte et descend sous les mains.
+   P3D     : poses propres à la 3D; le schéma 2D ne change pas. */
+const FRONT={jack:{},pullap:{},st_side:{},st_itb:{},st_lat:{},st_straddle:{},st_side_lunge:{},skater:{},sideplank:{},copen:{},clam:{},
+ st_butter:{sh:-.3},st_shoulder:{swA:true}};
+const ARMSOUT=new Set(['lateral']);
+const HANDFIX=new Set(['pullup','hang','hangknee','dip']);
+const P3D={
+ /* planche sur les avant-bras : avant-bras vers la tête (le dessin les mettait vers les pieds) */
+ plank:['H20,62 S28,67 E28,80 W16,80 P58,71 K72,74 A86,77','H20,62 S28,67 E28,80 W16,80 P58,73 K72,75 A86,77'],
+ st_sphinx:['H18,70 S26,75 E30,85 W20,87 P56,86 K72,87 A88,87','H17,66 S25,72 E30,85 W20,87 P56,86 K72,87 A88,87'],
+ /* traction : en haut, les coudes descendent le long du corps (ils montaient vers le visage) */
+ pullup:['H54,20 S50,27 E50,16 W50,6 P50,55 K50,74 A50,93','H52,2 S50,12 E53,22 W50,6 P50,44 K52,63 A50,82'],
+ /* chaise au mur : dos vertical contre le mur, cuisses à l'horizontale */
+ wallsit:['H35,31 S35,42 E48,42 W60,42 P35,68 K56,68 A56,92','H35,31 S35,42 E48,43 W60,43 P35,68 K56,68 A56,92'],
+ /* écartés à l'élastique, vus de face : bras tendus devant → bras ouverts sur les côtés */
+ pullap:['H50,13 S50,24 E53,25 W54,25 e47,25 w46,25 P50,52 K50,72 A50,92','H50,13 S50,24 E64,25 W78,25 e36,25 w22,25 P50,52 K50,72 A50,92'],
+ /* papillon, vu de face : assis, genoux ouverts, plantes des pieds ensemble */
+ st_butter:['H50,44 S50,54 E44,66 W48,82 e56,66 w52,82 P50,84 K36,80 A47,86 k64,80 a53,86','H50,52 S50,61 E44,70 W48,83 e56,70 w52,83 P50,84 K34,82 A47,86 k66,82 a53,86'],
+ /* coquillage, vu de face : couché sur le côté, genoux pliés vers l'avant, le genou du dessus s'ouvre */
+ clam:['H16,84 S26,84 E16,87 W6,87 e38,80 w50,80 P54,86 K66,80 A80,86 k66,84 a80,89','H16,84 S26,84 E16,87 W6,87 e38,80 w50,80 P54,86 K60,72 A80,86 k66,84 a80,89'],
+ /* planches latérales : coude au sol sous l'épaule, avant-bras vers l'avant */
+ sideplank:['H20,54 S28,60 E28,88 W31,89 P56,70 K72,80 A88,88 e30,48 w32,36','H20,48 S28,54 E28,88 W31,89 P56,62 K72,75 A88,86 e30,42 w32,30'],
+ copen:['H20,56 S28,62 E28,88 W31,89 P56,72 K72,64 A86,60 k70,82 a84,90','H20,50 S28,56 E28,88 W31,89 P56,62 K72,60 A86,58 k70,62 a84,62'],
+ /* figure 4 assis : la cheville croisée repose sur le genou de l'autre jambe (elle tombait sous le sol) */
+ st_fig4:['H34,46 S36,56 E48,62 W56,66 P40,84 K63,73 A51,72 k62,74 a74,90','H42,52 S42,61 E52,66 W58,68 P40,84 K63,73 A51,72 k62,74 a74,90'],
+ /* étirement de l'épaule, vu de face : le bras passe devant la poitrine, l'autre main tient le coude */
+ st_shoulder:['H50,13 S50,24 E38,25 W27,25 e40,34 w40,26 P50,52 K50,72 A50,92','H50,13 S50,24 E36,25 W25,26 e38,33 w37,26 P50,52 K50,72 A50,92']};
+/* accessoires 3D (coordonnées du dessin 2D) : box [x1,y1,x2,y2] (w = largeur en m), wall x, bar, rails, wheel [cx,cy,r] */
+const PR3={pullup:[{bar:1}],hang:[{bar:1}],hangknee:[{bar:1}],dip:[{rails:1}],
+ bench:[{box:[6,66,64,71],w:.34},{box:[16,71,20,92],w:.08},{box:[56,71,60,92],w:.08}],
+ legext:[{box:[32,59,56,64],w:.45},{box:[42,64,46,92],w:.1}],
+ legcurl:[{box:[14,74,76,79],w:.4},{box:[20,79,24,92],w:.1},{box:[66,79,70,92],w:.1}],
+ hipthrust:[{box:[4,66,26,92],w:1}],boxjump:[{box:[60,66,90,92],w:.6}],stepup:[{box:[56,76,84,92],w:.6}],
+ copen:[{box:[78,62,96,92],w:.45}],nordic:[{box:[66,84,78,92],w:.5}],
+ rower:[{box:[18,89,94,91],w:.12},{box:[33,86,47,89],w:.32}],roll:[{wheel:[56,88,5]}],
+ st_hamstand:[{box:[66,60,92,92],w:.5}],st_calfstep:[{box:[40,88,64,92],w:.5}],
+ st_calf:[{wall:81}],st_wallpec:[{wall:81}],st_couch:[{wall:27}],wallsit:[{wall:30}]};
 const PPx=s=>{const o={};String(s).trim().split(/\s+/).forEach(t=>{const m=t.match(/^([A-Za-z])(-?[\d.]+),(-?[\d.]+)$/);if(m){const k=m[1]===m[1].toLowerCase()?m[1].toUpperCase()+'2':m[1];o[k]=[Number(m[2]),Number(m[3])]}});return o};
 /* Direction du pied, en 3 temps :
    1. le « devant » de la jambe : on part du devant du bassin, on suit la flexion de la hanche, puis celle du genou;
@@ -25219,16 +25263,27 @@ function footOf(J,k,tv,fw){const an=J['ankle'+k],kn=J['knee'+k],hip=J.hip;
   if(an[1]<12&&Math.abs(f[0])>.45){const d=[Math.sign(f[0]),0];a=Math.atan2(dot2(d,s),dot2(d,f))/D;a=Math.max(-FOOT.dorsi,Math.min(FOOT.plantar,a))}
   else while(a<FOOT.max&&an[1]+dir(a)[1]*L.foot<FOOT.lift)a+=2;
   const d=dir(a);J['toe'+k]=[an[0]+d[0]*L.foot,an[1]+d[1]*L.foot];J['sole'+k]=sole(a)}
-function from2D(str,flip){const a=PPx(str);['E2','W2','K2','A2'].forEach(k=>{if(!a[k])a[k]=a[k[0]]});
+function from2D(str,flip,o){const a=PPx(str);['E2','W2','K2','A2'].forEach(k=>{if(!a[k])a[k]=a[k[0]]});
   const c=k=>[((flip?100-a[k][0]:a[k][0])-50)*S2,(92-a[k][1])*S2+5];
   const J={hip:c('P'),sh:c('S'),head:c('H'),elbowN:c('E'),handN:c('W'),kneeN:c('K'),ankleN:c('A'),elbowF:c('E2'),handF:c('W2'),kneeF:c('K2'),ankleF:c('A2')};
   const tv=[J.sh[0]-J.hip[0],J.sh[1]-J.hip[1]],t=Math.atan2(tv[0],tv[1])/D,fw=[tv[1],-tv[0]];
   J.neck=[J.sh[0]+(J.head[0]-J.sh[0])*.3,J.sh[1]+(J.head[1]-J.sh[1])*.3];
+  /* 8 nov. 2026 : jamais de genou ni de coude plié à l'envers (de profil seulement; le dessin 2D est parfois approximatif) */
+  if(!o)for(const k of['N','F']){
+    const fix=(r,m,e,fs,maxRev)=>{const u=[J[m][0]-J[r][0],J[m][1]-J[r][1]],v=[J[e][0]-J[m][0],J[e][1]-J[m][1]];
+      const ang=Math.atan2(u[0]*v[1]-u[1]*v[0],dot2(u,v))/D;
+      if(ang*fs<-4&&Math.abs(ang)<maxRev){const l=Math.hypot(v[0],v[1]),n=nrm2(u);J[e]=[J[m][0]+n[0]*l,J[m][1]+n[1]*l]}};
+    fix('hip','knee'+k,'ankle'+k,-1,100);fix('sh','elbow'+k,'hand'+k,1,120)}
   /* Corrections 3 (2 nov. 2026) : le pied suit l'anatomie de TOUTE la jambe (hanche → genou → cheville), dans toutes les positions */
   for(const k of['N','F'])footOf(J,k,tv,fw);
-  const contact=[];const g=k=>a[k][1]>=88;
-  if(g('A'))contact.push('RightFoot');if(g('A2'))contact.push('LeftFoot');if(g('W'))contact.push('RightHand');if(g('W2'))contact.push('LeftHand');
-  if(g('K'))contact.push('RightLeg');if(g('K2'))contact.push('LeftLeg');if(a.H[1]>=85)contact.push('Head');if(a.P[1]>=85)contact.push('Hips');
+  /* 8 nov. 2026 : points d'appui = ce qui touche le sol dans le dessin (le point le plus bas, à 5 près).
+     Avant : seuil fixe, d'où des corps qui flottaient (genoux à 86) ou des assis accroupis (bassin à 84). */
+  const low=Math.max(...['A','A2','W','W2','K','K2','E','E2','H','P'].map(k=>a[k][1])),near=(k,min)=>a[k][1]>=min&&a[k][1]>=low-5;
+  const other=['W','W2','K','K2','E','E2','H','P'].some(k=>near(k,76)),foot=k=>a[k][1]>=88||(other&&near(k,76));
+  const contact=[];
+  if(foot('A'))contact.push('RightFoot');if(foot('A2'))contact.push('LeftFoot');if(near('W',84))contact.push('RightHand');if(near('W2',84))contact.push('LeftHand');
+  if(near('K',83))contact.push('RightLeg');if(near('K2',83))contact.push('LeftLeg');if(near('E',78))contact.push('RightForeArm');if(near('E2',78))contact.push('LeftForeArm');
+  if(near('H',82))contact.push('Head');if(a.P[1]>=82)contact.push('Hips');
   return {J,t,contact}}
 
 /* cinématique 2D de la V3 (pour le squat du test de Ruffier) */
@@ -25291,6 +25346,9 @@ function buildStage(){
     r.addColorStop(0,'rgba(159,185,220,0.22)');r.addColorStop(.4,'rgba(30,66,112,0.35)');r.addColorStop(.78,'rgba(19,50,91,0.95)');r.addColorStop(1,'rgba(19,50,91,1)');g.fillStyle=r;g.fillRect(0,0,512,512);return new THREE.CanvasTexture(c)})();
   const halo=new THREE.Mesh(new THREE.PlaneGeometry(8,8),new THREE.MeshBasicMaterial({map:haloTex,transparent:true,depthWrite:false}));halo.rotation.x=-Math.PI/2;halo.position.y=.002;halo.renderOrder=-2;S.add(halo);
   E.ring=new THREE.Mesh(new THREE.RingGeometry(.55,.565,96),new THREE.MeshBasicMaterial({color:0x9fb9dc,transparent:true,opacity:.55,depthWrite:false}));E.ring.rotation.x=-Math.PI/2;E.ring.position.y=.004;E.ring.renderOrder=-1;S.add(E.ring);
+  /* 8 nov. 2026 : lumières pour les accessoires 3D (banc, boîte, barre, mur); le mannequin garde son propre éclairage */
+  S.add(new THREE.HemisphereLight(0xdfe9f7,0x24476f,.95));{const dl=new THREE.DirectionalLight(0xffffff,.55);dl.position.set(2,4,3);S.add(dl)}
+  E.propMat=new THREE.MeshLambertMaterial({color:0x7d9cc6});E.barMat=new THREE.MeshLambertMaterial({color:0xc9d6e8});
   E.composer=new THREE.EffectComposer(R);E.composer.addPass(new THREE.RenderPass(S,E.camera));E.composer.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(256,256),.18,.4,.85));
   if(window.ResizeObserver)new ResizeObserver(()=>resize()).observe(st_);
 }
@@ -25357,28 +25415,65 @@ function onModel(gltf){
   E.restHip=BN('Hips').position.clone();
   const wp=o=>o.getWorldPosition(new THREE.Vector3());const ul=BN('LeftUpLeg'),lg=BN('LeftLeg'),ft=BN('LeftFoot');
   const legLen=(wp(ul).distanceTo(wp(lg))+wp(lg).distanceTo(wp(ft)))*100;
-  E.K=legLen/(L.th+L.sh);E.F0=wp(ft).y*100;
+  E.K=legLen/(L.th+L.sh);E.F0=wp(ft).y*100;E.Kw=E.K/100;
   const s=new THREE.Vector3();BN('Hips').parent.getWorldScale(s);E.toLocal=1/(s.y*100);E.K*=E.toLocal;E.F0*=E.toLocal;
   /* hauteur au repos de chaque point d'appui (m) */
-  E.targets={Foot:wp(ft).y,ToeBase:wp(BN('LeftToeBase')).y,Hand:.035,Leg:.06,Head:.1,Hips:.09};
+  E.targets={Foot:wp(ft).y,ToeBase:wp(BN('LeftToeBase')).y,Hand:.035,Leg:.06,Head:.1,Hips:.09,Elbow:.05};
   /* Corrections 3 : angle réel de l'os du pied sous la semelle, mesuré sur le mannequin */
   {const a=wp(ft),b=wp(BN('LeftToeBase'));E.footA=Math.atan2(a.y-b.y,Math.hypot(a.z-b.z,a.x-b.x))}
 }
 
 /* orientation d'un os vers une direction du plan de profil */
 const _a=()=>new THREE.Vector3();let V1,V2,V3,Q1,Q2,Q3,RQ;
-function aim(bone,child,dir){if(!bone||!child)return;dir=V3.copy(dir).normalize().applyQuaternion(RQ);bone.getWorldPosition(V1);child.getWorldPosition(V2);
+function aimW(bone,child,dirW){if(!bone||!child)return;const dir=V3.copy(dirW).normalize();bone.getWorldPosition(V1);child.getWorldPosition(V2);
   Q1.setFromUnitVectors(V2.sub(V1).normalize(),dir);bone.getWorldQuaternion(Q2);Q2.premultiply(Q1);bone.parent.getWorldQuaternion(Q3);bone.quaternion.copy(Q3.invert().multiply(Q2));bone.updateMatrixWorld(true)}
+function aim(bone,child,dir){aimW(bone,child,new THREE.Vector3().copy(dir).normalize().applyQuaternion(RQ))}
+const wpos=o=>o.getWorldPosition(new THREE.Vector3());
+/* 8 nov. 2026 : vue de face. x du dessin → côté du mannequin; la longueur qui manque au segment dessiné part vers l'avant (ds = 1) ou l'arrière (ds = -1) */
+function vF(a,b,len,ds){const dx=b[0]-a[0],dy=b[1]-a[1],p=Math.hypot(dx,dy);const z=len&&p<len?Math.sqrt(len*len-p*p)*(ds==null?1:ds):0;return new THREE.Vector3(dx*E.leftSign,dy,z).normalize()}
+/* bras levé sur le côté (élévation latérale) */
+function vOut(a,b,lat){const dx=Math.abs(b[0]-a[0]),dy=b[1]-a[1];return new THREE.Vector3(Math.sign(lat)*dx,dy,dx*.15).normalize()}
+/* 8 nov. 2026 : bras à deux segments vers une cible (main au sol ou sur la barre); le coude garde son côté de flexion */
+function armIK(S,T){limbIK(BN(S+'Arm'),BN(S+'ForeArm'),BN(S+'Hand'),T,-1)}
+/* même chose pour une jambe : pied posé sur le sol, une boîte ou une marche; genou tendu → il plie vers l'avant */
+function legIK(S,T){limbIK(BN(S+'UpLeg'),BN(S+'Leg'),BN(S+'Foot'),T,1)}
+function limbIK(sh,el,ha,T,pref){if(!sh||!el||!ha)return;
+  const P=wpos(sh),Eo=wpos(el),H=wpos(ha),l1=P.distanceTo(Eo),l2=Eo.distanceTo(H);
+  const Dv=T.clone().sub(P);let d=Dv.length();if(d<1e-4)return;d=Math.min((l1+l2)*.999,Math.max(Math.abs(l1-l2)+1e-3,d));Dv.setLength(d);
+  const u=Dv.clone().normalize(),a=Math.acos(Math.max(-1,Math.min(1,(l1*l1+d*d-l2*l2)/(2*l1*d))));
+  let n=Eo.clone().sub(P).cross(H.clone().sub(P)),Ec;
+  if(n.length()>.05*l1*(l1+l2)){n.normalize();Ec=u.clone().applyAxisAngle(n,-a).multiplyScalar(l1).add(P)}
+  else{/* bras tendu : le coude plie vers l'arrière du mannequin (vers les pieds) */
+    n=new THREE.Vector3(1,0,0).applyQuaternion(RQ);const fw=new THREE.Vector3(0,0,1).applyQuaternion(RQ);
+    const c1=u.clone().applyAxisAngle(n,a).multiplyScalar(l1).add(P),c2=u.clone().applyAxisAngle(n,-a).multiplyScalar(l1).add(P);
+    Ec=(c1.clone().sub(P).dot(fw)-c2.clone().sub(P).dot(fw))*pref>0?c1:c2}
+  aimW(sh,el,Ec.clone().sub(P));aimW(el,ha,P.clone().add(Dv).sub(Ec))}
 const d2=(a,b,lat=0)=>new THREE.Vector3(lat,b[1]-a[1],b[0]-a[0]).normalize();
-function applyPose(J,t){
+function applyPose(J,t,c){
   if(!V1){V1=_a();V2=_a();V3=_a();Q1=new THREE.Quaternion();Q2=new THREE.Quaternion();Q3=new THREE.Quaternion();RQ=new THREE.Quaternion()}
   for(const k in E.bones)E.bones[k].quaternion.copy(E.rest[k]);
-  const hips=BN('Hips');hips.position.set(E.restHip.x,E.F0+(J.hip[1]-5)*E.K,E.restHip.z+J.hip[0]*E.K);
-  hips.quaternion.copy(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),t*D*.45)).multiply(E.rest['mixamorigHips']);
+  const fr=c&&c.front,hips=BN('Hips');E.rig.updateMatrixWorld(true);E.rig.getWorldQuaternion(RQ);
+  if(fr){/* 8 nov. 2026 : dessin vu de face → le bassin se déplace sur le côté et s'incline dans le plan frontal */
+    hips.position.set(E.restHip.x+J.hip[0]*E.K*E.leftSign,E.F0+(J.hip[1]-5)*E.K,E.restHip.z);
+    const ax=new THREE.Vector3(0,0,1).applyQuaternion(RQ).applyQuaternion(hips.parent.getWorldQuaternion(new THREE.Quaternion()).invert()).normalize();
+    hips.quaternion.copy(new THREE.Quaternion().setFromAxisAngle(ax,-t*D*.45*E.leftSign)).multiply(E.rest['mixamorigHips'])}
+  else{hips.position.set(E.restHip.x,E.F0+(J.hip[1]-5)*E.K,E.restHip.z+J.hip[0]*E.K);
+    hips.quaternion.copy(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),t*D*.45)).multiply(E.rest['mixamorigHips'])}
   E.rig.updateMatrixWorld(true);E.rig.getWorldQuaternion(RQ);
+  if(fr){const o=c.front;
+    aim(BN('Spine'),BN('Neck'),vF(J.hip,J.sh,L.torso,1));aim(BN('Neck'),BN('Head'),vF(J.sh,J.head,L.neck+L.head,1));
+    const fwW=new THREE.Vector3(0,0,1).applyQuaternion(RQ);
+    for(const S of['Right','Left']){const ka=(S==='Right')!==!!c.swA?'N':'F',kl=(S==='Right')!==!!c.swL?'N':'F';
+      aim(BN(S+'Arm'),BN(S+'ForeArm'),vF(J.sh,J['elbow'+ka],L.ua,o.ua));aim(BN(S+'ForeArm'),BN(S+'Hand'),vF(J['elbow'+ka],J['hand'+ka],L.fa,o.fa));
+      aim(BN(S+'UpLeg'),BN(S+'Leg'),vF(J.hip,J['knee'+kl],L.th,o.th));aim(BN(S+'Leg'),BN(S+'Foot'),vF(J['knee'+kl],J['ankle'+kl],L.sh,o.sh==null?-1:o.sh));
+      /* pied vers l'avant, perpendiculaire au tibia, semelle vers le bas du tibia */
+      const sh=wpos(BN(S+'Foot')).sub(wpos(BN(S+'Leg'))).normalize(),f=fwW.clone().addScaledVector(sh,-fwW.dot(sh));
+      if(f.lengthSq()<1e-4)f.set(0,-1,0);f.normalize();aimW(BN(S+'Foot'),BN(S+'ToeBase'),f.multiplyScalar(Math.cos(E.footA)).addScaledVector(sh,Math.sin(E.footA)))}
+    return}
   aim(BN('Spine'),BN('Neck'),d2(J.hip,J.sh));aim(BN('Neck'),BN('Head'),d2(J.sh,J.head));
   for(const[S,k]of[['Right','N'],['Left','F']]){const lat=(S==='Left'?1:-1)*E.leftSign;
-    aim(BN(S+'Arm'),BN(S+'ForeArm'),d2(J.sh,J['elbow'+k],lat*.16));aim(BN(S+'ForeArm'),BN(S+'Hand'),d2(J['elbow'+k],J['hand'+k],lat*.06));
+    if(c&&c.armsOut){aim(BN(S+'Arm'),BN(S+'ForeArm'),vOut(J.sh,J['elbow'+k],lat));aim(BN(S+'ForeArm'),BN(S+'Hand'),vOut(J['elbow'+k],J['hand'+k],lat))}else{
+    aim(BN(S+'Arm'),BN(S+'ForeArm'),d2(J.sh,J['elbow'+k],lat*.16));aim(BN(S+'ForeArm'),BN(S+'Hand'),d2(J['elbow'+k],J['hand'+k],lat*.06))}
     aim(BN(S+'UpLeg'),BN(S+'Leg'),d2(J.hip,J['knee'+k],lat*.03));aim(BN(S+'Leg'),BN(S+'Foot'),d2(J['knee'+k],J['ankle'+k],lat*.02));
     /* Corrections 3 : l'os du pied descend de la cheville vers la base des orteils (environ 39° sous la semelle).
        On vise donc la pointe du pied + cet angle du côté de la semelle (avant : toujours le même sens, d'où des orteils relevés). */
@@ -25387,18 +25482,86 @@ function applyPose(J,t){
     const ca=Math.cos(E.footA),sa=Math.sin(E.footA);aim(BN(S+'Foot'),BN(S+'ToeBase'),d2([0,0],[d_[0]*ca+n_[0]*sa,d_[1]*ca+n_[1]*sa]))}
 }
 /* appuis au sol : pose les points d'appui sur le sol, et empêche de passer sous le sol */
-function groundFix(contact){const T=E.targets,y=nm=>BN(nm).getWorldPosition(V1).y;
+function lift(d){if(Math.abs(d)>1e-4){const hips=BN('Hips');const s=new THREE.Vector3();hips.parent.getWorldScale(s);hips.position.y-=d/s.y;E.rig.updateMatrixWorld(true)}}
+function groundFix(contact,cf){const T=E.targets,y=nm=>BN(nm).getWorldPosition(V1).y;
+  /* 8 nov. 2026 : mains sur la barre (tractions, suspension, dips) : le corps se place sous les mains */
+  if(cf&&cf.handFix&&cf.handY!=null){const hy=(y('LeftHand')+y('RightHand'))/2;lift(hy-cf.handY);
+    for(const S of['Left','Right']){const h=wpos(BN(S+'Hand'));armIK(S,new THREE.Vector3(h.x,cf.handY,cf.handZ))}
+    const pen=Math.min(...['LeftToe_End','RightToe_End','LeftToeBase','RightToeBase','LeftFoot','RightFoot'].map(nm=>y(nm)-(/Toe/.test(nm)?T.ToeBase:T.Foot)));if(pen<0)lift(pen);return}
   const pts=[];const pt=(nm,tg)=>pts.push([nm,y(nm)-tg]);
-  for(const c of contact){if(/Foot$/.test(c)){pt(c,T.Foot);pt(c.replace('Foot','ToeBase'),T.ToeBase)}else if(/Hand$/.test(c))pt(c,T.Hand);else if(/Leg$/.test(c))pt(c,T.Leg);else if(c==='Head')pt('Head',T.Head);else if(c==='Hips')pt('Hips',T.Hips)}
+  /* 8 nov. 2026 : les mains ne décident pas de la hauteur quand d'autres appuis existent; elles vont ensuite au sol (bras plié ou tendu) */
+  /* assis (bassin au sol) : le bassin décide de la hauteur; sinon les mains ne décident pas quand d'autres appuis existent */
+  const base=contact.filter(c=>!/Hand$/.test(c)),use=contact.includes('Hips')?['Hips']:base.length?base:contact;
+  for(const c0 of use){const[c,up]=c0.split('^'),hh=+up||0;if(/Foot$/.test(c)){pt(c,T.Foot+hh);pt(c.replace('Foot','ToeBase'),T.ToeBase+hh)}else if(/Hand$/.test(c))pt(c,T.Hand);else if(/ForeArm$/.test(c))pt(c,T.Elbow);else if(/Leg$/.test(c))pt(c,T.Leg);else if(c==='Head')pt('Head',T.Head);else if(c==='Hips')pt('Hips',y('Neck')-y('Hips')>.25?.12:T.Hips)}
   let d=pts.length?Math.min(...pts.map(p=>p[1])):Infinity;
-  const all=['LeftToe_End','RightToe_End','LeftToeBase','RightToeBase','LeftFoot','RightFoot','LeftHand','RightHand','Head'].map(nm=>y(nm)-(/Toe/.test(nm)?T.ToeBase:/Foot/.test(nm)?T.Foot:/Hand/.test(nm)?.02:.09));
+  /* assis : les pieds et les mains d'appui seront repliés par la suite (genou, coude); ils ne soulèvent donc pas le bassin */
+  const seated=use.length===1&&use[0]==='Hips',skip=nm=>seated&&contact.some(c=>c.split('^')[0]===nm.replace(/Toe_End|ToeBase/,'Foot'))||(seated&&/Hand/.test(nm)&&contact.includes(nm));
+  const all=['LeftToe_End','RightToe_End','LeftToeBase','RightToeBase','LeftFoot','RightFoot','LeftHand','RightHand','Head'].filter(nm=>!skip(nm)&&!(seated&&/Toe/.test(nm))).map(nm=>y(nm)-(/Toe/.test(nm)?T.ToeBase:/Foot/.test(nm)?T.Foot:/Hand/.test(nm)?.02:.09));
   const pen=Math.min(...all);if(!pts.length)d=Math.min(0,pen);else d=Math.min(d,pen);
-  if(Math.abs(d)>1e-4){const hips=BN('Hips');const s=new THREE.Vector3();hips.parent.getWorldScale(s);hips.position.y-=d/s.y;E.rig.updateMatrixWorld(true)}}
+  lift(d);
+  /* 8 nov. 2026 : chaque pied d'appui touche vraiment sa surface (sol, boîte, marche) */
+  if(!(cf&&cf.front))for(const c0 of contact){const[c,up]=c0.split('^');if(!/Foot$/.test(c)||contact.includes(c.replace('Foot','Leg')))continue;const gap=y(c)-(T.Foot+(+up||0));
+    if(Math.abs(gap)>.012){const S=c.replace('Foot',''),f=wpos(BN(S+'Foot'));legIK(S,new THREE.Vector3(f.x,f.y-gap,f.z));
+      /* le pied reste à plat sur sa surface après le pliage du genou (sinon les orteils passaient sous le sol et tout le corps remontait) */
+      const ft=BN(S+'Foot'),tb=BN(S+'ToeBase'),dv=wpos(tb).sub(wpos(ft));dv.y=0;if(dv.lengthSq()>1e-6){dv.normalize();aimW(ft,tb,dv.multiplyScalar(Math.cos(E.footA)).add(new THREE.Vector3(0,-Math.sin(E.footA),0)))}}}
+  const hands=base.length?contact.filter(c=>/Hand$/.test(c)).map(c=>c.replace('Hand','')):[];
+  const reach=()=>hands.forEach(S=>{const h=wpos(BN(S+'Hand')),P=wpos(BN(S+'Arm'));let tg=new THREE.Vector3(h.x,T.Hand,h.z);
+    /* main sous le sol avec le bras presque tendu (posture de l'enfant…) : le bras s'allonge vers l'avant au lieu de se plier */
+    if(h.y<T.Hand){const Lm=(P.distanceTo(wpos(BN(S+'ForeArm')))+wpos(BN(S+'ForeArm')).distanceTo(h))*.97,dy=P.y-T.Hand,hz=new THREE.Vector3(h.x-P.x,0,h.z-P.z),cur=hz.length();
+      if(cur>.02&&P.distanceTo(h)>.9*Lm&&Lm>dy){const want=Math.sqrt(Lm*Lm-dy*dy);if(want>cur){hz.setLength(want);tg=new THREE.Vector3(P.x+hz.x,T.Hand,P.z+hz.z)}}}
+    armIK(S,tg)});reach();
+  /* bras trop courts pour toucher le sol (à quatre pattes) : le buste s'incline vers l'avant juste assez, puis les mains se reposent */
+  if(hands.length&&!(cf&&cf.front)){const gap=Math.max(...hands.map(S=>y(S+'Hand')-T.Hand));
+    const sp=BN('Spine'),nk=BN('Neck'),sv=wpos(nk).sub(wpos(sp));
+    /* seulement buste à peu près horizontal (à quatre pattes, planche); jamais en chien tête en bas ni debout; 25° au plus */
+    if(gap>.01&&Math.abs(sv.y)<.55*sv.length()){const r=sv.length(),th=Math.asin(Math.min(.42,gap/Math.max(r,.05)));
+      const ax=new THREE.Vector3(1,0,0).applyQuaternion(RQ),turn=a=>{const q=new THREE.Quaternion(),pq=sp.parent.getWorldQuaternion(new THREE.Quaternion());
+        q.setFromAxisAngle(ax.clone().applyQuaternion(pq.clone().invert()),a);sp.quaternion.premultiply(q);sp.updateMatrixWorld(true)};
+      const y0=wpos(nk).y;turn(th);if(wpos(nk).y>y0)turn(-2*th);reach()}}
+  /* assis jambes allongées : le talon repose au sol, la cheville est donc un peu plus basse que debout */
+  const pen2=Math.min(...['LeftToe_End','RightToe_End','LeftToeBase','RightToeBase','LeftFoot','RightFoot','Head'].filter(nm=>!(seated&&/Toe/.test(nm))).map(nm=>y(nm)-(/Toe/.test(nm)?T.ToeBase:/Foot/.test(nm)?(seated?.05:T.Foot):.09)));if(pen2<0)lift(pen2)}
+
+/* ---------- 8 nov. 2026 : accessoires 3D (banc, boîte, barre, barres parallèles, mur, roue) ---------- */
+function clearProps(){if(E.props){E.scene.remove(E.props);E.props.traverse(o=>{if(o.geometry)o.geometry.dispose()});E.props=null}}
+function buildProps(c){clearProps();const spec=c&&c.pat&&PR3[c.pat];if(!spec||!E.propMat)return;const g=new THREE.Group();const k=S2*E.Kw,fr=!!c.front;
+  const X=x=>((c.flip?100-x:x)-50)*k,Y=y=>(92-y)*k;
+  /* le long du dessin : avant/arrière (de profil) ou côté (de face) */
+  const put=(m,along,y,acr)=>{if(fr)m.position.set(along*E.leftSign,y,acr||0);else m.position.set(acr||0,y,along);g.add(m)};
+  const box=(a,h,w,along,y,mat)=>put(new THREE.Mesh(fr?new THREE.BoxGeometry(a,h,w):new THREE.BoxGeometry(w,h,a),mat||E.propMat),along,y);
+  for(const p of spec){
+    if(p.box){const [x1,y1,x2,y2]=p.box,a=Math.abs(X(x2)-X(x1)),h=Y(y1)-Y(y2);box(a,h,p.w||.4,(X(x1)+X(x2))/2,(Y(y1)+Y(y2))/2)}
+    else if(p.wall!=null){box(.05,2.1,1.5,X(p.wall),1.05)}
+    else if(p.wheel){const [cx,cy,r]=p.wheel,m=new THREE.Mesh(new THREE.CylinderGeometry(r*k,r*k,.07,24),E.barMat);m.rotation.z=Math.PI/2;put(m,X(cx),Y(cy))}
+    else if((p.bar||p.rails)&&c.handY!=null){const hl=Math.abs(wpos(BN('LeftHand')).x-wpos(BN('RightHand')).x)/2;
+      if(p.bar){const m=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,1.3,16),E.barMat);m.rotation.z=Math.PI/2;m.position.set(0,c.handY+.035,c.handZ);g.add(m);
+        for(const sx of[-.65,.65]){const po=new THREE.Mesh(new THREE.BoxGeometry(.05,c.handY+.06,.05),E.propMat);po.position.set(sx,(c.handY+.06)/2,c.handZ);g.add(po)}}
+      else for(const sx of[-1,1]){const r=new THREE.Mesh(new THREE.CylinderGeometry(.02,.02,.9,16),E.barMat);r.rotation.x=Math.PI/2;r.position.set(sx*(hl+.01),c.handY-.03,c.handZ);g.add(r);
+        for(const dz of[-.4,.4]){const po=new THREE.Mesh(new THREE.BoxGeometry(.04,c.handY-.03,.04),E.propMat);po.position.set(sx*(hl+.01),(c.handY-.03)/2,c.handZ+dz);g.add(po)}}}}
+  E.props=g;E.scene.add(g)}
+/* prépare un mouvement : hauteur des mains sur la barre (pose de départ, pieds au sol), puis les accessoires */
+function prepCfg(c){if(!c||!E.model){clearProps();return}
+  if(c.handFix&&c.handY==null&&c.A){const keep=c.handFix;c.handFix=false;applyPose(lerpJ(c.A,c.B,0),c.A.t,c);groundFix(c.A.contact.filter(x=>/Foot$/.test(x)),c);c.handFix=keep;
+    const l=wpos(BN('LeftHand')),r=wpos(BN('RightHand'));c.handY=(l.y+r.y)/2+(c.pat==='dip'?0:.02);c.handZ=(l.z+r.z)/2}
+  buildProps(c)}
 
 /* ---------- animations ---------- */
-function exAnimCfg(pat,groups){const P=typeof POSES!=='undefined'?(POSES[pat]||POSES.squat):null;if(!P)return null;
-  const flip=PRONE.has(pat);const A=from2D(P[0],flip),B=from2D(P[1],flip);
-  return {kind:'ex',cycle:2.4,A,B,muscles:(groups||[]).filter(g=>g!=='mob'),bounds:[A.J,B.J]}}
+function exAnimCfg(pat,groups){const P=typeof POSES!=='undefined'?(P3D[pat]||POSES[pat]||POSES.squat):null;if(!P)return null;
+  if(!P3D[pat]&&!POSES[pat])pat='squat';
+  const flip=PRONE.has(pat),fo=FRONT[pat]||null;const A=from2D(P[0],flip,fo),B=from2D(P[1],flip,fo);
+  const c={kind:'ex',cycle:2.4,A,B,pat,flip,front:fo,armsOut:ARMSOUT.has(pat),handFix:HANDFIX.has(pat),muscles:(groups||[]).filter(g=>g!=='mob'),bounds:[A.J,B.J]};
+  if(fo){/* vue de face : le membre le plus à droite du mannequin (gauche du dessin, ou dessous quand il est couché sur le côté) est le droit */
+    const side=(J,r,j)=>{const u=nrm2([J.sh[0]-J.hip[0],J.sh[1]-J.hip[1]]);return dot2([J[j][0]-J[r][0],J[j][1]-J[r][1]],[-u[1],u[0]])};
+    const sc=(r,a,b)=>[A.J,B.J].reduce((s,J)=>s+side(J,r,a+'N')+side(J,r,b+'N')-side(J,r,a+'F')-side(J,r,b+'F'),0);
+    c.swA=fo.swA!=null?fo.swA:sc('sh','elbow','hand')<-1e-6;c.swL=fo.swL!=null?fo.swL:sc('hip','knee','ankle')<-1e-6;
+    /* les appuis suivent le même échange de côté (sinon la main du dessus était tirée vers le sol) */
+    const sw=x=>{const m=x.match(/^(Right|Left)(.*)$/);if(!m||!((/Hand|ForeArm/.test(m[2])&&c.swA)||(/Foot|Leg/.test(m[2])&&c.swL)))return x;return (m[1]==='Right'?'Left':'Right')+m[2]};
+    A.contact=A.contact.map(sw);B.contact=B.contact.map(sw)}
+  /* pieds posés sur une boîte, une marche ou un banc (step-up, mollets sur une marche…) : l'appui se fait sur le dessus de l'accessoire */
+  const tops=(PR3[pat]||[]).filter(p=>p.box&&p.w>=.3).map(p=>p.box);
+  if(tops.length&&E.Kw&&!fo)for(const P_ of[A,B])for(const[k,S]of[['N','Right'],['F','Left']]){const an=P_.J['ankle'+k],x=an[0]/S2+50,y=92-(an[1]-5)/S2;
+    for(const b of tops){const x1=Math.min(b[0],b[2]),x2=Math.max(b[0],b[2]),bx1=flip?100-x2:x1,bx2=flip?100-x1:x2;
+      if(x>=bx1-3&&x<=bx2+3&&Math.abs(y-b[1])<=5){P_.contact=P_.contact.filter(n=>n!==S+'Foot');P_.contact.push(S+'Foot^'+((92-b[1])*S2*E.Kw).toFixed(4));break}}}
+  return c}
 function rufCfg(){/* Corrections 2 : même mannequin et même flexion que la musculation (banque d'exercices), au rythme du test */
   /* debout bras tendus devant → fesses vers les talons, bras tendus devant (comme les consignes du test) */
   let c=null;try{const A=from2D('H50,13 S50,24 E64,24 W77,24 P50,52 K50,72 A50,92',false),B=from2D('H57,36 S53,45 E67,45 W80,45 P34,66 K58,67 A50,92',false);
@@ -25416,13 +25579,18 @@ function lerpJ(A,B,k){const o={};for(const n in A.J)o[n]=[A.J[n][0]+((B.J[n]||A.
 function frame(force){const c=E.cfg;if(!c||!E.camera)return;let x0=1e9,x1=-1e9,y1=0;
   for(const J of c.bounds)for(const k in J){if(k.startsWith('sole'))continue;x0=Math.min(x0,J[k][0]);x1=Math.max(x1,J[k][0]);y1=Math.max(y1,J[k][1])}
   x0-=22;x1+=22;y1+=L.head+14;const sc=E.K*.01;
-  const cz=(x0+x1)/2*sc,h=Math.max(y1,40)*sc,w=(x1-x0)*sc,vf=E.camera.fov*D,asp=E.camera.aspect||1;
+  const cz=(x0+x1)/2*sc,h=Math.max(y1,58)*sc,w=(x1-x0)*sc,vf=E.camera.fov*D,asp=E.camera.aspect||1;
   const dist=Math.max(h/(2*Math.tan(vf/2))/.8,w/(2*Math.tan(vf/2)*asp)/.88);
-  const target=new THREE.Vector3(0,h*.5,cz);
+  let target=new THREE.Vector3(0,h*.5,cz);
   E.view={target,pos:new THREE.Vector3(-E.leftSign*dist*.99,h*.5+dist*.08,cz+dist*.14)};
+  /* 8 nov. 2026 : mouvement dessiné de face → caméra de face */
+  if(c.front||c.armsOut){const cx=c.front?cz*E.leftSign:0,tz=c.front?0:cz;target=new THREE.Vector3(cx,h*.5,tz);E.view={target,pos:new THREE.Vector3(cx-E.leftSign*dist*.18,h*.5+dist*.08,tz+dist*.98)}}
+  /* barre fixe : vue de trois quarts, pour voir la barre et ses montants */
+  else if(c.handFix){E.view={target,pos:new THREE.Vector3(-E.leftSign*dist*.8,h*.5+dist*.1,cz+dist*.58)}}
   E.controls.minDistance=dist*.55;E.controls.maxDistance=dist*1.8;
   if(force||!E.userMoved){E.controls.target.copy(target);E.camera.position.copy(E.view.pos);E.userMoved=false}
-  E.ring.position.z=cz;E.ring.scale.setScalar(Math.max(.8,w*.9))}
+  if(c.front)E.ring.position.set(cz*E.leftSign,E.ring.position.y,0);else E.ring.position.set(0,E.ring.position.y,cz);E.ring.scale.setScalar(Math.max(.8,w*.9));
+  const lb=E.stage&&E.stage.querySelector('.f3d-view span');if(lb){const tx='Glisse pour tourner · '+(c.front||c.armsOut?'Vue de face':c.handFix?'Vue de trois quarts':'Vue de côté');if(lb.textContent!==tx)lb.textContent=tx}}
 function resize(){if(!E.stage||!E.stage.isConnected)return;const r=E.stage.getBoundingClientRect();if(!r.width||!r.height)return;
   E.renderer.setSize(r.width,r.height,false);E.composer.setSize(r.width,r.height);E.camera.aspect=r.width/r.height;E.camera.updateProjectionMatrix();frame(false)}
 
@@ -25448,7 +25616,7 @@ function rufTick(){const {f,t}=rufState();const q=s=>E.stage.querySelector(`[dat
 function loop(now){E.raf=0;if(!E.stage||!E.stage.isConnected||!E.cfg)return;
   const c=E.cfg;
   if(c.kind==='ruf'){const k=rufTick();const p=lerp(RUF.A,RUF.B,k);applyPose(solve(p),p.t)}
-  else{let k,mir=false;if(c.clock){const q=c.clock();k=q.k;mir=q.mir}else{const ph=((now/1000)%c.cycle)/c.cycle;k=easeC(ph)}let J=lerpJ(c.A,c.B,k);const t=c.A.t+(c.B.t-c.A.t)*k;let ct=k<.5?c.A.contact:c.B.contact;if(mir){const M={};for(const n in J)M[n]=J[n];['elbow','hand','knee','ankle','toe','sole'].forEach(p=>{M[p+'N']=J[p+'F'];M[p+'F']=J[p+'N']});J=M;ct=ct.map(x=>x.replace(/^Right/,'#').replace(/^Left/,'Right').replace(/^#/,'Left'))}applyPose(J,t);groundFix(ct)}
+  else{let k,mir=false;if(c.clock){const q=c.clock();k=q.k;mir=q.mir}else{const ph=((now/1000)%c.cycle)/c.cycle;k=easeC(ph)}let J=lerpJ(c.A,c.B,k);const t=c.A.t+(c.B.t-c.A.t)*k;let ct=k<.5?c.A.contact:c.B.contact;if(mir){const M={};for(const n in J)M[n]=J[n];['elbow','hand','knee','ankle','toe','sole'].forEach(p=>{M[p+'N']=J[p+'F'];M[p+'F']=J[p+'N']});J=M;ct=ct.map(x=>x.replace(/^Right/,'#').replace(/^Left/,'Right').replace(/^#/,'Left'))}applyPose(J,t,c);groundFix(ct,c)}
   for(const m of E.meshes)m.material.uniforms.uTime.value=now/1000;
   E.controls.update();E.composer.render();E.raf=requestAnimationFrame(loop)}
 
@@ -25480,7 +25648,7 @@ function mount(){
   if(E.state!=='ready'){host.classList.add('f3d-loading');boot();return}
   host.classList.remove('f3d-loading');
   const key=host.dataset.f3d;
-  if(key!==E.key||!E.cfg){const c=cfgFor(host);if(!c)return;E.cfg=c;E.key=key;E.userMoved=false;E.musKey=null;computeMuscles(c.muscles)}
+  if(key!==E.key||!E.cfg){const c=cfgFor(host);if(!c)return;E.cfg=c;E.key=key;E.userMoved=false;E.musKey=null;computeMuscles(c.muscles);prepCfg(c)}
   if(E.stage.parentNode!==host)host.insertBefore(E.stage,host.querySelector('.f3d-tog'));
   host.classList.add('f3d-on');
   introLie();
@@ -25490,9 +25658,9 @@ function mount(){
    Il n'y a qu'une seule vue WebGL dans l'app : le mannequin couché (immobile) est rendu une fois, puis affiché comme image. */
 function lieSnap(){if(E.lieImg)return E.lieImg;const c=lieCfg();if(!c)return null;const keep={cfg:E.cfg,moved:E.userMoved};const w=800,h=460;
   try{E.cfg=c;computeMuscles([]);E.renderer.setSize(w,h,false);E.composer.setSize(w,h);E.camera.aspect=w/h;E.camera.updateProjectionMatrix();E.userMoved=false;frame(true);
-    applyPose(lerpJ(c.A,c.B,0),c.A.t);groundFix(c.A.contact);E.ring.visible=false;E.controls.update();E.composer.render();E.lieImg=E.canvas.toDataURL('image/jpeg',.9)}
+    if(E.props)E.props.visible=false;applyPose(lerpJ(c.A,c.B,0),c.A.t,c);groundFix(c.A.contact,c);E.ring.visible=false;E.controls.update();E.composer.render();E.lieImg=E.canvas.toDataURL('image/jpeg',.9)}
   catch(e){console.warn(e)}
-  finally{E.ring.visible=true;E.cfg=keep.cfg;E.userMoved=keep.moved;E.musKey=null;if(keep.cfg)computeMuscles(keep.cfg.muscles)}
+  finally{if(E.props)E.props.visible=true;E.ring.visible=true;E.cfg=keep.cfg;E.userMoved=keep.moved;E.musKey=null;if(keep.cfg)computeMuscles(keep.cfg.muscles)}
   return E.lieImg}
 function introLie(){const f=document.querySelector('.rdintro .rdintrofigs figure.rdfig:not(.rdfigsq)');if(!f||f.querySelector('.f3d-lieimg'))return;const u=lieSnap();const sv=f.querySelector('svg');if(!u||!sv)return;
   const im=new Image();im.src=u;im.className='f3d-lieimg';im.alt='Mannequin couché sur le dos, pour les mesures du pouls';sv.replaceWith(im)}
