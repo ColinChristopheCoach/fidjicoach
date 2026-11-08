@@ -26765,7 +26765,7 @@ const missing25=e=>/does not exist|schema cache|Could not find|not found|404/i.t
 const errTxt25=e=>String(e&&e.message||e||'').replace(/^Erreur : /,'');
 
 /* ---------- 1. tests Ruffier et VFC en ligne ---------- */
-const HT={meta:null,uid:null,busy:false,off:false,t:null,warned:false,src:{},loadAt:0,clubAt:0,coachAt:0};
+const HT={meta:null,uid:null,booted:null,busy:false,off:false,t:null,warned:false,src:{},loadAt:0,clubAt:0,coachAt:0};
 const HK=()=>'fc-ht-'+R.uid;
 function htMeta(){if(HT.meta&&HT.uid===R.uid)return HT.meta;HT.uid=R.uid;try{HT.meta=JSON.parse(localStorage.getItem(HK())||'null')}catch(e){HT.meta=null}if(!HT.meta||!HT.meta.items)HT.meta={items:{}};return HT.meta}
 const htSave=()=>{try{localStorage.setItem(HK(),JSON.stringify(HT.meta))}catch(e){}};
@@ -26841,9 +26841,11 @@ save=(old=>function(){const r=old.apply(this,arguments);try{queueHT()}catch(e){}
 if(typeof loadClientSide==='function')loadClientSide=(old=>async function(){await old.apply(this,arguments);try{await htAll()}catch(e){console.warn(e)}})(loadClientSide);
 if(typeof loadCoachSide==='function')loadCoachSide=(old=>async function(){await old.apply(this,arguments);try{await htAll()}catch(e){console.warn(e)}})(loadCoachSide);
 if(typeof syncAll==='function')syncAll=(old=>async function(){await old.apply(this,arguments);try{if(mine()&&Date.now()-HT.coachAt>15000){await htLoadCoach();await htLoadClubs()}}catch(e){}})(syncAll);
-if(typeof resetLocal==='function')resetLocal=(old=>function(){old.apply(this,arguments);HT.meta=null;HT.uid=null;HT.off=false;HT.src={};HT.loadAt=HT.coachAt=HT.clubAt=0;
+if(typeof resetLocal==='function')resetLocal=(old=>function(){old.apply(this,arguments);HT.meta=null;HT.uid=null;HT.booted=null;HT.off=false;HT.src={};HT.loadAt=HT.coachAt=HT.clubAt=0;
   ['rd','hrv5'].forEach(col=>{db[col]=(db[col]||[]).filter(e=>!(e&&e._on))})})(resetLocal);
 /* les clubs arrivent un peu après la connexion; les tests du club sont relus toutes les 2 min et en entrant dans l'espace Club */
+/* comme pour les clubs : le branchement sur la connexion peut arriver trop tard dans une page de 5 Mo, on surveille la session */
+setInterval(()=>{try{if(mine()&&HT.booted!==R.uid&&!R.booting){HT.booted=R.uid;htAll()}}catch(e){}},1500);
 setTimeout(()=>{if(mine())htLoadClubs()},5000);
 setInterval(()=>{if(!mine()||document.visibilityState!=='visible')return;if(Date.now()-HT.clubAt>120000)htLoadClubs();if(R.role==='admin'&&Date.now()-HT.coachAt>120000)htLoadCoach()},30000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&mine()&&Date.now()-HT.loadAt>60000)htAll()});
