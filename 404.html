@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FidjiCoach</title>
+<script>
+/* Liens d'invitation des clubs : fidjicoach.ca/club/<club>/<jeton> → l'app, qui inscrit le compte au groupe (Corrections 21) */
+(function(){var m=location.pathname.match(/^\/club\/([A-Za-z0-9_-]{2,80})(?:\/([A-Za-z0-9_-]{1,40}))?\/?$/);
+  if(m){location.replace('/?club='+encodeURIComponent(m[1])+(m[2]?'&tok='+encodeURIComponent(m[2]):''));return}
+  location.replace('/');})();
+</script></head>
+<body style="font-family:system-ui,sans-serif;padding:24px;background:#0b1a2e;color:#fff">Redirection vers <a href="/" style="color:#9cc7ff">FidjiCoach</a>…</body></html>
