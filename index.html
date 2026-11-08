@@ -23392,8 +23392,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c13';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='7 nov. 2026 · Corrections 10c (factures)';
+const FC_BUILD='2026-11-07-c14';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='7 nov. 2026 · Corrections 14 (factures : cours, téléphone, ville)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -24048,6 +24048,8 @@ const dlong10=d=>{if(!d)return '';const s=String(d).slice(0,10);const x=new Date
 const TAX10=/^(TPS|TVQ|TVH|HST|GST|QST)\b/i;
 const PAY10={carte:'carte de crédit',interac:'virement Interac',credit:'crédit',comptant:'argent comptant'};
 const mon10=a=>a<0?'−'+money(-a):money(a);
+function clInfo14(u){const f=(u&&u.fiche)||{};const adr=[f.adresse||f.addr||'',[f.ville||'',f.cp||f.codePostal||''].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  return {name:name(u),email:(u&&u.email)||'',tel:f.tel||(u&&u.tel)||'',addr:adr}}
 function inv10Find(bid,i){const b=B(bid);if(!b)return null;const p=b.parts[Number(i)];return p?{b,p}:null}
 function inv10Coach(){const adm=R.role==='admin';let S={};try{S=(adm?show9():R.show)||{}}catch(e){}
   const U=ui();const I=adm?(U.coach||{}):(R.coachInfo||U.coach||{});
@@ -24056,15 +24058,16 @@ function inv10Coach(){const adm=R.role==='admin';let S={};try{S=(adm?show9():R.s
 function inv10Data(b,p){const cl=userById(p.userId);
   const L=((p.lines&&p.lines.length)?p.lines:[[bDesc(b),p.amount]]).map(([d,a])=>[String(d),Number(a)||0]);
   const tax=L.filter(l=>TAX10.test(l[0])),items=L.filter(l=>!TAX10.test(l[0]));
-  return {no:p.invNo,date:p.invAt||p.paidAt||today(),ref:b.ref,coach:inv10Coach(),cl:{name:name(cl),email:(cl&&cl.email)||''},items,tax,
+  return {no:p.invNo,date:p.invAt||p.paidAt||today(),ref:b.ref,coach:inv10Coach(),cl:clInfo14(cl),items,tax,
     sub:r2(items.reduce((n,l)=>n+l[1],0)),total:p.amount,method:p.method,paidAt:p.paidAt,refunded:Number(p.refunded)||0,
-    sessions:(b.sessions||[]).map(s=>dfmt(s.date)+(s.start?' '+hfmt(s.start):'')),lieu:b.lieu||'',sent:p.invSent||null}}
+    sessions:(b.sessions||[]).map(s=>dlong10(s.date)+(s.start?' à '+hfmt(s.start):'')),lieu:b.lieu||'',sent:p.invSent||null}}
 function inv10Note(o){if(o.note)return o.note;return 'Payé'+(o.method?' par '+(PAY10[o.method]||o.method):'')+' le '+dlong10(o.paidAt||o.date)+'.'+(o.sessions.length?' Cours : '+o.sessions.join(', ')+'.':'')+(o.lieu?' Lieu : '+o.lieu+'.':'')}
 function inv10HTML(o){const C=o.coach;
   return `<div class="fcinv" id="fcInvDoc">
   <div class="fcinv-h"><div class="fcinv-b">${C.logo?`<img src="${esc(C.logo)}" alt="">`:''}<div><b>${esc(C.name)}</b><span>${esc([C.region,C.tel,C.email].filter(Boolean).join(' · '))}</span></div></div>
    <div class="fcinv-n"><b>${esc(o.title||'Facture')} ${esc(o.no)}</b><span>Date : ${esc(dlong10(o.date))}</span><span>${esc(o.refTxt||('Réservation '+o.ref))}</span></div></div>
-  <div class="fcinv-to"><span>${o.title==='Note de crédit'?'Crédité à':'Facturé à'}</span><b>${esc(o.cl.name)}</b>${o.cl.email?`<span>${esc(o.cl.email)}</span>`:''}</div>
+  <div class="fcinv-pp"><div class="fcinv-to"><span>${o.title==='Note de crédit'?'Crédité à':'Facturé à'}</span><b>${esc(o.cl.name)}</b>${o.cl.email?`<span>${esc(o.cl.email)}</span>`:''}${o.cl.tel?`<span>${esc(o.cl.tel)}</span>`:''}${o.cl.addr?`<span>${esc(o.cl.addr)}</span>`:''}</div>
+  ${(o.sessions&&o.sessions.length)||o.lieu?`<div class="fcinv-to"><span>${o.sessions&&o.sessions.length>1?'Cours':'Cours'}</span>${(o.sessions||[]).map(x=>`<b>${esc(x)}</b>`).join('')}${o.lieu?`<span>${esc(o.lieu)}</span>`:''}</div>`:''}</div>
   <table><thead><tr><th>Description</th><th>Montant</th></tr></thead><tbody>
    ${o.items.map(([d,a])=>`<tr><td>${esc(d)}</td><td>${mon10(a)}</td></tr>`).join('')}
    ${o.tax.length?`<tr class="st"><td>Sous-total</td><td>${mon10(o.sub)}</td></tr>`+o.tax.map(([d,a])=>`<tr class="st"><td>${esc(d)}</td><td>${mon10(a)}</td></tr>`).join(''):''}
@@ -24103,8 +24106,11 @@ async function inv10Pdf(o){const J=window.jspdf&&window.jspdf.jsPDF;if(!J)throw 
   doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);
   const ci=[o.coach.region,o.coach.tel,o.coach.email].filter(Boolean).join(' · ');if(ci)doc.text(T(ci),X,y+13);
   y+=40;doc.setFontSize(8);doc.text(T(o.title==='Note de crédit'?'CRÉDITÉ À':'FACTURÉ À'),X,y);doc.setFontSize(11);doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.text(T(o.cl.name),X,y+15);
-  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);if(o.cl.email)doc.text(T(o.cl.email),X,y+28);
-  y+=46;doc.setFillColor(238,244,251);doc.rect(X,y,RX-X,22,'F');doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(9.5);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);let cy=y+28;[o.cl.email,o.cl.tel,o.cl.addr].filter(Boolean).forEach(t=>{doc.text(T(t),X,cy);cy+=12});
+  if((o.sessions&&o.sessions.length)||o.lieu){const CX=310;doc.setFontSize(8);doc.text(T('COURS'),CX,y);doc.setFontSize(10);doc.setTextColor(...navy);doc.setFont('helvetica','bold');let sy=y+15;
+    (o.sessions||[]).slice(0,6).forEach(t=>{doc.text(T(t),CX,sy);sy+=13});doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);
+    if(o.lieu){const ll=doc.splitTextToSize(T(o.lieu),RX-CX);doc.text(ll,CX,sy);sy+=ll.length*11}cy=Math.max(cy,sy)}
+  y=Math.max(y+46,cy+8);doc.setFillColor(238,244,251);doc.rect(X,y,RX-X,22,'F');doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(9.5);
   doc.text('Description',X+8,y+15);doc.text('Montant',RX-8,y+15,{align:'right'});y+=22;doc.setFont('helvetica','normal');doc.setLineWidth(.5);
   const row=(d,a,op={})=>{const ls=doc.splitTextToSize(T(d),RX-X-120);const h=Math.max(20,ls.length*12+8);if(y+h>730){doc.addPage();y=54}
     if(op.top){doc.setDrawColor(...navy);doc.setLineWidth(1.2);doc.line(X,y,RX,y);doc.setLineWidth(.5)}
@@ -24161,6 +24167,7 @@ window.fcFactV10=function(u){const fam=[u.id,...db.users.filter(x=>x.guardian===
 .fcinv-b{display:flex;gap:10px;align-items:center;min-width:0}.fcinv-b img{height:44px;width:auto;max-width:150px;object-fit:contain}
 .fcinv-b div,.fcinv-n,.fcinv-to{display:flex;flex-direction:column;min-width:0}.fcinv-n{text-align:right;align-items:flex-end;margin-left:auto}
 .fcinv span{color:#6b7280;font-size:.82rem;overflow-wrap:anywhere}
+.fcinv-pp{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 10px}.fcinv-pp .fcinv-to{margin:0}@media (max-width:480px){.fcinv-pp{grid-template-columns:1fr}}
 .fcinv-to{margin:14px 0 10px}.fcinv-to>span:first-child{text-transform:uppercase;letter-spacing:.06em;font-size:.7rem}
 .fcinv table{width:100%;border-collapse:collapse}.fcinv th{background:#eef4fb;color:#13325b;text-align:left;padding:7px 8px;font-size:.82rem}
 .fcinv th:last-child,.fcinv td:last-child{text-align:right;white-space:nowrap;padding-left:12px}
@@ -24189,11 +24196,11 @@ function inv11Split(lines,total,fallback){const L=((lines&&lines.length)?lines:[
   const tax=L.filter(l=>TAX10.test(l[0])),items=L.filter(l=>!TAX10.test(l[0]));return {items,tax,sub:r2(items.reduce((n,l)=>n+l[1],0))}}
 function inv11Fee(bid,pid){const b=B(bid);if(!b)return null;const f=(b.feesSrv||[]).find(x=>x.pid===pid);return f?{b,f}:null}
 function inv11FeeData(b,f){const cl=userById(f.payer);const sp=inv11Split(f.lines,f.amount,'Frais de location : '+(f.reason||''));
-  return Object.assign({no:f.invNo,date:f.invAt||f.paidAt||today(),ref:b.ref,refTxt:'Location '+b.ref,coach:inv10Coach(),cl:{name:name(cl),email:(cl&&cl.email)||''},
+  return Object.assign({no:f.invNo,date:f.invAt||f.paidAt||today(),ref:b.ref,refTxt:'Location '+b.ref,coach:inv10Coach(),cl:clInfo14(cl),
     total:f.amount,method:f.method||'carte',paidAt:f.paidAt,refunded:Number(f.refunded)||0,sessions:[],lieu:'',sent:f.invSent||null,
     note:'Frais de location d\'équipement (bris, perte ou non-retour) facturés après la location '+b.ref+', selon le contrat de location signé. Payé par '+(PAY10[f.method||'carte']||f.method)+' le '+dlong10(f.paidAt||f.invAt)+'.'},sp)}
 function inv11SubData(x){const cl=userById(x.userId);const sp=inv11Split(x.lines,x.total,(x.plan||'Forfait mensuel')+' · abonnement mensuel');
-  return Object.assign({no:x.no,date:x.at||today(),ref:x.plan||'',refTxt:'Abonnement · '+(x.plan||'mensuel'),coach:inv10Coach(),cl:{name:name(cl),email:(cl&&cl.email)||''},
+  return Object.assign({no:x.no,date:x.at||today(),ref:x.plan||'',refTxt:'Abonnement · '+(x.plan||'mensuel'),coach:inv10Coach(),cl:clInfo14(cl),
     total:x.total,method:'carte',paidAt:x.at,refunded:0,sessions:[],lieu:'',sent:x.sent||null,
     note:'Abonnement mensuel payé par carte de crédit le '+dlong10(x.at)+(x.end?', pour la période du '+dlong10(x.at)+' au '+dlong10(x.end):'')+'. Renouvellement automatique chaque mois, annulable en tout temps (aucun remboursement d\'un mois commencé).'},sp)}
 A.fcInvX=d=>{if(d.s==='fee'){const x=inv11Fee(d.b,d.p);if(!x||!x.f.invNo){flash(x&&x.f.status==='payee'?'Le numéro de facture arrive dans un instant : touchez Actualiser.':'Pas de facture : ces frais ne sont pas encore payés.');return}
@@ -24319,8 +24326,8 @@ async function loadCNotes(){if(!R.on||!R.coachId||!R.uid)return;
 loadSubs=(old=>async function(){await old();await loadCNotes()})(loadSubs);
 function inv12CnData(x){const cl=userById(x.userId);const b=x.bid?B(x.bid):null;
   return {title:'Note de crédit',totLbl:'Total crédité',no:x.no,date:x.at||today(),ref:x.invRef,refTxt:'Facture d\'origine '+(x.invRef||'')+(b?' · '+b.ref:''),
-    coach:inv10Coach(),cl:{name:name(cl),email:(cl&&cl.email)||''},items:[['Remboursement'+(x.reason?' : '+x.reason:''),-x.total]],tax:[],sub:-x.total,total:-x.total,
-    method:x.method,paidAt:x.at,refunded:0,sessions:[],lieu:'',sent:x.sent||null,
+    coach:inv10Coach(),cl:clInfo14(cl),items:[['Remboursement'+(x.reason?' : '+x.reason:''),-x.total]],tax:[],sub:-x.total,total:-x.total,
+    method:x.method,paidAt:x.at,refunded:0,sessions:b?(b.sessions||[]).map(s=>dlong10(s.date)+(s.start?' à '+hfmt(s.start):'')):[],lieu:b?b.lieu||'':'',sent:x.sent||null,
     note:'Remboursement de '+money(x.total)+(x.method==='interac'?' par virement Interac':' sur la carte utilisée pour le paiement')+', le '+dlong10(x.at)+'. Cette note de crédit réduit la facture '+(x.invRef||'d\'origine')+' du même montant.'}}
 const cnBtn12=(x,txt)=>invBtn11('nc',`data-id="${esc(x.id)}"`,txt||`${esc(x.no)} · −${money(x.total)}`);
 /* réservation : notes de crédit */
