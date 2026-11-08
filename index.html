@@ -1116,7 +1116,7 @@ const REMISE = { 1:0, 3:0.05, 5:0.10 };
 const TAMPON = 30;
 const LIEUX_OLD = ['Plaines d\'Abraham','Base de plein air de Sainte-Foy','Camp Mercier','Mont-Sainte-Anne (ski de fond)','Les Sentiers du Moulin','Domaine de Maizerets','Ski de fond Charlesbourg','Station touristique Duchesnay'];
 const FICHE = [
-  ['Identité', [['prenom','Prénom','text',1],['nom','Nom','text',1],['tel','Téléphone','tel',1],['naissance','Date de naissance','date',1],['sexe','Sexe','select:Femme|Homme|Autre|Préfère ne pas répondre',1],['ville','Ville','text',1]]],
+  ['Identité', [['prenom','Prénom','text',1],['nom','Nom','text',1],['tel','Téléphone','tel',1],['naissance','Date de naissance','date',1],['sexe','Sexe','select:Femme|Homme|Autre|Préfère ne pas répondre',1],['adresse','Adresse (numéro et rue)','text',0],['ville','Ville','text',1],['cp','Code postal','text',0]]],
   ['Contact d\'urgence', [['urgNom','Nom','text',1],['urgTel','Téléphone','tel',1]]],
   ['Ski de fond', [['niveau','Niveau','select:Débutant|Intermédiaire',1],['technique','Technique pratiquée','select:Classique|Patin|Les deux',1],['experience','Expérience','select:Jamais skié|Quelques sorties|1 à 3 saisons|Plus de 3 saisons',1],['condition','Condition physique','select:Peu active|Modérément active|Très active',1],['objectifs','Objectifs','textarea',0],['sante','Blessures ou conditions à connaître','textarea',0]]],
   ['Équipement et location', [['equipement','Équipement','select:J\'ai mon équipement|J\'ai besoin de location|Équipement partiel',1],['taille','Taille (cm)','number',0],['poids','Poids (kg)','number',0],['pointure','Pointure','text',0]]]
@@ -9549,13 +9549,13 @@ const MPTR=['Liste en cours','Titre suivant','Rythme 170 bpm','Encore une monté
 Object.assign(A,{musOn(d){st.modal={kind:'musOn',k:d.k};render()},musOk(){const S=musOf(me());S.svc=st.modal.k;S.on=true;S.at=today();st.modal=null;save();render();flash(musById(S.svc)[1]+' connecté (démo)')},musOff(){const S=musOf(me());S.on=false;st.mpShow=false;save();render()},
   mpTry(){st.mpShow=true;render()},mpX(){st.mpShow=false;st.mpHide=true;render()},mpPlay(){st.mp=st.mp||{i:0,play:true};st.mp.play=!st.mp.play;render()},mpNext(){st.mp=st.mp||{i:0,play:true};st.mp.i++;st.mp.play=true;render()},mpPrev(){st.mp=st.mp||{i:0,play:true};st.mp.i=Math.max(0,st.mp.i-1);render()},
   mpUse(d){const u=me();const S=musOf(u);const r=resL().find(x=>x.id===d.r);S.pl=d.r;if(!S.on){const k=r&&r.svc||'spotify';st.modal={kind:'musOn',k};render();return}save();st.mpShow=true;st.mpHide=false;render();flash('Liste choisie pour l\'entraînement')},
-  mpOpen(){const u=me();if(!u)return;const S=musOf(u);if(!S.on){st.ptab='music';st.tab='profil';st.view='client';render();return}st.mpShow=true;st.mpHide=false;render()}});
-function mpDom(){const old=document.getElementById('mplayer');const u=me();const S=u&&u.role==='client'&&u.music;const ctx=st.rec?'gps':st.stp?'stretch':(st.wk||st.mRun)?'muscu':null;
+  mpOpen(){const u=me();if(!u)return;const S=musOf(u);if(!S.on){if(u.role==='admin'){st.vol='coach';st.view='admin';A.nav({s:'moi'});st.selfTab='music';render();window.scrollTo(0,0);return}st.ptab='music';st.tab='profil';st.view='client';render();return}st.mpShow=true;st.mpHide=false;render()}});
+function mpDom(){const old=document.getElementById('mplayer');const u=me();const S=u&&(u.role==='client'||u.role==='admin')&&u.music;const ctx=st.rec?'gps':st.stp?'stretch':(st.wk||st.mRun)?'muscu':null;
   const show=S&&S.on&&!st.mpHide&&(st.mpShow||(ctx&&S.show&&S.show[ctx]));if(!show){if(old)old.remove();return}const M=musById(S.svc);const r=S.pl&&resL().find(x=>x.id===S.pl);st.mp=st.mp||{i:0,play:true};const P=st.mp;
   const h=`${musIco(M)}<span class="mpt"><b>${P.play?'▶ ':'❚❚ '}${esc(MPTR[P.i%MPTR.length])}</b><small>${esc(r?r.t:'Ma musique')} · ${esc(M[1])}</small></span><button data-a="mpPrev" aria-label="Précédent">⏮</button><button data-a="mpPlay" aria-label="${P.play?'Pause':'Lecture'}">${P.play?'⏸':'▶'}</button><button data-a="mpNext" aria-label="Suivant">⏭</button><a href="${esc(r&&r.url||M[3])}" target="_blank" rel="noopener" aria-label="Ouvrir ${esc(M[1])}">↗</a><button class="mpx" data-a="mpX" aria-label="Fermer le lecteur">✕</button>`;
   if(old){old.innerHTML=h;return}const el=document.createElement('div');el.id='mplayer';el.className='mplayer';el.setAttribute('role','region');el.setAttribute('aria-label','Lecteur de musique');el.innerHTML=h;document.body.appendChild(el)}
-if(typeof window.recV==='function'&&!window.recV.__mus){const o=window.recV;window.recV=function(u){const h=o.apply(this,arguments);if(!u||u.role!=='client'||!mod('music'))return h;const S=musOf(u);return `<div class="musbtn"><button class="btn btn-sm btn-plain" data-a="mpOpen">🎵 ${S.on?'Musique · '+esc(musById(S.svc)[1]):'Connecter ma musique'}</button></div>`+h};window.recV.__mus=1}
-stPlayer=(old=>function(u){const h=old(u);if(!u||u.role!=='client'||!mod('music'))return h;const S=musOf(u);return `<div class="musbtn"><button class="btn btn-sm btn-plain" data-a="mpOpen">🎵 ${S.on?'Musique':'Connecter ma musique'}</button></div>`+h})(stPlayer);
+if(typeof window.recV==='function'&&!window.recV.__mus){const o=window.recV;window.recV=function(u){const h=o.apply(this,arguments);if(!u||!(u.role==='client'?mod('music'):u.role==='admin'))return h;const S=musOf(u);return `<div class="musbtn"><button class="btn btn-sm btn-plain" data-a="mpOpen">🎵 ${S.on?'Musique · '+esc(musById(S.svc)[1]):'Connecter ma musique'}</button></div>`+h};window.recV.__mus=1}
+stPlayer=(old=>function(u){const h=old(u);if(!u||!(u.role==='client'?mod('music'):u.role==='admin'))return h;const S=musOf(u);return `<div class="musbtn"><button class="btn btn-sm btn-plain" data-a="mpOpen">🎵 ${S.on?'Musique':'Connecter ma musique'}</button></div>`+h})(stPlayer);
 
 /* ---------- 6. Clubs : invitation, import, familles, présences, météo, formulaires, équipe, tableau de bord ---------- */
 const FORMS0=()=>[{id:'f1',t:'Décharge de responsabilité',req:true,txt:'Je reconnais que le ski de fond comporte des risques (chutes, froid, collisions). Je confirme que l\'athlète est en mesure de participer et j\'accepte de respecter les consignes des entraîneurs et les règles des centres de ski.'},
@@ -10386,12 +10386,12 @@ mapBox=(old=>function(svg,key,o){const h=old(svg,key,o);if(!svg.includes('class=
 recSimStep=(old=>function(R,dt){const c=trCentre(R.cid);if(!c.free)return old(R,dt);const T=trType(R.type);const pos=s=>{const th=s/800;const r=800*(1+.18*Math.sin(3*th));return [r*Math.cos(th)-800,r*Math.sin(th)]};
   const sp=T[3]*(0.94+Math.random()*.12);R.simS+=sp*dt;const q=pos(R.simS);const ll=toLL(c,q[0]+(Math.random()-.5)*2.5,q[1]+(Math.random()-.5)*2.5);const u=me();
   const tg=Math.max(92,Math.min(hrMaxOf(u)-4,120+Math.sin(R.simS/650)*12+Math.random()*5));R.simH+=(tg-R.simH)*.25;const hr=REC.btHr||(recHrSrc(u)?R.simH:null);recPush(R,ll.lat,ll.lon,150+14*Math.sin(R.simS/650),hr,5)})(recSimStep);
-recDraw=(old=>function(){old();const R=st.rec;if(!R||!isFreeId(R.cid))return;const nb=document.getElementById('trNavTxt');if(!nb)return;const t=`<b>Sortie libre</b><br><span class="small muted">${R.me?'Carte simple : seul votre trajet s\'affiche · '+fmtKm(R.dist)+' km parcourus':'En attente de la position…'}</span>`;if(nb.innerHTML!==t)nb.innerHTML=t})(recDraw);
-centrePick=(old=>function(id){const h=old(id);if((st.trTab||'rec')!=='rec')return h;const fr=isFreeId(trCentre().id);return h.replace(/(<select data-trc="1"[^>]*>)/,`$1<option value="libre" ${fr?'selected':''}>Sans lieu précis · carte simple</option>`)})(centrePick);
+recDraw=(old=>function(){old();const R=st.rec;if(!R||!isFreeId(R.cid))return;const nb=document.getElementById('trNavTxt');if(!nb)return;const t=`<b>Sortie libre</b><br><span class="small muted">${R.me?'Seul votre trajet s\'affiche (pas de sentiers) · '+fmtKm(R.dist)+' km parcourus':'En attente de la position…'}</span>`;if(nb.innerHTML!==t)nb.innerHTML=t})(recDraw);
+centrePick=(old=>function(id){const h=old(id);if((st.trTab||'rec')!=='rec')return h;const fr=isFreeId(trCentre().id);return h.replace(/(<select data-trc="1"[^>]*>)/,`$1<option value="libre" ${fr?'selected':''}>Sans lieu précis (sans centre ni sentier)</option>`)})(centrePick);
 const locate=()=>{try{navigator.geolocation.getCurrentPosition(p=>{if(st.rec&&st.rec.status!=='ready')return;st.trFree={lat:p.coords.latitude,lon:p.coords.longitude};if(st.trC==='libre'){delete st.pz.live;render()}},()=>{},{enableHighAccuracy:true,timeout:10000,maximumAge:60000})}catch(e){}};
 document.addEventListener('change',e=>{const t=e.target;if(t.dataset&&t.dataset.trc&&t.value==='libre')locate()});
 window.recV=(old=>{const f=function(u){const h=old.apply(this,arguments);const R=st.rec;if(!R||!isFreeId(R.cid)||R.status!=='ready')return h;
-  return h.replace(/<h3 class="sech" style="margin-top:6px">Sentier à suivre<\/h3>[\s\S]*?<div class="trlist">[\s\S]*?<\/div>/,`<div class="freenote"><b>Sortie libre, sans lieu précis</b><span class="small muted">Sur la route, en forêt, sur un lac ou en ville : le GPS enregistre votre trajet sur une carte simple, sans tracé de sentiers. Distance, vitesse, dénivelé et cardio sont calculés comme d'habitude.</span></div>`)
+  return h.replace(/<h3 class="sech" style="margin-top:6px">Sentier à suivre<\/h3>[\s\S]*?<div class="trlist">[\s\S]*?<\/div>/,`<div class="freenote"><b>Sortie libre, sans lieu précis</b><span class="small muted">Sur la route, en forêt, sur un lac ou en ville : le GPS enregistre votre trajet sur la carte (fond « Carte » ou « Courbes de niveau »), sans tracé de sentiers. Distance, vitesse, dénivelé et cardio sont calculés comme d'habitude.</span></div>`)
    .replace(/<p class="trnote">[\s\S]*?<\/p>/,`<p class="trnote">${st.trFree?'Carte centrée sur votre position.':'La carte se centre sur votre position dès que le GPS répond.'}</p>`)};Object.assign(f,old);return f})(window.recV);
 A.trTab=(old=>function(d){if(d.t==='map'&&isFreeId(st.trC))st.trC=null;return old(d)})(A.trTab);
 A.trGoRec=(old=>function(d){if(isFreeId(st.trC))st.trC=null;return old(d)})(A.trGoRec);
@@ -10700,7 +10700,7 @@ stPlayer=(old=>function(u){let h=old(u);try{const c=stRepCfg(u);if(!c)return h;w
   return h}catch(e){console.warn(e);return h}})(stPlayer);
 
 /* --- 2. « Mon entraînement » de l'entraîneur --- */
-const SELF_TABS=[['charge','Plan et charge','Votre plan, vos séances faites et votre charge'],['muscu','Musculation','Vos programmes et le mode entraînement'],['stretch','Étirements','Vos routines guidées'],['forme','Test Ruffier','Ruffier-Dickson et VFC'],['progres','Ma progression','Zones cardio, tests et résultats'],['compet','Compétitions','Vos objectifs de saison']];
+const SELF_TABS=[['charge','Plan et charge','Votre plan, vos séances faites et votre charge'],['muscu','Musculation','Vos programmes et le mode entraînement'],['stretch','Étirements','Vos routines guidées'],['forme','Test Ruffier','Ruffier-Dickson et VFC'],['progres','Ma progression','Zones cardio, tests et résultats'],['compet','Compétitions','Vos objectifs de saison'],['appareils','Appareils et applis','Montre, ceinture cardio, Strava et autres'],['music','Musique','Spotify, Apple Music et autres']];
 /* dans « Mon entraînement », l'entraîneur planifie ses propres séances (boutons « + Séance » du plan) */
 chargeV=(old=>function(uid,coach){return old(uid,coach||(!!st.selfMode&&uid===selfId()))})(chargeV);
 function selfSub(u,k){const keep=st.ptab;st.ptab=k;st.selfMode=true;st.chU=null;try{let h=profileSub(u);h=h.replace(/^\s*<div class="subhead">[\s\S]*?<\/div>/,'').replace(/ · votre entraîneur est avisé/g,'').replace(/ Votre entraîneur reste responsable du plan\./g,'');return h}finally{st.ptab=keep;st.selfMode=false}}
@@ -10710,10 +10710,10 @@ function selfMuscu(u){const ps=(db.programs||[]).filter(p=>p.userId===u.id);cons
     h=h.replace(/<button class="btn btn-accent" data-a="progSend">[^<]*<\/button>/,'').replace('‹ Tous les programmes','‹ Mon entraînement');
     return h}
   return `<div class="actions" style="margin:0 0 12px"><button class="btn btn-sm btn-accent" data-a="selfProgNew">+ Créer un programme pour moi</button>${ps.map(p=>`<button class="btn-xs" data-a="selfProgEdit" data-p="${p.id}">Modifier « ${esc(p.name)} »</button>`).join('')}</div>`+muscuClient(u).replace(/ · votre entraîneur est avisé/g,'')}
-function selfV(){const u=me();if(!u)return '';const id=u.id;const tabs=SELF_TABS.filter(([k])=>k==='charge'||k==='compet'||k==='progres'||typeof pOk!=='function'||pOk(k));
+function selfV(){const u=me();if(!u)return '';const id=u.id;const tabs=SELF_TABS.filter(([k])=>k==='charge'||k==='compet'||k==='progres'||k==='appareils'||k==='music'||typeof pOk!=='function'||pOk(k));
   let t=st.selfTab&&tabs.some(x=>x[0]===st.selfTab)?st.selfTab:tabs[0][0];
-  st.inSelf=true;let body='';try{if(t==='muscu')body=selfMuscu(u);else if(t==='stretch'){st.stSelf=true;body=stretchV(u,true)}else body=selfSub(u,t)}catch(e){console.error(e);body='<p class="muted">Cette section n\'est pas disponible.</p>'}finally{st.inSelf=false}
-  return `<p class="muted" style="margin-bottom:12px">Votre propre entraînement, comme un athlète : plan et charge, musculation, étirements et test Ruffier. ${R_on()&&u.role==='admin'?'Enregistré en ligne avec votre compte : vous le retrouvez sur tous vos appareils.':''} ${u.role==='admin'?'Vos clients ne le voient pas.':'Vos athlètes ne le voient pas.'}</p>
+  st.inSelf=true;let body='';try{if(t==='muscu')body=selfMuscu(u);else if(t==='stretch'){st.stSelf=true;body=stretchV(u,true)}else body=selfSub(u,t);if(t==='music'||t==='appareils')body=body.replace(/ · recommandée par votre entraîneur/g,' · dans vos ressources').replace('Listes recommandées par votre entraîneur','Vos listes de musique (menu Ressources)').replace(', et votre entraîneur les voit si vous les partagez','').replace(' et votre entraîneur les voit si vous les partagez','')}catch(e){console.error(e);body='<p class="muted">Cette section n\'est pas disponible.</p>'}finally{st.inSelf=false}
+  return `<p class="muted" style="margin-bottom:12px">Votre propre entraînement, comme un athlète : plan et charge, musculation, étirements, test Ruffier, appareils et musique. ${R_on()&&u.role==='admin'?'Enregistré en ligne avec votre compte : vous le retrouvez sur tous vos appareils.':''} ${u.role==='admin'?'Vos clients ne le voient pas.':'Vos athlètes ne le voient pas.'}</p>
    <div class="chips selftabs" style="margin-bottom:14px">${tabs.map(([k,l])=>`<button class="chip ${t===k?'on':''}" data-a="selfTab" data-t="${k}">${esc(l)}</button>`).join('')}</div>${body}`}
 const R_on=()=>!!(window.fcReal&&window.fcReal.on);
 window.fcSelfV=selfV;
@@ -13947,7 +13947,7 @@ const m3U=r=>r&&r.uid?userById(r.uid):null;
 function mF(c,r){const u=m3U(r);if(u){u.fiche=u.fiche||{};return u.fiche}r.f=r.f||{};return r.f}
 function m3get(c,r,k){if(!r.uid&&['prenom','nom','naissance'].includes(k))return r[k]||'';if(k==='email'){const u=m3U(r);return u?u.email||'':r.email||''}return mF(c,r)[k]||''}
 function m3set(c,r,k,v){if(!r.uid&&['prenom','nom','naissance'].includes(k)){r[k]=v;return}if(k==='email'){if(!r.uid)r.email=String(v).toLowerCase();return}mF(c,r)[k]=v;if(r.uid&&['prenom','nom','naissance'].includes(k))r[k]=v}
-function m3fields(){const G=FICHE.map(([g,fs])=>[g,fs.filter(f=>!M3HK.includes(f[0])).concat(M3XTRA[g]||[])]);G[0][1]=G[0][1].concat([['email','Courriel','email',0]]);return G}
+function m3fields(){const G=FICHE.map(([g,fs])=>[g,fs.filter(f=>!M3HK.includes(f[0])).concat((M3XTRA[g]||[]).filter(x=>!fs.some(f=>f[0]===x[0])))]);G[0][1]=G[0][1].concat([['email','Courriel','email',0]]);return G}
 const minorR=r=>{const a=ageOfR(r);return a!=null&&a<18};
 /* ---------- familles : responsables (parents) ---------- */
 function famParents(c,k){const out=[];const add=p=>{const e=String(p.email||'').toLowerCase();const ex=out.find(x=>(p.uid&&x.uid===p.uid)||(e&&x.email&&(x.email||'').toLowerCase()===e));if(ex){Object.keys(p).forEach(q=>{if(p[q]&&!ex[q])ex[q]=p[q]});return}out.push(Object.assign({},p))};
@@ -20300,12 +20300,12 @@ async function loadMe0(){
 async function loadClients(){R.snap=Object.fromEntries(Object.entries(R.snap).filter(([k])=>!k.startsWith('n:')));
   let ids=null;if(R.coachId){const {data:cc}=await R.sb.from('coach_clients').select('client_id').eq('coach_id',R.coachId);ids=(cc||[]).map(x=>x.client_id)}
   const [{data:ps},{data:fs},{data:ns}]=await Promise.all([
-    (ids?R.sb.from('profiles').select('*').in('id',ids.length?ids:['00000000-0000-0000-0000-000000000000']):R.sb.from('profiles').select('*')).eq('role','client').order('created_at',{ascending:false}),
+    (ids?R.sb.from('profiles').select('*').in('id',ids.length?ids:['00000000-0000-0000-0000-000000000000']).in('role',['client','coach']).neq('id',R.uid||'00000000-0000-0000-0000-000000000000'):R.sb.from('profiles').select('*').eq('role','client')).order('created_at',{ascending:false}),
     ids?R.sb.from('client_fiches').select('*').in('client_id',ids.length?ids:['00000000-0000-0000-0000-000000000000']):R.sb.from('client_fiches').select('*'),
     (R.coachId?R.sb.from('private_notes').select('*').eq('coach_id',R.coachId):R.sb.from('private_notes').select('*')).order('created_at',{ascending:false})]);
   const fm={};(fs||[]).forEach(f=>fm[f.client_id]=f);
   const adm=db.users.find(u=>u.role==='admin');
-  db.users=[adm,...(ps||[]).map(p=>{const u=localUser(p,fm[p.id]);u.notes=(ns||[]).filter(n=>n.client_id===p.id).map(n=>({sid:n.id,date:String(n.created_at).slice(0,10),text:n.body}));R.snap['n:'+p.id]=u.notes.map(n=>n.sid);return u})].filter(Boolean)}
+  db.users=[adm,...(ps||[]).map(p=>{const ca=p.role!=='client';const u=localUser(ca?Object.assign({},p,{role:'client'}):p,fm[p.id]);if(ca)u.coachAcct=true;u.notes=(ns||[]).filter(n=>n.client_id===p.id).map(n=>({sid:n.id,date:String(n.created_at).slice(0,10),text:n.body}));R.snap['n:'+p.id]=u.notes.map(n=>n.sid);return u})].filter(Boolean)}
 
 /* --- envoi des changements vers la base (fiche du client, notes privées de l'entraîneur) --- */
 let tSync=null;function queueSync(){clearTimeout(tSync);tSync=setTimeout(pushChanges,600)}
@@ -23392,8 +23392,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c14';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='7 nov. 2026 · Corrections 14 (factures : cours, téléphone, ville)';
+const FC_BUILD='2026-11-07-c15';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='7 nov. 2026 · Corrections 15 (applis de l\'entraîneur, carte libre, fiche des centres, adresse)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -24224,6 +24224,11 @@ loadSubs=(old=>async function(){await old();if(!R.coachId||!R.uid||R.subsOn===fa
       total:(v.amount_cents||0)/100,lines:v.lines||[],plan:v.plan_name||'',sent:day11(v.inv_sent_at)}));
     (db.subs||[]).forEach(s=>{if(!s.real)return;const V=db.subInv.filter(v=>v.sid===s.sid);(s.payments||[]).forEach(p=>{const v=V.find(x=>x.at===p.date&&Math.abs(x.total-p.amount)<.01)||V.find(x=>x.at===p.date);if(v){p.invNo=v.no;p.invId=v.id}})})}
   catch(e){if(!missing(e))console.warn('Factures d\'abonnement',e.message);db.subInv=[]}})(loadSubs);
+/* Corrections 15 : abonné absent de la liste (ex. compte de type entraîneur) : on va chercher son nom pour la facture, plutôt que « Participant à venir » */
+loadSubs=(old=>async function(){await old();try{if(!R.sb)return;const miss=[...new Set((db.subInv||[]).map(v=>v.userId).filter(id=>id&&id!==ADMIN_ID&&!userById(id)))];if(!miss.length)return;
+  const [{data:ps},{data:fs}]=await Promise.all([R.sb.from('profiles').select('*').in('id',miss),R.sb.from('client_fiches').select('*').in('client_id',miss)]);
+  (ps||[]).forEach(p=>{if(userById(p.id))return;const u=localUser(Object.assign({},p,{role:'client'}),(fs||[]).find(x=>x.client_id===p.id));if(p.role!=='client')u.coachAcct=true;db.users.push(u)})}
+  catch(e){console.warn('Abonnés des factures',e&&e.message)}})(loadSubs);
 
 /* réservation : factures des frais de location */
 bookingCard=(old=>function(b,u,admin){let h=old(b,u,admin);try{if(!R.on||!b||!b.real||!(b.feesSrv||[]).length)return h;
@@ -24514,15 +24519,18 @@ if(!st.trStyle||st.trStyle==='sat'||st.trStyle==='routes')st.trStyle='carte';
 if(!st.ctrStyle||st.ctrStyle==='sat'||st.ctrStyle==='routes')st.ctrStyle='carte';
 ['trStyle','ctrStyle'].forEach(k=>{const f=A[k];if(typeof f==='function')A[k]=function(d){if(d&&(d.v==='sat'||d.v==='routes'))d={...d,v:'carte'};return f.call(this,d)}});
 if(typeof addFindSeg==='function')addFindSeg=(old=>function(arr,F){if(F&&(F.view==='sat'||F.view==='routes'))F.view='plan';const r=old(arr,F);r[0]=r[0].replace(/<button[^>]*data-a="findView" data-v="(?:sat|routes)">[^<]*<\/button>/g,'');return r})(addFindSeg);
-trailMapSVG=(old=>function(c,o){o=o||{};if(o.style==='sat'||o.style==='routes')o={...o,style:'carte'};if((o.style||'plan')!=='carte'||!c||!okLL(num(c.lat),num(c.lon)))return old(c,o.style==='carte'?{...o,style:'plan'}:o);
+trailMapSVG=(old=>function(c,o){o=o||{};if(o.style==='sat'||o.style==='routes')o={...o,style:'carte'};const cont=!!(c&&c.free&&(o.style||'plan')!=='carte');if(((o.style||'plan')!=='carte'&&!cont)||!c||!okLL(num(c.lat),num(c.lon)))return old(c,o.style==='carte'?{...o,style:'plan'}:o);
   const fb=old(c,{...o,style:'plan'});
   try{const key=String(o.key||'map');
     FM.cfg[key]={kind:'trail',c:{id:c.id,name:c.name,lat:num(c.lat),lon:num(c.lon),free:!!c.free},cRef:c,
-      o:{track:o.track||null,me:o.me||null,others:o.others||null,hl:o.hl!=null?o.hl:null,pick:!!o.pick,pickA:o.pickA||null,fit:o.fit||null,bare:!!o.bare,ends:o.ends!==false}};
+      o:{track:o.track||null,me:o.me||null,others:o.others||null,hl:o.hl!=null?o.hl:null,pick:!!o.pick,pickA:o.pickA||null,fit:o.fit||null,bare:!!o.bare,ends:o.ends!==false,cont}};
     return `<div class="fmap" data-fm="${esc(key)}"><div class="fmfb">${fb}</div></div>`}catch(e){console.warn(e);return fb}})(trailMapSVG);
 mapBox=(old=>function(svg,key,o){o=o||{};const real=String(svg).startsWith('<div class="fmap"');
   const o2=real?o:{...o};
   let h=old(svg,key,o2);
+  /* Corrections 15 : sortie sans centre ni sentier : mêmes choix « Carte » et « Courbes de niveau » (courbes calculées du relief réel, partout au Québec) */
+  if(real)h=h.replace(/<span class="fbadge">[^<]*<\/span>/,()=>{const cur=o.cur||'plan';const sa=o.styleA||'trStyle';
+    return `<div class="mstyle" role="group" aria-label="Fond de carte"><button class="${cur==='carte'?'on':''}" data-a="${sa}" data-v="carte">Carte</button><button class="${cur!=='carte'?'on':''}" data-a="${sa}" data-v="plan">Courbes de niveau</button></div>`});
   /* bouton « Carte » ajouté devant Plan / Satellite / Routes */
   /* Corrections 9b : seulement « Carte » et « Courbes de niveau » (l'ancien plan, avec le relief); Satellite et Routes retirés */
   h=h.replace(/<div class="mstyle" role="group" aria-label="Fond de carte">[\s\S]*?<\/div>/,()=>{const cur=o.cur||'plan';const sa=o.styleA||'trStyle';
@@ -24634,6 +24642,7 @@ function fmTrail(E,C){fmClear(E);const m=E.map,c=C.c,o=C.o;const ref=C.cRef||c;l
     E.fr[f.id||('f'+j)]=fmMk(E,elOf(`<span class="fmfr" style="--c:${col}"><em>${esc(f.name||'')}</em><b></b></span>`),[num(f.lon),num(f.lat)])});
   /* ma position */
   if(o.me&&okLL(num(o.me.lat),num(o.me.lon)))fmMe(E,o.me);
+  fmCont(E,!!o.cont);
   /* cadrage */
   const sig=c.id+'|'+(o.fit||'net')+'|'+(o.fit==='track'?trk.length>1:'')+'|'+(feats.length?1:0);
   if(E.fitSig!==sig){E.fitSig=sig;const B=new E.ml.LngLatBounds();
@@ -24648,6 +24657,29 @@ function fmMe(E,me){const ll=[num(me.lon),num(me.lat)];
   else E.me.setLngLat(ll);
   const el=E.me.getElement().querySelector('.fmme')||E.me.getElement();
   if(me.hd!=null&&isFinite(me.hd)){el.classList.add('hd');E.me.setRotation(Number(me.hd))}else{el.classList.remove('hd');E.me.setRotation(0)}}
+
+/* ---------- Corrections 15 : courbes de niveau sur la vraie carte (sortie sans centre ni sentier) ----------
+   Relief : tuiles d'altitude Terrarium (Mapzen / AWS Open Data, gratuites, sans clé), courbes calculées dans l'appareil
+   par maplibre-contour (licence BSD), chargé seulement quand on choisit « Courbes de niveau ». */
+const FMC='https://cdn.jsdelivr.net/npm/maplibre-contour@0.1.1/dist/index.min.js';
+const DEMURL='https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png';
+function fmContLoad(){if(window.mlcontour)return Promise.resolve(window.mlcontour);if(FM.cp)return FM.cp;
+  FM.cp=new Promise((ok,ko)=>{const s=document.createElement('script');s.src=FMC;s.async=true;s.onload=()=>window.mlcontour?ok(window.mlcontour):ko(new Error('maplibre-contour absent'));s.onerror=()=>ko(new Error('maplibre-contour non chargé'));document.head.appendChild(s);setTimeout(()=>ko(new Error('délai dépassé')),20000)});
+  FM.cp.catch(()=>{FM.cp=null});return FM.cp}
+function fmCont(E,on){const m=E.map;
+  if(!on){if(E.cont)['fc-cont','fc-cont-l'].forEach(id=>{try{m.setLayoutProperty(id,'visibility','none')}catch(e){}});return}
+  if(E.cont){['fc-cont','fc-cont-l'].forEach(id=>{try{m.setLayoutProperty(id,'visibility','visible')}catch(e){}});return}
+  if(E.contBusy)return;E.contBusy=true;
+  fmContLoad().then(mc=>{if(!FM.dem){FM.dem=new mc.DemSource({url:DEMURL,encoding:'terrarium',maxzoom:13,worker:true,cacheSize:100,timeoutMs:10000});FM.dem.setupMaplibre(E.ml)}
+    if(!FM.maps[E.key]||FM.maps[E.key]!==E)return;const C=FM.cfg[E.key];
+    m.addSource('fc-cont',{type:'vector',tiles:[FM.dem.contourProtocolUrl({thresholds:{11:[50,250],12:[20,100],13:[10,50],14:[5,25],15:[5,25]},contourLayer:'contours',elevationKey:'ele',levelKey:'level'})],maxzoom:15});
+    const dk=isDark();const before=m.getLayer('fc-trails-c')?'fc-trails-c':undefined;
+    m.addLayer({id:'fc-cont',type:'line',source:'fc-cont','source-layer':'contours',paint:{'line-color':dk?'rgba(214,190,140,.55)':'rgba(138,98,52,.6)','line-width':['match',['get','level'],1,1.3,0.6]}},before);
+    m.addLayer({id:'fc-cont-l',type:'symbol',source:'fc-cont','source-layer':'contours',filter:['>',['get','level'],0],layout:{'symbol-placement':'line','text-size':10,'text-field':['concat',['number-format',['get','ele'],{}],' m'],'text-font':['Noto Sans Regular']},
+      paint:{'text-color':dk?'#e3d3b0':'#7a5428','text-halo-color':dk?'#0c131b':'#ffffff','text-halo-width':1.4}},before);
+    E.cont=true;if(!(C&&C.o&&C.o.cont))fmCont(E,false)})
+   .catch(e=>{console.warn('Courbes de niveau indisponibles :',e.message);if(!FM.contWarn){FM.contWarn=1;try{flash('Courbes de niveau indisponibles pour le moment : la carte s\'affiche sans relief.')}catch(x){}}})
+   .finally(()=>{E.contBusy=false})}
 
 /* pendant la sortie : position et tracé mis à jour sans réafficher la page */
 recDraw=(old=>function(){old();try{const R0=st.rec;const E=FM.maps.live;if(!R0||!E||!E.ready||!E.el.isConnected)return;
@@ -25581,6 +25613,40 @@ addEventListener('pointerdown',note,true);addEventListener('keydown',note,true);
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-fcback]');if(!b)return;e.preventDefault();e.stopImmediatePropagation();history.back()},true);
 window.fcNav=H;
 try{after()}catch(e){console.warn(e)}
+})();
+</script>
+<script>
+/* ================= Corrections 15 (7 nov. 2026) =================
+   1. Entraîneur : « Appareils et applis » et « Musique » dans Mon entraînement (comme les clients), lecteur de musique pendant ses sorties.
+   2. Sortie sans centre ni sentier : vraie carte OpenFreeMap avec « Carte » et « Courbes de niveau » (voir Corrections 9).
+   3. Fiche d'un centre au survol de la carte : fenêtre posée par-dessus la page (plus coupée par le cadre de la carte),
+      compacte, toujours entière à l'écran (cellulaire, Chromebook, mode sombre).
+   4. Adresse et code postal dans la fiche du client, repris sur les factures; abonné avec un compte de type entraîneur
+      dans la liste des clients (fin du « Participant à venir » sur ses factures). */
+(function(){
+document.head.insertAdjacentHTML('beforeend',`<style id="fc15">
+.mtip.fx{position:fixed;z-index:4000;width:min(300px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow:hidden;padding:10px 12px;font-size:.84rem;line-height:1.3;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.mtip.fx .cname{font-size:.98rem;display:block;line-height:1.2}
+.mtip.fx dl.kv{display:grid;grid-template-columns:max-content 1fr;gap:3px 10px;margin:6px 0 0}
+.mtip.fx dl.kv dt{margin:0;color:var(--muted)}
+.mtip.fx dl.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.mtip.fx p{margin:4px 0 0!important}
+.mtip.fx .pill{font-size:.72rem;padding:1px 7px}
+.mtip.fx svg{max-width:56px;max-height:56px;height:auto;display:block;margin:4px auto}
+@media (max-height:520px){.mtip.fx dl.kv dt:nth-of-type(n+6),.mtip.fx dl.kv dd:nth-of-type(n+6){display:none}}
+</style>`);
+/* la fiche suit le pointeur, posée à côté de l'épingle, sans dépasser l'écran */
+function place(g){const tip=g&&g.closest('.map')&&g.closest('.map').querySelector('.mtip');if(!tip||tip.hidden)return;
+  tip.classList.add('fx');const vw=innerWidth,vh=innerHeight,r=g.getBoundingClientRect();tip.style.width=Math.min(300,vw-16)+'px';const w=tip.offsetWidth,h=Math.min(tip.offsetHeight,vh-16);const gap=12;
+  let x,y;
+  if(r.right+gap+w<=vw-8){x=r.right+gap}else if(r.left-gap-w>=8){x=r.left-gap-w}else{x=Math.max(8,Math.min(vw-w-8,r.left+r.width/2-w/2))}
+  if(x===r.right+gap||x===r.left-gap-w){y=r.top+r.height/2-h/2}
+  else{y=r.top-gap-h>=8?r.top-gap-h:r.bottom+gap}
+  y=Math.max(8,Math.min(vh-h-8,y));tip.style.left=Math.round(x)+'px';tip.style.top=Math.round(y)+'px'}
+document.addEventListener('pointerover',e=>{const g=e.target.closest&&e.target.closest('[data-ctr]');if(!g||e.pointerType==='touch')return;try{place(g)}catch(x){}});
+addEventListener('scroll',()=>{document.querySelectorAll('.mtip.fx').forEach(t=>{t.hidden=true})},{passive:true});
+/* sortie libre : pas de légende chalet / refuge / stationnement (il n'y en a pas sur cette carte) */
+render=(old=>function(){const r=old.apply(this,arguments);try{if(st.vol==='train'&&typeof trCentre==='function'&&trCentre().free)document.querySelectorAll('main .legend').forEach(l=>{if(/Stationnement/.test(l.textContent)&&!/Facile/.test(l.textContent))l.remove()})}catch(e){}return r})(render);
 })();
 </script>
 <script>
