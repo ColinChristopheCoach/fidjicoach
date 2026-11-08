@@ -1,5 +1,5 @@
 <!doctype html><html><head>
-<script>/* Spotify : retour de la page d'autorisation (8 nov. 2026), capté avant le reste de la page */try{(function(){var q=new URLSearchParams(location.search),s=q.get('state');if(s&&/^fcsp\./.test(s)&&(q.get('code')||q.get('error'))){sessionStorage.setItem('fc-sp-ret',JSON.stringify({code:q.get('code'),error:q.get('error'),state:s}));['code','state','error'].forEach(function(k){q.delete(k)});var r=q.toString();history.replaceState(null,'',location.pathname+(r?'?'+r:'')+location.hash)}})()}catch(e){}</script><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><title>FidjiCoach</title>
+<script>/* Spotify : retour de la page d'autorisation (8 nov. 2026), capté avant le reste de la page */try{(function(){var q=new URLSearchParams(location.search),s=q.get('state');if(s&&/^fcsp\./.test(s)&&(q.get('code')||q.get('error'))){sessionStorage.setItem('fc-sp-ret',JSON.stringify({code:q.get('code'),error:q.get('error'),state:s}));['code','state','error'].forEach(function(k){q.delete(k)});var r=q.toString();history.replaceState(null,'',location.pathname+(r?'?'+r:'')+location.hash)}})()}catch(e){}</script><script>/* Corrections 21 : session gardée sur l'appareil → on cache la page de démo jusqu'au voile « Connexion… » (fini le flash au changement d'entraîneur) */try{(function(){var h=false;for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){h=true;break}}if(h){var d=document.documentElement;d.classList.add('fcpre');setTimeout(function(){d.classList.remove('fcpre')},15000)}})()}catch(e){}</script><style>html.fcpre body>*:not(#fc8boot){visibility:hidden!important}html.fcpre body{background:#f4f7fb!important}@media (prefers-color-scheme:dark){html.fcpre body{background:#0b1a2e!important}}</style><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><title>FidjiCoach</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#13325b">
 <meta name="mobile-web-app-capable" content="yes">
@@ -2092,9 +2092,13 @@ function modalV(u){
     ${selectedV(st.pk.sel)}${calV()}
     <div class="actions"><button class="btn btn-accent" data-a="${m.kind==='plan'?'planOk':'moveOk'}" ${st.pk.sel.length?'':'disabled'}>${m.kind==='plan'?'Ajouter ce cours':late?'Envoyer la demande':'Confirmer le déplacement'}</button><button class="btn btn-plain" data-a="close">Retour</button></div>`}
   else if(m.kind==='cancelS'){const late=hoursUntil(s)<48;const own=userById(b.owner);
+    /* Corrections 21 : rien de payé = rien à rembourser (on ne parle plus de « non remboursable ») */
+    const paid=!Array.isArray(b.parts)||b.parts.some(p=>p&&p.paid&&(Number(p.amount)||0)>0);
     inner=`<span class="eyebrow">Annuler un cours</span><h3>${dlong(s.date)} · ${hfmt(s.start)}</h3>
-    ${late?`<div class="alert bad"><b>Attention : moins de 48 h avant votre cours</b>Le paiement de ce cours n'est pas remboursable. Pensez plutôt à le déplacer : un report peut être offert à titre exceptionnel.</div>
+    ${late?`<div class="alert bad"><b>Attention : moins de 48 h avant votre cours</b>${paid?'Le paiement de ce cours n\'est pas remboursable. ':'Aucun paiement n\'a été fait pour ce cours. '}Pensez plutôt à le déplacer : un report peut être offert à titre exceptionnel.</div>
     <div class="actions"><button class="btn btn-accent" data-a="cancelGo" data-how="late">Annuler quand même</button><button class="btn btn-plain" data-a="move" data-b="${b.id}" data-s="${s.id}">Demander un report</button><button class="btn btn-plain" data-a="close">Garder mon cours</button></div>`
+    :!paid?`<p class="muted">Vous annulez plus de 48 h à l'avance. Aucun paiement n'a été fait pour ce cours : il est simplement annulé, sans frais.</p>
+    <div class="actions"><button class="btn btn-accent" data-a="cancelGo" data-how="refund">Annuler le cours</button><button class="btn btn-plain" data-a="move" data-b="${b.id}" data-s="${s.id}">Le déplacer plutôt</button><button class="btn btn-plain" data-a="close">Garder mon cours</button></div>`
     :`<p class="muted">Vous annulez plus de 48 h à l'avance : vous pouvez garder ce cours en crédit pour le replanifier, ou demander un remboursement complet.</p>
     <div class="actions"><button class="btn btn-accent" data-a="cancelGo" data-how="credit">Garder en crédit</button><button class="btn btn-plain" data-a="cancelGo" data-how="refund">Demander le remboursement</button><button class="btn btn-plain" data-a="close">Garder mon cours</button></div>`}
     ${b.nb>1?`<p class="muted small">Les autres participants de ce cours seront avisés.</p>`:''}`}
@@ -4557,7 +4561,7 @@ const SV=p=>`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke=
 const NI={home:SV('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'),book:SV('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/>'),cal:SV('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="8" cy="14" r="1"/><circle cx="12" cy="14" r="1"/><circle cx="16" cy="14" r="1"/>'),
   msg:SV('<path d="M4 5h16v11H9l-5 4z"/>'),user:SV('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),sun:SV('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
   users:SV('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M17.5 14.5a6.5 6.5 0 0 1 4 5.5"/>'),grid:SV('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'),
-  list:SV('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'),ski:SV('<path d="M4 20l16-6M6 4l3 14M14 5a2 2 0 1 0 0-.01"/>'),tag:SV('<path d="M3 12V3h9l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/>'),pin:SV('<path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>'),
+  list:SV('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'),ski:SV('<path d="M4 20l16-6M6 4l3 14M14 5a2 2 0 1 0 0-.01"/>'),skis:SV('<path d="M5 21V8.5C5 6 6 4.2 7.6 3.2M10 21V8.5c0-2.5 1-4.3 2.6-5.3"/><path d="M4 15h2M9 15h2"/><path d="M18.5 3v18M17.2 3h2.6M16.6 18.2h3.8"/>'),tag:SV('<path d="M3 12V3h9l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/>'),pin:SV('<path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>'),
   box:SV('<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/>'),scan:SV('<path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M7 12h10"/>'),money:SV('<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/>'),doc:SV('<path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h8M9 17h6"/>'),
   gear:SV('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 13.9H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 3V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 21 10h.1a2 2 0 1 1 0 4H21a1.7 1.7 0 0 0-1.6 1z"/>'),
   palette:SV('<circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16" cy="10" r="1"/><path d="M12 21a3 3 0 0 1 0-6h2"/>'),bell:SV('<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>'),save:SV('<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7M8 21v-7h8v7"/>'),
@@ -4581,7 +4585,7 @@ function profileHub(u){return `<div class="hubhead">${avatar(u,true)}<div><h2>${
 function profileSub(u){const p=st.ptab;const h=profilV(u);const body=h.slice(h.indexOf('</div>')+6);
   return `<div class="subhead"><button class="backbtn" data-a="pHub">‹ ${esc(LB('tab.profil'))}</button><h2>${esc(LB(PSUB[p]?PSUB[p][0]:'p.fiche'))}</h2></div>${body}`}
 function homeHub(u){let h=clientHomeV(u);const q=h.indexOf('<div class="quick">');if(q>0)h=h.slice(0,q);
-  const nx=nextSessions(u).length;const cards=[['reserver','book','Réserver un cours','Privé, duo, groupe, cadeau'],...(feat('location')?[['__rent','ski','Louer de l\'équipement','Jour, semaine, mois, saison']]:[]),...(feat('public')&&pubSessions().length?[['__pub','users','Cours de groupe publics',pubSessions().length+' date'+(pubSessions().length>1?'s':'')+' à venir']]:[]),
+  const nx=nextSessions(u).length;const cards=[['reserver','book','Réserver un cours','Privé, duo, groupe, cadeau'],...(feat('location')?[['__rent','skis','Louer de l\'équipement','Jour, semaine, mois, saison']]:[]),...(feat('public')&&pubSessions().length?[['__pub','users','Cours de groupe publics',pubSessions().length+' date'+(pubSessions().length>1?'s':'')+' à venir']]:[]),
     ['cal','cal',feat('cal')?'Mon calendrier':'Mes réservations',nx?nx+' cours à venir':'Cours, locations, objectifs'],...(feat('plans')?[['__plans','plan','Mes plans d\'entraînement','Préparés par votre entraîneur']]:[]),...(feat('compet')?[['__compet','trophy','Mes compétitions et camps','Vos objectifs']]:[]),...(feat('centres')||feat('meteo')?[['__ctr','snow','Centres et météo','Conditions, fart du jour']]:[])];
   return h+`<h3 class="sech">Raccourcis</h3><div class="hubgrid">${cards.map(([k,i,t,s])=>`<button class="hubcard" data-a="hub" data-k="${k}"><span class="hico">${NI[i]}</span><b>${esc(t)}</b><small>${esc(s)}</small></button>`).join('')}</div>`}
 function agendaV(u){const v=st.agv||(feat('cal')?'cal':'list');const mine=db.bookings.filter(b=>b.parts.some(p=>p.userId===u.id)).sort((a,b)=>(b.created||'').localeCompare(a.created||''));const rs=(db.rentals||[]).filter(r=>r.userId===u.id&&!r.bookingId);
@@ -4608,7 +4612,7 @@ const ASEC={
  today:{l:'Aujourd\'hui',i:'sun',f:()=>todayV()},cal:{l:'Calendrier',i:'cal',f:()=>adminDispo()},resa:{l:'Réservations',i:'list',f:()=>adminResa()},
  clients:{l:'Clients',i:'users',f:()=>adminClients()},msg:{l:'Messages',i:'msg',f:()=>msgCenter(me())},nl:{l:'Infolettre',i:'mail',f:()=>nlPage()},
  offre:{l:'Cours et niveaux',i:'book',f:()=>adminOffre()},promos:{l:'Promotions',i:'tag',f:()=>adminPromos()},centres:{l:'Centres',i:'pin',f:()=>adminCentres()},
- inv:{l:'Inventaire',i:'box',f:()=>invPart('inv')},scan:{l:'Scan et étiquettes',i:'scan',f:()=>invPart('qr')},loc:{l:'Locations',i:'ski',f:()=>invPart('loc')},prix:{l:'Prix de location',i:'tag',f:()=>invPart('prix')},codes:{l:'Codes, contrat et frais',i:'doc',f:()=>invPart('codes')},
+ inv:{l:'Inventaire',i:'box',f:()=>invPart('inv')},scan:{l:'Scan et étiquettes',i:'scan',f:()=>invPart('qr')},loc:{l:'Locations',i:'skis',f:()=>invPart('loc')},prix:{l:'Prix de location',i:'tag',f:()=>invPart('prix')},codes:{l:'Codes, contrat et frais',i:'doc',f:()=>invPart('codes')},
  compta:{l:'Comptabilité',i:'money',f:()=>comptaV()},factu:{l:'Facturation',i:'doc',f:()=>adminFactu()},
  perso:{l:'Personnalisation',i:'palette',f:()=>persoV()},marque:{l:'Ma marque',i:'gift',f:()=>brandV()},notif:{l:'Alertes et réglages',i:'bell',f:()=>notifPage()},backup:{l:'Sauvegardes',i:'save',f:()=>backupV()},
  menu:{l:'Menu',i:'grid',f:()=>adminMenu()}};
@@ -11220,7 +11224,7 @@ const CMAP=()=>{const u=me();const t=st.tab||'accueil';const p=st.ptab;const tra
   const G=[
    ['',[T('accueil',LB('tab.accueil'),'home')]],
    ['Cours et forfaits',[T('reserver',LB('tab.reserver'),'book'),T('forfaits','Forfaits mensuels','repeat'),T('panier','Mon panier','tag',cartOf(u).length),T('resa5','Mes réservations','list'),T('fact10','Mes factures','money'),
-     ...(feat('location')?[X('rent','Location d\'équipement','ski',false)]:[]),...(feat('public')&&pubSessions().length?[X('pub','Cours de groupe publics','users',false)]:[])]],
+     ...(feat('location')?[X('rent','Location d\'équipement','skis',false)]:[]),...(feat('public')&&pubSessions().length?[X('pub','Cours de groupe publics','users',false)]:[])]],
    ['Calendrier et messages',[...(feat('cal')?[T('cal',LB('tab.cal'),'cal')]:[]),...(shown('tab.msg')?[T('msg',LB('tab.msg'),'msg',unreadMsgClient(u))]:[]),PP('notifs'),X('find','Trouver mon entraîneur','pin',false)]],
    ['Mon entraînement',[...(mod('entrain')?[X('train','Enregistrer un entraînement','run',train)]:[]),PP('forme'),PP('charge'),PP('plans'),PP('compet'),PP('progres'),PP('video'),PP('appareils')]],
    ['Programmes et conseils',[PP('muscu'),PP('stretch'),PP('exos'),PP('tech'),PP('nutri'),PP('res'),PP('music')]],
@@ -12218,7 +12222,7 @@ const PG={
  a_prog:{l:'Programmes du club',i:'dumb',who:'a'},
  a_test:{l:'Test Ruffier',i:'heart',who:'a'},
  a_compet:{l:'Compétitions',i:'trophy',who:'a'},
- a_loc:{l:'Location d\'équipement',i:'ski',who:'a'},
+ a_loc:{l:'Location d\'équipement',i:'skis',who:'a'},
  a_cot:{l:'Ma cotisation',i:'money',who:'a'},
  a_msg:{l:'Messages du groupe',i:'msg',who:'a'},
  a_fichep:{l:'Ma fiche',i:'user',who:'a'},
@@ -23908,8 +23912,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-08-c20b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='8 nov. 2026 · Corrections 20 (réserver pour un client, GPS et sports)';
+const FC_BUILD='2026-11-08-c21';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='8 nov. 2026 · Corrections 21 (clubs en ligne, logo sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -23991,7 +23995,7 @@ A.c8refresh=()=>c8Reload();
 {let has=false;try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){has=true;break}}}catch(e){}
   if(has){const v=document.createElement('div');v.id='fc8boot';v.setAttribute('role','status');
     v.innerHTML='<div><svg width="64" height="64" viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="27" fill="#13325b"/><g transform="translate(18 18) scale(.7)"><rect x="52" y="8" width="16" height="12" rx="4" fill="#fff"/><path d="M90 44 A38 38 0 1 0 90 88" stroke="#fff" stroke-width="12" stroke-linecap="round" fill="none"/><path d="M44 66 L56 78 L78 54" stroke="#d24a2a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></svg><p>'+(lang()==='en'?'Signing in…':'Connexion…')+'</p></div>';
-    document.body.appendChild(v);let gone=false;const off=()=>{if(gone)return;gone=true;v.classList.add('out');setTimeout(()=>v.remove(),250)};
+    document.body.appendChild(v);try{document.documentElement.classList.remove('fcpre')}catch(e){}let gone=false;const off=()=>{if(gone)return;gone=true;v.classList.add('out');setTimeout(()=>v.remove(),250)};
     setTimeout(off,12000);setTimeout(()=>{try{(R.bootP||Promise.resolve()).then(()=>setTimeout(off,R.on?650:0)).catch(off)}catch(e){off()}},0)}}
 const RICON='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v6h-6"/></svg>';
 function c8Paint(){try{const w=document.querySelector('#app header.top .wrap');if(!w)return;const en=lang()==='en';const t=en?'Refresh':'Actualiser';
@@ -24593,7 +24597,7 @@ function inv10HTML(o){const C=o.coach;
    <tr class="tot"><td>${esc(o.totLbl||'Total payé')}</td><td>${mon10(o.total)}</td></tr>
    ${o.refunded>0?`<tr class="st"><td>Remboursé</td><td>${mon10(-o.refunded)}</td></tr><tr class="tot"><td>Montant net</td><td>${mon10(r2(o.total-o.refunded))}</td></tr>`:''}
   </tbody></table>
-  <p class="fcinv-m">${esc(inv10Note(o))}</p><p class="fcinv-f">${o.foot?esc(o.foot):o.title?esc(o.title)+' émise avec FidjiCoach':'Merci de votre confiance! · Facture émise avec FidjiCoach'}</p></div>`}
+  <p class="fcinv-m">${esc(inv10Note(o))}</p><p class="fcinv-f"><img class="fcinv-fl" src="/fidjicoach-logo.png" alt="FidjiCoach"><span>${o.foot?esc(o.foot):o.title?esc(o.title)+' émise avec FidjiCoach':'Merci de votre confiance! · Facture émise avec FidjiCoach'}</span></p></div>`}
 MOD3.fcInv=function(u,m){const c=invCur();
   if(!c)return [`<p>Facture introuvable.</p><div class="actions"><button class="btn btn-accent" data-a="close">Fermer</button></div>`,true];
   const o=c.o;const coach=R.role==='admin';const canMail=coach&&c.real;
@@ -24637,7 +24641,10 @@ async function inv10Pdf(o){const J=window.jspdf&&window.jspdf.jsPDF;if(!J)throw 
   row(o.totLbl||'Total payé',M(o.total),{b:1,top:1});
   if(o.refunded>0){row('Remboursé',M(-o.refunded),{g:1});row('Montant net',M(r2(o.total-o.refunded)),{b:1})}
   y+=18;doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);const nl=doc.splitTextToSize(T(inv10Note(o)),RX-X);doc.text(nl,X,y);
-  doc.setFontSize(8);doc.text(T(o.foot?o.foot:o.title?o.title+' émise avec FidjiCoach (fidjicoach.ca)':'Merci de votre confiance! · Facture émise avec FidjiCoach (fidjicoach.ca)'),X,760);
+  /* Corrections 21 : logo FidjiCoach au bas de chaque facture */
+  let fx=X;try{const fl=await inv10Img('/fidjicoach-logo.png');if(fl){const fh=13,fw=fl.w*fh/fl.h;doc.addImage(fl.d,'PNG',X,750,fw,fh,undefined,'FAST');fx=X+fw+10}}catch(e){}
+  doc.setDrawColor(225,230,238);doc.line(X,742,RX,742);
+  doc.setFontSize(8);doc.setTextColor(...grey);doc.text(T(o.foot?o.foot:o.title?o.title+' émise avec FidjiCoach (fidjicoach.ca)':'Merci de votre confiance! · Facture émise avec FidjiCoach (fidjicoach.ca)'),fx,760);
   return doc}
 A.fcInvPdf=async function(){const c=invCur();if(!c)return;busyOn('Préparation du PDF…');
   try{const o=c.o;const blob=(await inv10Pdf(o)).output('blob');const fn=(o.title||'Facture')+' '+o.no+'.pdf';let done=false;
@@ -24690,7 +24697,7 @@ window.fcFactV10=function(u){const fam=[u.id,...db.users.filter(x=>x.guardian===
 .fcinv th:last-child,.fcinv td:last-child{text-align:right;white-space:nowrap;padding-left:12px}
 .fcinv td{padding:7px 8px;border-bottom:1px solid #e6ebf2;vertical-align:top;color:#13325b}.fcinv tr.st td{color:#6b7280}
 .fcinv tr.tot td{font-weight:700;border-top:2px solid #13325b}
-.fcinv-m{color:#4b5563;font-size:.84rem;margin:12px 0 0}.fcinv-f{color:#9aa3af;font-size:.76rem;margin:8px 0 0}
+.fcinv-m{color:#4b5563;font-size:.84rem;margin:12px 0 0}.fcinv-f{color:#9aa3af;font-size:.76rem;margin:14px 0 0;padding-top:10px;border-top:1px solid #e6ebf2;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.fcinv-f .fcinv-fl{height:20px;width:auto;flex:none}.fcinv .fcinv-f span{color:#9aa3af;font-size:.76rem}
 .fcinvblk{margin-top:12px;border-top:1px solid var(--line);padding-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 @media (max-width:480px){.fcinv{padding:12px;font-size:.88rem}.fcinv-n{text-align:left;align-items:flex-start;margin-left:0}}
 #fcInvPrint{display:none}
@@ -26471,6 +26478,151 @@ if(typeof coachsAdmin==='function')coachsAdmin=(old=>function(){let h=old();try{
     (ADM.rows==null?'<p class="small muted">Chargement…</p>':L.length?`<div class="list" style="gap:4px">${L.map(x=>`<div class="invrow small"><span><b>${esc(KL[x.kind]||x.kind)}</b>${x.club_name?' · '+esc(x.club_name)+(x.group_name?' ('+esc(x.group_name)+')':''):''} · ${x.seats} athlète${x.seats>1?'s':''} · ${money(x.amount_cents/100)}/mois · ${esc(x.status==='active'?(x.cancel_at_period_end?'s\'arrête le '+new Date(x.current_period_end).toLocaleDateString('fr-CA'):'actif'):x.status==='past_due'?'paiement en retard':x.status==='canceled'?'terminé':x.status)}<br><span class="muted">${(x.athlete_plus_seats||[]).map(s=>esc(s.name||s.email)+(s.consent_coach===true?' ✓':'')).join(' · ')}</span></span></div>`).join('')}</div><p class="small muted" style="margin-top:6px">✓ : l'athlète partage ses données avec les entraîneurs de son club.</p>`:'<div class="empty">Aucun abonnement Athlète Plus pour l\'instant.</div>')}}catch(e){console.error(e)}return h})(coachsAdmin);
 let pT=null;document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!/^aplus\.(m|club|fam\.\d+)$/.test(t.dataset.plat7||''))return;const R=FR();if(!R.on||R.role!=='admin'||!R.sb)return;clearTimeout(pT);
   pT=setTimeout(async()=>{try{const A=window.fc7().aplus;const c=v=>Math.round((Number(v)||0)*100);const {data,error}=await R.sb.rpc('admin_aplus_prices',{p:{m:c(A.m),fam:A.fam.map(c),club:c(A.club!=null?A.club:A.m)}});if(error)throw error;applyPrices(data);flash('Prix d\'Athlète Plus enregistrés en ligne')}catch(err){flash('Prix d\'Athlète Plus : '+(err.message||err))}},700)});
+})();
+</script>
+<script>
+/* ================= Corrections 21 (8 nov. 2026) : clubs en ligne =================
+   Avant : un club n'existait que dans le navigateur du compte qui l'avait créé.
+   Maintenant (mode réel seulement; la démo ne change pas) :
+   - le club (groupes, horaire, équipe, réglages…) est enregistré en ligne (table clubs); l'équipe du club
+     (créateur + courriels de l'équipe) le voit et le modifie sur tous ses appareils;
+   - chaque inscription est une ligne en ligne (table club_members) : l'équipe voit tous les membres,
+     le membre voit son club (copie « membre » sans finances, dépenses, codes ni coordonnées des autres) sur son propre compte;
+   - lien d'invitation du groupe (fidjicoach.ca/club/<club>/<jeton>) : ouvre l'app, puis inscrit le compte « en attente »;
+   - un athlète ajouté par courriel (liste des membres) voit son club dès qu'il se connecte avec ce courriel.
+   Limite connue : ce qu'un membre fait dans le club (présences, inscriptions aux compétitions, boutique…) reste sur son
+   appareil pour l'instant; son inscription (groupe, formulaires) est enregistrée en ligne. */
+(function(){
+const FR=()=>window.fcReal||{};
+const CLS=window.fcClubs={snap:{},msnap:{},pulled:null,busy:false,dirty:false,last:0,err:null,rows:{}};
+const real=()=>{const R=FR();return !!(R.on&&R.sb&&R.uid)};
+const lc=s=>String(s||'').trim().toLowerCase();
+const myEmail=()=>{try{return lc((me()||{}).email)}catch(e){return ''}};
+const clone=o=>JSON.parse(JSON.stringify(o||{}));
+const tok=()=>Array.from({length:6},()=>'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*31)]).join('');
+const CLUBS=()=>db.clubs||(db.clubs=[]);
+const isMine=s=>!!(s&&s.me);
+const localOf=sid=>{const R=FR();if(!sid)return sid;if(sid===R.uid){try{return me().id}catch(e){}}return sid};
+const sidOf=id=>{const R=FR();if(!id)return id;try{const u=me();if(u&&id===u.id)return R.uid;const x=userById(id);return (x&&x.sid)||id}catch(e){return id}};
+function iAmStaff(c){if(!c)return false;const u=me();if(!u)return false;const em=myEmail();
+  return (c.staff||[]).some(s=>isMine(s)&&u.role==='admin'||(s.uid&&s.uid===u.id)||(em&&lc(s.email)===em))||c._own===1}
+
+/* --- conversions local ↔ en ligne (identifiants des comptes, marqueur « moi ») --- */
+function toServer(c){const d=clone(c);delete d._own;delete d._srv;
+  (d.groups||[]).forEach(g=>{if(!g.tok)g.tok=tok()});
+  (d.staff||[]).forEach(s=>{if(s.me){s.own=1;if(!s.email)s.email=myEmail()}delete s.me;delete s.uid});
+  (d.roster||[]).forEach(r=>{if(r.uid)r.uid=sidOf(r.uid)});
+  return d}
+function memberCopy(d){const m=clone(d);['exp','fin','pay','mcodes','codes','imp','rreq','promos','legacy'].forEach(k=>delete m[k]);
+  m.roster=(m.roster||[]).map(r=>({id:r.id,uid:r.uid||null,prenom:r.prenom||'',nom:r.nom||'',g:r.g||null,status:r.status||null}));
+  m.staff=(m.staff||[]).map(s=>({id:s.id,name:s.name||'',role:s.role,groups:s.groups||[]}));
+  if(m.bt11&&Array.isArray(m.bt11.ord))m.bt11.ord=[];
+  return m}
+function fromServer(d,ownerIsMe){const c=clone(d);const u=me();const em=myEmail();
+  (c.groups||[]).forEach(g=>{if(!g.tok)g.tok=tok()});
+  (c.staff||[]).forEach(s=>{const mine=(s.own&&ownerIsMe)||(em&&lc(s.email)===em);delete s.me;
+    if(mine){if(u&&u.role==='admin')s.me=1;s.uid=u&&u.id}else{const x=s.email&&db.users.find(v=>lc(v.email)===lc(s.email));if(x)s.uid=x.id;else delete s.uid}});
+  (c.roster||[]).forEach(r=>{if(r.uid)r.uid=localOf(r.uid)});
+  return c}
+const memberData=(cd,clubId)=>{const x=clone(cd||{});x.id=clubId;if(x.payer)x.payer=localOf(x.payer);return x};
+const memberDataS=(cd)=>{const x=clone(cd||{});if(x.payer)x.payer=sidOf(x.payer);return x};
+
+/* --- lecture : clubs de l'équipe + clubs où je suis membre --- */
+CLS.pull=async function(force){const R=FR();if(!real()||CLS.busy)return;if(!force&&CLS.dirty)return;CLS.busy=true;CLS.err=null;
+  try{const u=me();const em=myEmail();
+    const [st1,mine]=await Promise.all([
+      R.sb.from('clubs').select('id,owner_id,name,staff_emails,data,updated_at').or(`owner_id.eq.${R.uid}${em?`,staff_emails.cs.{"${em.replace(/"/g,'')}"}`:''}`),
+      R.sb.rpc('club_mine')]);
+    if(st1.error)throw st1.error;if(mine.error)throw mine.error;
+    const staffRows=st1.data||[];const memRows=Array.isArray(mine.data)?mine.data:[];
+    const seen=new Set();const L=CLUBS();
+    /* clubs de l'équipe : la version en ligne remplace la copie locale (sauf changement local pas encore envoyé) */
+    for(const row of staffRows){seen.add(row.id);const loc=L.find(c=>c.id===row.id);
+      if(loc&&CLS.snap[row.id]&&JSON.stringify(toServer(loc))!==CLS.snap[row.id])continue;
+      const c=fromServer(row.data&&row.data.id?row.data:{id:row.id,name:row.name,groups:[],staff:[]},row.owner_id===R.uid);c.id=row.id;c._own=row.owner_id===R.uid?1:0;
+      if(loc)L.splice(L.indexOf(loc),1,c);else L.push(c);CLS.snap[row.id]=JSON.stringify(toServer(c))}
+    /* membres des clubs de l'équipe */
+    const ids=staffRows.map(r=>r.id);
+    if(ids.length){const {data:ms,error}=await R.sb.from('club_members').select('club_id,email,user_id,data,prenom,nom,updated_at').in('club_id',ids);if(error)throw error;
+      for(const m of ms||[]){const key=m.club_id+'|'+m.email;CLS.msnap[key]=JSON.stringify(m.data||{});if(!m.user_id)continue;
+        const cd=memberData(m.data,m.club_id);
+        if(m.user_id===R.uid){if(!u.club||u.club.id===m.club_id)u.club=cd;continue}
+        let x=db.users.find(v=>v.sid===m.user_id||v.id===m.user_id);
+        if(!x){x={id:m.user_id,sid:m.user_id,email:m.email,role:'club',cm:1,pass:null,onboarded:true,notes:[],prefs:(typeof defPrefs==='function'?defPrefs():{}),fiche:{prenom:m.prenom||'',nom:m.nom||''},created:String(m.updated_at||'').slice(0,10)};db.users.push(x)}
+        else if(x.fiche){if(!x.fiche.prenom&&m.prenom)x.fiche.prenom=m.prenom;if(!x.fiche.nom&&m.nom)x.fiche.nom=m.nom}
+        if(!x.club||x.club.id===m.club_id)x.club=cd}}
+    /* clubs où je suis membre (copie « membre ») */
+    for(const row of memRows){const m=row.member||{};
+      if(!seen.has(row.id)){seen.add(row.id);const c=fromServer(Object.assign({id:row.id,name:row.name,groups:[],staff:[]},row.mdata||{}),false);c.id=row.id;c._mem=1;
+        const loc=L.find(x=>x.id===row.id);if(loc)L.splice(L.indexOf(loc),1,c);else L.push(c)}
+      if(m&&m.data){const cd=memberData(m.data,row.id);if(!u.club||u.club.id===row.id){u.club=Object.assign({},u.club&&u.club.id===row.id?u.club:{},cd)}
+        CLS.msnap[row.id+'|'+lc(m.email)]=JSON.stringify(m.data)}}
+    /* clubs locaux absents en ligne : ceux de l'équipe seront envoyés; les autres (anciennes copies) sont retirés */
+    for(const c of L.slice()){if(seen.has(c.id))continue;if(iAmStaff(c)){CLS.snap[c.id]=null;CLS.dirty=true}else L.splice(L.indexOf(c),1)}
+    if(u&&u.club&&!L.some(c=>c.id===u.club.id))delete u.club;
+    CLS.pulled=R.uid;CLS.last=Date.now();try{window.fcPersist&&window.fcPersist()}catch(e){}
+    if(CLS.dirty)setTimeout(()=>CLS.push(),50);
+    await CLS.joinPending();
+    render()}
+  catch(e){console.warn('Clubs en ligne',e);CLS.err=e.message||String(e)}
+  finally{CLS.busy=false}};
+
+/* --- envoi : clubs de l'équipe et inscriptions --- */
+let tP=null;CLS.queue=()=>{if(!real()||CLS.pulled!==FR().uid)return;CLS.dirty=true;clearTimeout(tP);tP=setTimeout(()=>CLS.push(),900)};
+CLS.push=async function(){const R=FR();if(!real()||CLS.pulled!==R.uid)return;if(CLS.busy){CLS.queue();return}CLS.busy=true;
+  try{const u=me();const L=CLUBS();const em=myEmail();
+    for(const c of L){if(!iAmStaff(c))continue;
+      const d=toServer(c);const j=JSON.stringify(d);
+      if(CLS.snap[c.id]!==j){
+        const staffEmails=[...new Set((d.staff||[]).map(s=>lc(s.email)).filter(Boolean).concat(em?[em]:[]))];
+        const {error}=await R.sb.from('clubs').upsert({id:c.id,name:String(c.name||'').slice(0,200),staff_emails:staffEmails,data:d,mdata:memberCopy(d)},{onConflict:'id'});
+        if(error)throw error;CLS.snap[c.id]=j;c._own=c._own===0?0:1;
+        (c.groups||[]).forEach((g,i)=>{if(!g.tok&&d.groups[i])g.tok=d.groups[i].tok})}
+      /* inscriptions connues de l'équipe : comptes membres et membres ajoutés par courriel */
+      const rows=[];
+      db.users.filter(x=>x.club&&x.club.id===c.id&&x.id!==u.id&&x.email).forEach(x=>rows.push({club_id:c.id,email:lc(x.email),user_id:x.sid||null,data:memberDataS(x.club),prenom:(x.fiche||{}).prenom||null,nom:(x.fiche||{}).nom||null}));
+      (c.roster||[]).filter(r=>!r.uid&&r.email&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(r.email)).forEach(r=>{const e=lc(r.email);if(rows.some(x=>x.email===e))return;
+        rows.push({club_id:c.id,email:e,user_id:null,data:{id:c.id,group:r.g||null,status:r.status==='inscrit'?'inscrit':'en attente',at:today()},prenom:r.prenom||null,nom:r.nom||null,_new:1})});
+      for(const r of rows){const key=r.club_id+'|'+r.email;const j2=JSON.stringify(r.data);if(CLS.msnap[key]===j2)continue;
+        if(r._new&&CLS.msnap[key]!=null)continue;const isNew=r._new;delete r._new;if(!r.user_id)delete r.user_id;
+        const q=R.sb.from('club_members').upsert(r,{onConflict:'club_id,email',ignoreDuplicates:!!isNew});const {error}=await q;if(error)throw error;CLS.msnap[key]=j2}}
+    /* mon inscription (membre) */
+    if(u&&u.club&&u.club.id){const c=L.find(x=>x.id===u.club.id);
+      if(c&&!iAmStaff(c)&&em){const key=c.id+'|'+em;const d=memberDataS(u.club);const j=JSON.stringify(d);
+        if(CLS.msnap[key]!==j){const {data,error}=await R.sb.from('club_members').update({data:d}).eq('club_id',c.id).eq('email',em).select('data');if(error)throw error;
+          if(!data||!data.length){const {error:e2}=await R.sb.rpc('club_join',{p_club:c.id,p_group:u.club.group||null});if(e2)throw e2}
+          CLS.msnap[key]=j}}}
+    /* départ d'un club */
+    for(const key of Object.keys(CLS.msnap)){const [cid,e]=key.split('|');if(e!==em)continue;const c=L.find(x=>x.id===cid);if(c&&iAmStaff(c))continue;
+      if(!u.club||u.club.id!==cid){const {error}=await R.sb.from('club_members').delete().eq('club_id',cid).eq('email',em);if(!error)delete CLS.msnap[key]}}
+    CLS.dirty=false}
+  catch(e){console.warn('Clubs en ligne : envoi',e);CLS.err=e.message||String(e);flash('Club : enregistrement en ligne impossible ('+(CLS.err||'')+')')}
+  finally{CLS.busy=false}};
+
+/* --- lien d'invitation : fidjicoach.ca/club/<club>/<jeton> (redirigé par 404.html) ou ?club=…&groupe=… --- */
+const JKEY='fc-club-join';
+try{const q=new URLSearchParams(location.search);const c=q.get('club');if(c&&/^[A-Za-z0-9_-]{2,80}$/.test(c)){localStorage.setItem(JKEY,JSON.stringify({c,g:q.get('groupe')||q.get('tok')||''}));
+  q.delete('club');q.delete('groupe');q.delete('tok');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);
+  setTimeout(async()=>{if(real())return;try{const R=FR();const {data}=await R.sb.rpc('club_preview',{p_club:c});if(data&&data.name)flash('Invitation du club '+data.name+' : connectez-vous ou créez votre compte pour vous inscrire')}catch(e){}},1500)}}catch(e){}
+CLS.joinPending=async function(){let J=null;try{J=JSON.parse(localStorage.getItem(JKEY)||'null')}catch(e){}if(!J||!real())return;
+  try{localStorage.removeItem(JKEY)}catch(e){}
+  const u=me();if(u&&u.club&&u.club.id===J.c){st.p3on=true;st.p3c=J.c;return}
+  try{const R=FR();const {data,error}=await R.sb.rpc('club_join',{p_club:J.c,p_group:J.g||null});if(error)throw error;
+    CLS.busy=false;await CLS.pull(true);const v=me();if(v&&v.club&&v.club.id===J.c){v.space='club';st.p3on=true;st.p3c=J.c;st.p3p='a_home';save()}
+    flash('Inscription envoyée au club '+(data&&data.name||'')+' : en attente de la confirmation du club');render()}
+  catch(e){flash('Club : '+(e.message||e))}};
+
+/* --- branchements : après la connexion, au retour dans l'app, à chaque enregistrement --- */
+save=(old=>function(){const r=old.apply(this,arguments);try{CLS.queue()}catch(e){}return r})(save);
+setInterval(()=>{const R=FR();if(real()&&CLS.pulled!==R.uid&&!CLS.busy&&!R.booting)CLS.pull(true)},1500);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&real()&&Date.now()-CLS.last>30000)CLS.pull(false)});
+setInterval(()=>{if(real()&&document.visibilityState==='visible'&&Date.now()-CLS.last>120000)CLS.pull(false)},30000);
+/* changement de compte sur le même appareil : on repart de zéro */
+setInterval(()=>{const R=FR();if(CLS.pulled&&CLS.pulled!==R.uid){CLS.snap={};CLS.msnap={};CLS.pulled=null}},1000);
+/* --- Comptes client et entraîneur : plus de boutons À propos, Centres et Météo en haut (ils restent dans le menu de gauche) --- */
+header=(old=>function(u){let h=old.apply(this,arguments);try{if(u&&me())h=h.replace(/<span class="navlinks">(?:(?!<\/span>)[\s\S])*?data-v="apropos"[\s\S]*?<\/span>/,'')}catch(e){}return h})(header);
+document.head.insertAdjacentHTML('beforeend','<style>body.fc21in header.top .navlinks [data-v="apropos"],body.fc21in header.top .navlinks [data-v="centres"],body.fc21in header.top .navlinks [data-v="meteo"]{display:none!important}</style>');
+render=(old=>function(){const r=old.apply(this,arguments);try{document.body.classList.toggle('fc21in',!!me())}catch(e){}return r})(render);
 })();
 </script>
 </body></html>
