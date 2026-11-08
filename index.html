@@ -22083,6 +22083,36 @@ const pct=n=>(Math.round(Number(n||0)*100)/100).toString().replace('.',',')+' %'
 const rentItemsPub=()=>(db.inventory||[]).filter(i=>i&&i.actif!==false).map(i=>({id:i.id,cat:i.cat,tech:i.tech,taille:i.taille,marque:i.marque||'',modele:i.modele||'',qty:Number(i.qty)||0,actif:true,prix:i.prix||{}}));
 const plansPub=()=>(db.subPlans||[]).map(p=>({id:p.id,name:p.name,price:Number(p.price)||0,desc:p.desc||'',feats:p.feats||[],inc:p.inc||[],kind:p.kind||null,actif:p.actif!==false}));
 pubData=(old=>function(){const d=old();try{d.rent={items:rentItemsPub()};d.subPlans=plansPub()}catch(e){console.warn(e)}return d})(pubData);
+/* Corrections 23 : l'inventaire n'est plus seulement sur l'appareil. La copie complète (articles, unités, codes, état)
+   est sauvegardée en ligne dans la copie privée de l'entraîneur et rechargée sur chaque appareil où il se connecte.
+   Garde-fou : un appareil dont l'inventaire est vide (nouvel appareil, changement de compte) ne remplace jamais
+   une liste de location en ligne non vide; seul un retrait fait sur cet appareil pendant la session vide la liste. */
+const invPack=()=>(db.inventory||[]).map(i=>{const o=Object.assign({},i);if(typeof o.photo==='string'&&o.photo.length>20000&&/^data:/.test(o.photo))o.photo=null;return o});
+loadPub=(old=>async function(){const r=await old.apply(this,arguments);
+  try{if(R.role==='admin'){const it=r&&r.data&&r.data.rent&&r.data.rent.items;R.pubRentItems=Array.isArray(it)?it:[]}}catch(e){}return r})(loadPub);
+pubData=(old=>function(){const d=old();try{if(R.role==='admin'&&d.rent&&!(d.rent.items||[]).length&&!R.invSeen&&(R.pubRentItems||[]).length)d.rent.items=R.pubRentItems}catch(e){}return d})(pubData);
+privData=(old=>function(){const d=old();if(R.role!=='admin')return d;
+  try{const pk=invPack();
+    if(pk.length)R.invSeen=true;
+    if(!pk.length&&!R.invSeen&&(R.privInv||[]).length){d.inventory=R.privInv;d.invAt=R.privInvAt||0;return d}
+    const h=JSON.stringify(pk);if(R.invHash!=null&&h!==R.invHash){db.invAt=Date.now()}R.invHash=h;
+    d.inventory=pk;d.invAt=db.invAt||0}catch(e){console.warn('Inventaire (copie privée)',e)}return d})(privData);
+loadCoachSide=(old=>async function(){R.invSeen=false;R.invHash=null;R.privInv=null;R.privInvAt=0;await old();
+  if(R.role!=='admin'||!R.coachId)return;
+  try{const {data,error}=await R.sb.from('coach_private').select('data').eq('coach_id',R.coachId).maybeSingle();if(error)throw error;
+    const pd=data&&data.data||{};const on=Array.isArray(pd.inventory)?pd.inventory:null;const onAt=Number(pd.invAt)||0;
+    R.privInv=on;R.privInvAt=onAt;
+    const loc=db.inventory||[];const ph=new Map(loc.map(i=>[i.id,i.photo]));
+    const take=()=>{db.inventory=on.map(i=>Object.assign({},i,{photo:i.photo||ph.get(i.id)||null}));db.invAt=onAt;fcPersist()};
+    let changed=false;
+    if(on&&on.length&&(!loc.length||onAt>(Number(db.invAt)||0))){take();changed=true}
+    else if(!on&&!loc.length&&(R.pubRentItems||[]).length){
+      /* aucune copie privée (inventaire saisi avant Corrections 23) et appareil vide : on reconstruit les articles publiés */
+      db.inventory=R.pubRentItems.map(i=>Object.assign({units:[],photo:null,actif:true},i));db.invAt=Date.now();fcPersist();changed=true}
+    R.invSeen=(db.inventory||[]).length>0;R.invHash=JSON.stringify(invPack());
+    if(changed||!on||JSON.stringify(on)!==R.invHash){R.snap.priv=null;R.snap.pub=null;setTimeout(queueSync,120)}
+    if(changed){try{render()}catch(e){}}}
+  catch(e){console.warn('Inventaire en ligne',e&&e.message||e)}})(loadCoachSide);
 applyPub=(old=>function(d){old(d);if(!d)return;try{
   if(R.role!=='admin'){if(d.rent&&Array.isArray(d.rent.items))db.inventory=d.rent.items.map(i=>Object.assign({units:[],photo:null,cat:'Autre',tech:'Les deux',marque:'',modele:'',taille:'',qty:0,prix:{}},i,{tech:i.tech||'Les deux'}));if(Array.isArray(d.subPlans))db.subPlans=d.subPlans}
   else if(Array.isArray(d.subPlans)&&!(db.subPlans||[]).length)db.subPlans=d.subPlans}catch(e){console.warn(e)}})(applyPub);
@@ -23913,7 +23943,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
 const FC_BUILD='2026-11-08-c23';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='8 nov. 2026 · Corrections 23 (location : articles disponibles chez le client, « votre entraîneur » valide les grandeurs)';
+const FC_BUILD_LBL='8 nov. 2026 · Corrections 23 (location : articles disponibles chez le client, inventaire sauvegardé en ligne, « votre entraîneur » valide les grandeurs)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
