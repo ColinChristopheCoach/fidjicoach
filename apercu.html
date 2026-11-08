@@ -3518,7 +3518,7 @@ A.demoInvite=function(d){st.modal=null;st.inviteCode=d.c;st.joinCode=null;st.vie
 
 /* ---------- Cartes de réservation et de location ---------- */
 function rentLinesHTML(r,admin){return `<div class="eqtab">${r.lines.map(l=>{const i=lineItem(l),u=lineUnitObj(l);const s=l.ret?['Retourné','neutral']:l.dist?['Remis','warn']:['Réservé','info'];
-  return `<div><b>${esc(l.whoName||'')}</b><span>${i?esc(itemLabel(i)):''}</span><span class="mono">${u?esc(unitLabel(i,u)):'À attribuer'}</span><span class="pill ${s[1]}">${s[0]}${l.dist&&!l.ret&&l.due?' · retour '+dfmt(l.due):''}</span></div>`}).join('')}</div>`}
+  return `<div><b>${esc(l.whoName||'')}</b><span>${i?esc(itemLabel(i)):esc(l.label||'Article')}</span><span class="mono">${u?esc(unitLabel(i,u)):'À attribuer'}</span><span class="pill ${s[1]}">${s[0]}${l.dist&&!l.ret&&l.due?' · retour '+dfmt(l.due):''}</span></div>`}).join('')}</div>`}
 bookingCard=function(b,u,admin){
   const [s,c]=bookingStatus(b);const owner=userById(b.owner);const left=creditsLeft(b);const r=rentalOf(b);
   const my=u?b.parts.find(p=>p.userId===u.id):null;const isOwner=u&&b.owner===u.id;
@@ -24987,7 +24987,8 @@ A.fc24RentCancel=async function(d){const r=fc24R(d&&d.r);if(!r||!r.real||!r.sid)
   busyOn('Annulation de la location…');
   try{const {error}=await R.sb.rpc('rental_abandon',{p_booking:r.sid});if(error)throw error;await syncAll();busyOff();render();flash('Location '+(r.ref||'')+' annulée. Rien n\'a été prélevé.')}
   catch(e){console.error(e);busyOff();render();flash(/rental_abandon|function .* does not exist/i.test(e&&e.message||'')?'Annulation indisponible : exécutez le script SQL Corrections 24.':errTxt(e))}};
-rentalCard=(old=>function(r,admin){let h=old(r,admin);try{if(!h||!r||!r.real||r.paid||r.cancelled||r.bookingId||r.inBooking)return h;
+rentalCard=(old=>function(r,admin){if(r&&r.real&&r.cancelled&&!r.paid&&!admin)return '';let h=old(r,admin);try{if(h&&r&&r.real&&r.cancelled)return h.replace(/<span class="pill [a-z]+">(Non payée|Payée|Virement attendu)<\/span>/,'<span class="pill neutral">Annulée</span>').replace(/<div class="actions">[\s\S]*?<\/div><\/article>\s*$/,'</article>');
+    if(!h||!r||!r.real||r.paid||r.cancelled||r.bookingId||r.inBooking)return h;
     h=h.replace(/<button[^>]*data-a="endRent"[^>]*>[\s\S]*?<\/button>/,'');
     const btn=`<button class="btn btn-sm btn-plain" data-a="fc24RentCancel" data-r="${r.id}">Annuler la location</button>`;
     if(/<div class="actions">/.test(h))h=h.replace(/(<div class="actions">[\s\S]*?)(<\/div><\/article>\s*)$/,'$1'+btn+'$2');
