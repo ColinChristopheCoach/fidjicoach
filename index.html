@@ -3518,7 +3518,7 @@ A.demoInvite=function(d){st.modal=null;st.inviteCode=d.c;st.joinCode=null;st.vie
 
 /* ---------- Cartes de réservation et de location ---------- */
 function rentLinesHTML(r,admin){return `<div class="eqtab">${r.lines.map(l=>{const i=lineItem(l),u=lineUnitObj(l);const s=l.ret?['Retourné','neutral']:l.dist?['Remis','warn']:['Réservé','info'];
-  return `<div><b>${esc(l.whoName||'')}</b><span>${i?esc(itemLabel(i)):''}</span><span class="mono">${u?esc(unitLabel(i,u)):'À attribuer'}</span><span class="pill ${s[1]}">${s[0]}${l.dist&&!l.ret&&l.due?' · retour '+dfmt(l.due):''}</span></div>`}).join('')}</div>`}
+  return `<div><b>${esc(l.whoName||'')}</b><span>${i?esc(itemLabel(i)):esc(l.label||'Article')}</span><span class="mono">${u?esc(unitLabel(i,u)):'À attribuer'}</span><span class="pill ${s[1]}">${s[0]}${l.dist&&!l.ret&&l.due?' · retour '+dfmt(l.due):''}</span></div>`}).join('')}</div>`}
 bookingCard=function(b,u,admin){
   const [s,c]=bookingStatus(b);const owner=userById(b.owner);const left=creditsLeft(b);const r=rentalOf(b);
   const my=u?b.parts.find(p=>p.userId===u.id):null;const isOwner=u&&b.owner===u.id;
@@ -23944,8 +23944,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-08-c23';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='8 nov. 2026 · Corrections 23 (location : articles disponibles chez le client, inventaire sauvegardé en ligne, « votre entraîneur » valide les grandeurs)';
+const FC_BUILD='2026-11-08-c24';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='8 nov. 2026 · Corrections 24 (location : carte seulement, location non payée à payer ou annuler, textes clairs, Échap)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -24959,6 +24959,70 @@ function fcPlatSection(){const adm=R.realRole==='admin';let L=(db.platInv||[]).f
 adminFactu=(old=>function(){const h=old();try{if(!R.on||R.role!=='admin')return h;const s=fcPlatSection();const k=h.indexOf('</section>');return k<0?h+s:h.slice(0,k+10)+s+h.slice(k+10)}catch(e){console.warn(e);return h}})(adminFactu);
 (function(){const s=document.createElement('style');s.textContent=`.fc13i{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;margin-left:6px}.fc13i .fc13last{flex-basis:100%}
 @media (max-width:520px){.fc13i{margin-left:0;margin-top:6px}}`;document.head.appendChild(s)})();
+
+/* ================= Corrections 24 (8 nov. 2026) : location d'équipement =================
+   1. Réservation avec location : plus de « Payer par Interac » (carte seulement, aussi refusé par le serveur).
+   2. Location seule non payée : « Payer » ouvre la vraie page Stripe; « Annuler la location » (client et entraîneur);
+      plus de « Mettre fin à ma location » tant qu'elle n'est pas payée. Une location abandonnée ne bloque plus le stock.
+   3. Codes techniques de Stripe (authentication_required…) remplacés par un texte clair.
+   4. « Mes locations » : le nom de l'équipement n'est plus écrasé (une lettre par ligne).
+   5. Formulaire d'équipement : le clic qui suit la saisie de la Marque (ou de la grandeur) n'est plus perdu.
+   6. Échap ferme les fenêtres (import des montres et les autres). */
+const FC24_ERR={authentication_required:'votre banque a demandé une vérification',requires_action:'votre banque a demandé une vérification',
+  insufficient_funds:'fonds insuffisants',expired_card:'carte expirée',card_declined:'carte refusée par la banque',requires_payment_method:'carte refusée par la banque'};
+const fc24Clean=t=>typeof t!=='string'?t:t.replace(/\b(authentication_required|requires_action|insufficient_funds|expired_card|card_declined|requires_payment_method)\b/g,m=>FC24_ERR[m]||m);
+flash=(old=>function(t){return old(fc24Clean(t))})(flash);
+const fc24Rent=b=>!!(b&&(b.rentSrv||b.kindSrv==='location'));
+/* 1. pas d'Interac pour une réservation avec location */
+bookingCard=(old=>function(b,u,admin){let h=old(b,u,admin);try{if(!admin&&fc24Rent(b))h=h.replace(/<button[^>]*data-a="fcToInterac"[^>]*>[^<]*<\/button>/g,'')}catch(e){}return h})(bookingCard);
+decorate=(old=>function(){old();try{const m=st.modal;if(!m||m.kind!=='stripe'||!fc24Rent(m.bid&&B(m.bid)))return;
+  document.querySelectorAll('[data-a="fcToInterac"]').forEach(x=>x.remove());
+  const sb=document.querySelector('[data-a="stripeOk"]');if(sb&&!document.querySelector('.fc24card')){const p=sb.closest('.actions')||sb.parentElement;if(p)p.insertAdjacentHTML('beforebegin','<p class="muted small fc24card">Location d\'équipement : paiement par carte seulement (la carte est gardée par Stripe pour les frais prévus au contrat).</p>')}}catch(e){}})(decorate);
+A.fcToInterac=(old=>function(d){const b=B(d&&d.b);if(fc24Rent(b)){flash('La location d\'équipement se paie par carte seulement : la carte est gardée par Stripe pour les frais de bris ou de non-retour prévus au contrat.');return}return old(d)})(A.fcToInterac);
+/* 2. location seule non payée : vrai paiement, annulation */
+const fc24R=id=>(db.rentals||[]).find(x=>x.id===id);
+A.rentPay=(old=>function(d){const r=fc24R(d&&d.r);if(r&&r.real&&R.on){if(r.partPid){goCheckout(r.partPid);return}flash('Paiement introuvable pour cette location : actualisez la page.');return}return old(d)})(A.rentPay);
+A.fc24RentCancel=async function(d){const r=fc24R(d&&d.r);if(!r||!r.real||!r.sid)return;
+  if(!confirm('Annuler la location '+(r.ref||'')+'? Elle n\'a pas été payée : rien ne sera prélevé et l\'équipement est libéré.'))return;
+  busyOn('Annulation de la location…');
+  try{const {error}=await R.sb.rpc('rental_abandon',{p_booking:r.sid});if(error)throw error;await syncAll();busyOff();render();flash('Location '+(r.ref||'')+' annulée. Rien n\'a été prélevé.')}
+  catch(e){console.error(e);busyOff();render();flash(/rental_abandon|function .* does not exist/i.test(e&&e.message||'')?'Annulation indisponible : exécutez le script SQL Corrections 24.':errTxt(e))}};
+rentalCard=(old=>function(r,admin){if(r&&r.real&&r.cancelled&&!r.paid&&!admin)return '';let h=old(r,admin);try{if(h&&r&&r.real&&r.cancelled)return h.replace(/<span class="pill [a-z]+">(Non payée|Payée|Virement attendu)<\/span>/,'<span class="pill neutral">Annulée</span>').replace(/<div class="actions">[\s\S]*?<\/div><\/article>\s*$/,'</article>');
+    if(!h||!r||!r.real||r.paid||r.cancelled||r.bookingId||r.inBooking)return h;
+    h=h.replace(/<button[^>]*data-a="endRent"[^>]*>[\s\S]*?<\/button>/,'');
+    const btn=`<button class="btn btn-sm btn-plain" data-a="fc24RentCancel" data-r="${r.id}">Annuler la location</button>`;
+    if(/<div class="actions">/.test(h))h=h.replace(/(<div class="actions">[\s\S]*?)(<\/div><\/article>\s*)$/,'$1'+btn+'$2');
+    else h=h.replace(/<\/article>\s*$/,`<div class="actions">${btn}</div></article>`);
+    if(!admin&&!/fc24note/.test(h))h=h.replace(/<\/dl>/,'</dl><p class="muted small fc24note">Pas encore payée : payez-la par carte pour confirmer l\'équipement, ou annulez-la.</p>')}catch(e){console.warn(e)}return h})(rentalCard);
+/* 3. raisons des frais déjà enregistrées avec un code */
+const fc24FeeFix=()=>{try{(R.fees||[]).forEach(f=>{f.reason=fc24Clean(f.reason)});(db.rentals||[]).forEach(r=>(r.fees||[]).forEach(f=>{f.reason=fc24Clean(f.reason)}))}catch(e){}};
+loadBookings=(old=>async function(){await old();fc24FeeFix()})(loadBookings);
+/* 5. formulaire d'équipement : on attend la fin du clic avant de redessiner la fenêtre, et on garde le champ actif */
+let fc24Down=false;
+addEventListener('pointerdown',()=>{fc24Down=true},true);
+addEventListener('pointerup',()=>{setTimeout(()=>{fc24Down=false},0)},true);
+const fc24Redraw=()=>{const a=document.activeElement;let sel=null,pos=null;
+  try{if(a&&a!==document.body){if(a.dataset&&a.dataset.it)sel='[data-it="'+a.dataset.it+'"]';else if(a.dataset&&a.dataset.itc)sel='[data-itc="'+a.dataset.itc+'"]';else if(a.id)sel='#'+CSS.escape(a.id);
+    if(typeof a.selectionStart==='number')pos=a.selectionStart}}catch(e){}
+  render();
+  if(sel){const n=document.querySelector(sel);if(n){try{n.focus({preventScroll:true});if(pos!=null&&typeof n.setSelectionRange==='function')n.setSelectionRange(pos,pos)}catch(e){}}}};
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!st.draftIt)return;const k=t.dataset.it;
+  if(!['marque','taille','modele'].includes(k)||!/^(text|number|search)$/.test(t.type||''))return;
+  e.stopImmediatePropagation();
+  if(!fc24Down){fc24Redraw();return}
+  const go=()=>{removeEventListener('click',go,true);clearTimeout(tm);setTimeout(fc24Redraw,0)};
+  addEventListener('click',go,true);const tm=setTimeout(go,700)},true);
+/* 6. Échap ferme la fenêtre ouverte */
+addEventListener('keydown',e=>{if(e.key!=='Escape'||e.defaultPrevented)return;
+  try{if([...document.querySelectorAll('.fcq')].some(x=>!x.hidden))return;
+    if(!st.modal||typeof A.close!=='function')return;
+    e.preventDefault();A.close()}catch(err){console.warn(err)}});
+(function(){const s=document.createElement('style');s.textContent=`
+.eqtab > div{display:flex!important;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.eqtab > div > b{flex:0 0 auto}
+.eqtab > div > span:not(.pill):not(.mono){flex:1 1 160px;min-width:0;overflow-wrap:anywhere}
+.eqtab > div > .mono{flex:0 0 auto}
+.fc24note{margin:6px 0 0}`;document.head.appendChild(s)})();
 
 CLIENT_TABS.push('fact10');
 /* PWA : fonctions internes dont l'app installable a besoin (notifications touchées, hors ligne) */
