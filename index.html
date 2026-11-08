@@ -6473,14 +6473,14 @@ function hrMaxOf(u){const a=u&&u.fiche&&ageOf(u.fiche.naissance);return a&&a>8&&
 function actStats(a){const P=a.pts||[];let dist=0,mov=0,gain=0,loss=0,maxS=0,hs=0,hn=0,hm=0,ref=P.length?P[0][2]:0;const c={lat:P[0]?P[0][0]:0,lon:P[0]?P[0][1]:0};let prev=null;const spl=[];let nextK=1000,kT=0,kE=P.length?P[0][2]:0;
   const vmax=trVmax(a.type);let gapN=0,gapT=0,gapD=0;let w0=null;
   P.forEach((p,j)=>{const xy=toXY(c,p[0],p[1]);if(prev){const d=segLen(prev.xy,xy),dt=p[3]-prev.p[3];
-      if(dt>=20&&d>=50&&d/dt<=vmax){dist+=d;mov+=d/dt>0.4?dt:0;gapN++;gapT+=dt;gapD+=d;w0=null}
+      if(dt>=20&&d>=50&&d/dt<=vmax){dist+=d;mov+=d/dt>0.4?dt:0;gapN++;gapT+=dt;gapD+=d;w0=null;maxS=Math.max(maxS,d/dt)}
       else if(dt>0&&dt<60&&d/dt<Math.min(25,vmax*1.4)){dist+=d;mov+=d/dt>0.4?dt:0;
         if(!w0)w0={t:prev.p[3],d:dist-d};if(p[3]-w0.t>=5){const v=(dist-w0.d)/(p[3]-w0.t);if(v<=vmax)maxS=Math.max(maxS,v);w0={t:p[3],d:dist}}}
       while(dist>=nextK){spl.push({km:nextK/1000,t:p[3]-kT,e:(p[2]||0)-kE});kT=p[3];kE=p[2]||0;nextK+=1000}}
     if(p[2]!=null){const dz=p[2]-ref;if(dz>2){gain+=dz;ref=p[2]}else if(dz<-2){loss-=dz;ref=p[2]}}if(p[4]){hs+=p[4];hn++;hm=Math.max(hm,p[4])}prev={xy,p}});
   if(P.length&&dist-(nextK-1000)>150)spl.push({km:dist/1000,t:P[P.length-1][3]-kT,e:(P[P.length-1][2]||0)-kE,part:true});
-  if(mov>0)maxS=Math.max(maxS,(dist-gapD)/Math.max(1,mov-gapT));
-  Object.assign(a,{dist:Math.round(dist),dur:Math.round(mov||((P[P.length-1]||[])[3]||0)),elapsed:(P[P.length-1]||[0,0,0,0])[3],gain:Math.round(gain),loss:Math.round(loss),maxSpd:r2(maxS),gaps:gapN?{n:gapN,t:Math.round(gapT),d:Math.round(gapD)}:null,sv:2,hrAvg:hn?Math.round(hs/hn):null,hrMax:hm||null,splits:spl});return a}
+  if(mov-gapT>=30)maxS=Math.max(maxS,(dist-gapD)/(mov-gapT));if(mov>0)maxS=Math.max(maxS,dist/mov);
+  Object.assign(a,{dist:Math.round(dist),dur:Math.round(mov||((P[P.length-1]||[])[3]||0)),elapsed:(P[P.length-1]||[0,0,0,0])[3],gain:Math.round(gain),loss:Math.round(loss),maxSpd:r2(maxS),gaps:gapN?{n:gapN,t:Math.round(gapT),d:Math.round(gapD)}:null,sv:3,hrAvg:hn?Math.round(hs/hn):null,hrMax:hm||null,splits:spl});return a}
 function kcalOf(a,u){const t=trType(a.type);return Math.round(t[2]*weightOf(u)*(a.dur||0)/3600)}
 /* génère une sortie simulée sur un sentier (démo, import de montre) */
 function simAct(c,ti,laps,type,start,hr,src,u){const net=trailNet(c);const t=net.trails[ti%net.trails.length];const T=trType(type);const base=T[3];let s=0,tm=0,h=105;const P=[];const R=rngOf(hashS(start+':'+ti));const total=t.open?Math.max(3000,Math.min(15000,t.len*laps*2)):t.len*laps;
@@ -6512,7 +6512,7 @@ document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!t.da
     if(a.title&&TRALL.some(x=>a.title.startsWith(x[1]+' ·')||a.title.startsWith(x[1]+' à '))){const old=TRALL.find(x=>a.title.startsWith(x[1]));if(old)a.title=trType(a.type)[1]+a.title.slice(old[1].length)}
     save();render();flash('Sport changé : '+trType(a.type)[1])}});
 /* anciennes sorties GPS du téléphone : recalculées une fois avec la nouvelle règle (trous de signal estimés au lieu d'être perdus) */
-function trRestat(){try{if(!db||!Array.isArray(db.acts))return;let ch=false;db.acts.forEach(a=>{if(a.sv===2||!a.pts||a.pts.length<2||a.sim||a.imp||a.nogps)return;if(a.src!=='GPS du téléphone'){a.sv=2;return}actStats(a);ch=true});if(ch)save()}catch(e){console.warn('trRestat',e)}}
+function trRestat(){try{if(!db||!Array.isArray(db.acts))return;let ch=false;db.acts.forEach(a=>{if(a.sv===3||!a.pts||a.pts.length<2||a.sim||a.imp||a.nogps)return;if(a.src!=='GPS du téléphone'){a.sv=3;return}actStats(a);ch=true});if(ch)save()}catch(e){console.warn('trRestat',e)}}
 /* ---------- Positions partagées (démo : amis et clients en mouvement sur les sentiers) ---------- */
 function simPos(c,ti,s0,v){const net=trailNet(c);const t=net.trails[ti%net.trails.length];const s=s0+v*(Date.now()/1000%100000);const p=trailAt(t,s);const ll=toLL(c,p[0],p[1]);return {...ll,trail:t.n,ti:t.i}}
 function sharedWithMe(u){const c=trCentre();const fr=((db.friends||{})[u.id]||[]).filter(f=>f.sh).map((f,j)=>({id:'fr'+f.id,fid:f.id,name:f.n.split(' ')[0],full:f.n,color:FRC[j%FRC.length],...simPos(c,f.ti,f.s0,f.v)}));
@@ -23862,7 +23862,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-08-c19';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-08-c19b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='8 nov. 2026 · Poses 3D corrigées (appuis au sol, vues de face, accessoires)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
