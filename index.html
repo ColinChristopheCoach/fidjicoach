@@ -23392,8 +23392,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-07-c15';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='7 nov. 2026 · Corrections 15 (applis de l\'entraîneur, carte libre, fiche des centres, adresse)';
+const FC_BUILD='2026-11-07-c15b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='7 nov. 2026 · Corrections 15b (applis de l\'entraîneur, carte libre, fiche des centres, adresse, détail du cours sur la facture)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -24061,15 +24061,18 @@ function inv10Data(b,p){const cl=userById(p.userId);
   return {no:p.invNo,date:p.invAt||p.paidAt||today(),ref:b.ref,coach:inv10Coach(),cl:clInfo14(cl),items,tax,
     sub:r2(items.reduce((n,l)=>n+l[1],0)),total:p.amount,method:p.method,paidAt:p.paidAt,refunded:Number(p.refunded)||0,
     sessions:(b.sessions||[]).map(s=>dlong10(s.date)+(s.start?' à '+hfmt(s.start):'')),lieu:b.lieu||'',sent:p.invSent||null}}
-function inv10Note(o){if(o.note)return o.note;return 'Payé'+(o.method?' par '+(PAY10[o.method]||o.method):'')+' le '+dlong10(o.paidAt||o.date)+'.'+(o.sessions.length?' Cours : '+o.sessions.join(', ')+'.':'')+(o.lieu?' Lieu : '+o.lieu+'.':'')}
+function inv10Note(o){if(o.note)return o.note;return 'Payé'+(o.method?' par '+(PAY10[o.method]||o.method):'')+' le '+dlong10(o.paidAt||o.date)+'.'}
+/* Corrections 15b : date, heure et lieu du cours en 2e ligne, sous la description */
+function inv15Det(o){const S=(o.sessions||[]).filter(Boolean),l=o.lieu||'';if(!S.length&&!l)return [];
+  if(S.length<=1)return [[S[0]||'',l].filter(Boolean).join(' · ')];return S.concat(l?['Lieu : '+l]:[])}
 function inv10HTML(o){const C=o.coach;
   return `<div class="fcinv" id="fcInvDoc">
   <div class="fcinv-h"><div class="fcinv-b">${C.logo?`<img src="${esc(C.logo)}" alt="">`:''}<div><b>${esc(C.name)}</b><span>${esc([C.region,C.tel,C.email].filter(Boolean).join(' · '))}</span></div></div>
    <div class="fcinv-n"><b>${esc(o.title||'Facture')} ${esc(o.no)}</b><span>Date : ${esc(dlong10(o.date))}</span><span>${esc(o.refTxt||('Réservation '+o.ref))}</span></div></div>
   <div class="fcinv-pp"><div class="fcinv-to"><span>${o.title==='Note de crédit'?'Crédité à':'Facturé à'}</span><b>${esc(o.cl.name)}</b>${o.cl.email?`<span>${esc(o.cl.email)}</span>`:''}${o.cl.tel?`<span>${esc(o.cl.tel)}</span>`:''}${o.cl.addr?`<span>${esc(o.cl.addr)}</span>`:''}</div>
-  ${(o.sessions&&o.sessions.length)||o.lieu?`<div class="fcinv-to"><span>${o.sessions&&o.sessions.length>1?'Cours':'Cours'}</span>${(o.sessions||[]).map(x=>`<b>${esc(x)}</b>`).join('')}${o.lieu?`<span>${esc(o.lieu)}</span>`:''}</div>`:''}</div>
+  </div>
   <table><thead><tr><th>Description</th><th>Montant</th></tr></thead><tbody>
-   ${o.items.map(([d,a])=>`<tr><td>${esc(d)}</td><td>${mon10(a)}</td></tr>`).join('')}
+   ${o.items.map(([d,a],i)=>`<tr><td>${esc(d)}${i===0?inv15Det(o).map(x=>`<span class="fcinv-d">${esc(x)}</span>`).join(''):''}</td><td>${mon10(a)}</td></tr>`).join('')}
    ${o.tax.length?`<tr class="st"><td>Sous-total</td><td>${mon10(o.sub)}</td></tr>`+o.tax.map(([d,a])=>`<tr class="st"><td>${esc(d)}</td><td>${mon10(a)}</td></tr>`).join(''):''}
    <tr class="tot"><td>${esc(o.totLbl||'Total payé')}</td><td>${mon10(o.total)}</td></tr>
    ${o.refunded>0?`<tr class="st"><td>Remboursé</td><td>${mon10(-o.refunded)}</td></tr><tr class="tot"><td>Montant net</td><td>${mon10(r2(o.total-o.refunded))}</td></tr>`:''}
@@ -24107,16 +24110,13 @@ async function inv10Pdf(o){const J=window.jspdf&&window.jspdf.jsPDF;if(!J)throw 
   const ci=[o.coach.region,o.coach.tel,o.coach.email].filter(Boolean).join(' · ');if(ci)doc.text(T(ci),X,y+13);
   y+=40;doc.setFontSize(8);doc.text(T(o.title==='Note de crédit'?'CRÉDITÉ À':'FACTURÉ À'),X,y);doc.setFontSize(11);doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.text(T(o.cl.name),X,y+15);
   doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);let cy=y+28;[o.cl.email,o.cl.tel,o.cl.addr].filter(Boolean).forEach(t=>{doc.text(T(t),X,cy);cy+=12});
-  if((o.sessions&&o.sessions.length)||o.lieu){const CX=310;doc.setFontSize(8);doc.text(T('COURS'),CX,y);doc.setFontSize(10);doc.setTextColor(...navy);doc.setFont('helvetica','bold');let sy=y+15;
-    (o.sessions||[]).slice(0,6).forEach(t=>{doc.text(T(t),CX,sy);sy+=13});doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...grey);
-    if(o.lieu){const ll=doc.splitTextToSize(T(o.lieu),RX-CX);doc.text(ll,CX,sy);sy+=ll.length*11}cy=Math.max(cy,sy)}
   y=Math.max(y+46,cy+8);doc.setFillColor(238,244,251);doc.rect(X,y,RX-X,22,'F');doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(9.5);
   doc.text('Description',X+8,y+15);doc.text('Montant',RX-8,y+15,{align:'right'});y+=22;doc.setFont('helvetica','normal');doc.setLineWidth(.5);
-  const row=(d,a,op={})=>{const ls=doc.splitTextToSize(T(d),RX-X-120);const h=Math.max(20,ls.length*12+8);if(y+h>730){doc.addPage();y=54}
+  const row=(d,a,op={})=>{const ls=doc.splitTextToSize(T(d),RX-X-120);const ds=(op.det||[]).reduce((n,t)=>n.concat(doc.splitTextToSize(T(t),RX-X-120)),[]);const h=Math.max(20,ls.length*12+ds.length*11+8);if(y+h>730){doc.addPage();y=54}
     if(op.top){doc.setDrawColor(...navy);doc.setLineWidth(1.2);doc.line(X,y,RX,y);doc.setLineWidth(.5)}
-    doc.setFont('helvetica',op.b?'bold':'normal');doc.setTextColor(...(op.g?grey:navy));doc.text(ls,X+8,y+14);doc.text(a,RX-8,y+14,{align:'right'});
+    doc.setFont('helvetica',op.b?'bold':'normal');doc.setTextColor(...(op.g?grey:navy));doc.text(ls,X+8,y+14);doc.text(a,RX-8,y+14,{align:'right'});if(ds.length){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(...grey);doc.text(ds,X+8,y+14+ls.length*12-1);doc.setFontSize(9.5)}
     doc.setDrawColor(225,230,238);doc.line(X,y+h,RX,y+h);y+=h};
-  o.items.forEach(([d,a])=>row(d,M(a)));
+  o.items.forEach(([d,a],i)=>row(d,M(a),i===0?{det:inv15Det(o)}:{}));
   if(o.tax.length){row('Sous-total',M(o.sub),{g:1});o.tax.forEach(([d,a])=>row(d,M(a),{g:1}))}
   row(o.totLbl||'Total payé',M(o.total),{b:1,top:1});
   if(o.refunded>0){row('Remboursé',M(-o.refunded),{g:1});row('Montant net',M(r2(o.total-o.refunded)),{b:1})}
@@ -24165,7 +24165,8 @@ window.fcFactV10=function(u){const fam=[u.id,...db.users.filter(x=>x.guardian===
 .fcinv{background:#fff;color:#13325b;border:1px solid #dfe5ee;border-radius:10px;padding:18px;margin:8px 0 12px;font-size:.92rem;line-height:1.4}
 .fcinv-h{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start}
 .fcinv-b{display:flex;gap:10px;align-items:center;min-width:0}.fcinv-b img{height:44px;width:auto;max-width:150px;object-fit:contain}
-.fcinv-b div,.fcinv-n,.fcinv-to{display:flex;flex-direction:column;min-width:0}.fcinv-n{text-align:right;align-items:flex-end;margin-left:auto}
+.fcinv-b div,.fcinv-n,.fcinv-to{display:flex;flex-direction:column;min-width:0}
+.fcinv .fcinv-d{display:block;font-size:.82em;color:#6b7280;font-weight:400;margin-top:2px}.fcinv-n{text-align:right;align-items:flex-end;margin-left:auto}
 .fcinv span{color:#6b7280;font-size:.82rem;overflow-wrap:anywhere}
 .fcinv-pp{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 10px}.fcinv-pp .fcinv-to{margin:0}@media (max-width:480px){.fcinv-pp{grid-template-columns:1fr}}
 .fcinv-to{margin:14px 0 10px}.fcinv-to>span:first-child{text-transform:uppercase;letter-spacing:.06em;font-size:.7rem}
