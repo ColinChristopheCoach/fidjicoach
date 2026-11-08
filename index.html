@@ -19557,6 +19557,133 @@ VIEWS.a_home=(old=>function(c,u){let h=old(c,u);try{const A=ap7(c);if(!(u.aplus&
 try{PG.s_moi={l:'Mon entraînement',i:'run',who:'s',perm:null};if(!SGROUPS.some(g=>g[1].includes('s_moi')))SGROUPS.push(['Entraînement personnel',['s_moi']]);
   VIEWS.s_moi=(c,u)=>window.fcSelfV?window.fcSelfV():'<div class="empty">Page à venir.</div>'}catch(e){console.error('Mon entraînement (club)',e)}
 
+/* ================= Athlète Plus réel (8 nov. 2026) : pages de l'athlète et du club =================
+   Abonnement mensuel payé à FidjiCoach (Stripe, mode test), sans essai gratuit : 1 athlète, famille, ou payé par le club pour un groupe.
+   Fonctions en ligne : Edge Function « athlete-plus », tables athlete_plus_* (voir window.fcAplus, plus bas). */
+try{
+const APX=()=>window.fcAplus;
+const ap7=c=>{c.ap7=c.ap7||{g:{},note:''};c.ap7.g=c.ap7.g||{};return c.ap7};
+const APFREE=['Horaire et calendrier de la saison','Présences et absences','Inscriptions et cotisations','Messages et annonces','Documents et formulaires','Location d\'équipement','Boutique du club','Courses amicales','Bénévolat','Plan du groupe tel qu\'écrit par l\'entraîneur','Import des fichiers de montre et historique simple des sorties'];
+const APPLUS=['Plan adaptatif personnel, ajusté selon votre forme','Test Ruffier quotidien avec VFC et symptômes','Charge d\'entraînement (aiguë, chronique, ratio)','Zones cardio et analyse détaillée des sorties','Nutrition : besoins du jour et repas de la semaine','Musculation guidée (mannequin 3D)','Étirements guidés','Analyse vidéo de la technique','Enregistrement GPS en direct et partage de position','Suivi par les entraîneurs du club (avec votre accord)'];
+window.fcAplusLists={free:APFREE,plus:APPLUS};
+try{const P=window.fc7();P.aplus.trial=0;P.aplus.feats=APPLUS.slice();if(P.aplus.club==null)P.aplus.club=P.aplus.m}catch(e){}
+const apEm=r=>{const x=r&&r.uid&&userById(r.uid);return String((r&&r.email)||(r&&r.parent&&r.parent.email)||(x&&x.email)||'').trim().toLowerCase()};
+const apNm=r=>((r.prenom||'')+' '+(r.nom||'')).trim()||'Athlète';
+const apOkEm=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e||'');
+const apD=iso=>{try{return new Date(iso).toLocaleDateString('fr-CA',{day:'numeric',month:'long',year:'numeric'})}catch(e){return ''}};
+const apTest=()=>/test/i.test(String(window.FC_STRIPE_MODE||'test'))?' <b>Mode test</b> : carte 4242 4242 4242 4242, date future, n\'importe quel code.':'';
+/* famille de l'utilisateur connecté : ses athlètes du club (comptes ou fiches tenues par le parent) */
+window.fcApFam=uid=>{try{const u=me();if(!u)return false;return (db.clubs||[]).some(c=>myRs(c,u).some(r=>r.uid===uid||('gx_'+c.id+'_'+r.id)===uid))}catch(e){return false}};
+
+const apCols=()=>`<div class="two" style="margin-top:12px"><div class="panel"><span class="eyebrow">Gratuit avec votre club</span><ul class="check" style="grid-template-columns:1fr">${APFREE.map(f=>`<li>${esc(f)}</li>`).join('')}</ul></div>
+  <div class="panel"><span class="eyebrow" style="color:var(--accent)">Athlète Plus</span><ul class="check" style="grid-template-columns:1fr">${APPLUS.map(f=>`<li>${esc(f)}</li>`).join('')}</ul></div></div>`;
+const apFamTbl=n=>`<div class="p3rep"><table><thead><tr><th>Athlètes de la famille</th><th class="n">Par mois</th></tr></thead><tbody>${[1,2,3,4,5].map(k=>`<tr ${k===Math.min(n,5)?'style="background:var(--ok-soft);font-weight:700"':''}><td>${k===5?'5 et plus':k}${k===Math.min(n,5)?' <span class="pill ok">Vous</span>':''}</td><td class="n">${money(window.fc7aplus(k))}</td></tr>`).join('')}</tbody></table></div>`;
+const apRec=(c,u)=>{const A=ap7(c);const rec=myRs(c,u).filter(r=>A.g[r.g]);return rec.length?`<p class="p3note" style="margin-bottom:12px"><b>Recommandé par ${esc(c.name||'votre club')}</b> pour ${esc([...new Set(rec.map(r=>gName(c,r.g)))].join(', '))}.${A.note?' '+esc(A.note):''}</p>`:''};
+const consBox=(M,big)=>{const v=M.consent;
+  return `<div class="panel" style="margin-top:12px;${v==null?'border-color:var(--warn,#c80)':''}"><span class="eyebrow">Partage avec les entraîneurs du club</span>
+   <p class="small" style="margin:4px 0 8px">Avec votre accord, les entraîneurs de votre groupe voient vos résultats du test Ruffier, votre VFC, votre charge, vos sorties et votre suivi. Sans votre accord, ces données restent privées. Vous pouvez changer d'idée en tout temps.</p>
+   ${v==null?`<div class="actions"><button class="btn btn-accent btn-sm" data-a="apCons" data-v="1">J'accepte le partage</button><button class="btn btn-plain btn-sm" data-a="apCons" data-v="0">Garder mes données privées</button></div>`
+   :`<label class="check2"><input type="checkbox" data-apcons ${v?'checked':''}><span>${v?'Partagé avec les entraîneurs de mon groupe':'Non partagé : mes données restent privées'}</span></label>`}</div>`};
+
+/* ---------- page de l'athlète ou du parent ---------- */
+function apDraft(c,u){const X=APX();const mine=String((X&&X.email())||u.email||'').toLowerCase();
+  if(!st.apDraft||st.apDraft.c!==c.id){const R=myRs(c,u);const rows=[{name:name(u),email:mine,me:1}];
+    R.forEach(r=>{const e=apEm(r);if(e===mine)return;rows.push({name:apNm(r),email:e})});st.apDraft={c:c.id,rows,consent:false}}
+  return st.apDraft}
+function apBuyForm(c,u,X){const D=apDraft(c,u);const ok=D.rows.filter(r=>apOkEm(r.email));const n=Math.max(1,ok.length);
+  return `<div class="panel" style="display:grid;gap:10px"><span class="eyebrow">S'abonner</span>
+   <p class="small muted" style="margin:0">Indiquez le courriel de chaque athlète couvert. Chacun profite d'Athlète Plus dans son propre compte FidjiCoach (créé avec ce courriel); les jeunes gérés dans votre compte sont couverts avec vous.</p>
+   <div class="list" style="gap:6px">${D.rows.map((r,i)=>`<div style="display:grid;grid-template-columns:1fr 1.3fr auto;gap:6px;align-items:center"><input type="text" value="${esc(r.name||'')}" placeholder="Nom" data-apf="${i}:name" aria-label="Nom de l'athlète ${i+1}"><input type="email" value="${esc(r.email||'')}" placeholder="courriel@exemple.ca" data-apf="${i}:email" ${r.me?'readonly title="Votre courriel"':''} aria-label="Courriel de l'athlète ${i+1}">${r.me?'<span class="pill">Vous</span>':`<button class="btn-xs" data-a="apDel" data-i="${i}" aria-label="Retirer">✕</button>`}</div>`).join('')}</div>
+   <div><button class="btn btn-plain btn-sm" data-a="apAdd">+ Ajouter un athlète de la famille</button></div>
+   <label class="check2"><input type="checkbox" data-apdc ${D.consent?'checked':''}><span>J'autorise les entraîneurs de mon groupe à voir mes données d'entraînement (test Ruffier, VFC, charge, sorties). Facultatif, modifiable en tout temps.</span></label>
+   <div class="actions"><button class="btn btn-accent" data-a="apBuy" ${X.busy?'disabled':''}>S'abonner : ${money(window.fc7aplus(n))} par mois</button></div>
+   <p class="small muted" style="margin:0">${n>1?n+' athlètes, un seul abonnement familial':'1 athlète'} · facturé chaque mois à FidjiCoach, sans essai gratuit, sans engagement : l'arrêt prend effet à la fin du mois payé, sans remboursement d'un mois commencé.${apTest()}</p>
+   ${X.err?`<p class="small" style="color:var(--danger,#b00);margin:0">${esc(X.err)}</p>`:''}</div>`}
+function apSubCard(s,X,club){const ed=st.apEdit&&st.apEdit.id===s.id;const st_=s.cancel?'Se termine le '+apD(s.period_end):(s.active?'Renouvelé le '+apD(s.period_end):'Terminé');
+  const list=ed?`<div class="list" style="gap:6px">${st.apEdit.rows.map((r,i)=>`<div style="display:grid;grid-template-columns:1fr 1.3fr auto;gap:6px"><input type="text" value="${esc(r.name||'')}" data-ape="${i}:name" aria-label="Nom"><input type="email" value="${esc(r.email||'')}" data-ape="${i}:email" ${r.me?'readonly':''} aria-label="Courriel">${r.me?'<span class="pill">Vous</span>':`<button class="btn-xs" data-a="apEDel" data-i="${i}" aria-label="Retirer">✕</button>`}</div>`).join('')}</div>
+     <div class="actions"><button class="btn btn-plain btn-sm" data-a="apEAdd">+ Ajouter</button><button class="btn btn-accent btn-sm" data-a="apESave" data-id="${esc(s.id)}">Enregistrer (le prix suit, au prorata)</button><button class="linkbtn small" data-a="apECancel">Annuler</button></div>`
+    :`<p class="small" style="margin:0">${(s.list||[]).map(x=>esc(x.name||x.email)+(club?'':' <span class="muted">('+esc(x.email)+')</span>')+(x.consent===true?' · partage ✓':x.consent===false?' · privé':'')).join(' · ')}</p>`;
+  return `<div class="panel" style="display:grid;gap:8px"><span class="eyebrow">${club?esc(s.group_name||'Groupe')+' · payé par le club':(s.kind==='famille'?'Abonnement familial':'Mon abonnement')} · ${s.seats} athlète${s.seats>1?'s':''}</span>
+   <h3 style="margin:0">${money(s.amount_cents/100)} <small class="muted" style="font-size:.9rem;font-weight:500">par mois · ${st_}</small></h3>${list}
+   ${s.active&&!ed?`<div class="actions">${s.cancel?`<button class="btn btn-plain btn-sm" data-a="apResume" data-id="${esc(s.id)}">Garder l'abonnement</button>`:`<button class="btn btn-plain btn-sm" data-a="apEdit" data-id="${esc(s.id)}">Modifier la liste</button><button class="btn btn-plain btn-sm" data-a="apStop" data-id="${esc(s.id)}">Arrêter à la fin du mois</button>`}<button class="linkbtn small" data-a="apPortal">Carte et reçus ↗</button></div>`:''}</div>`}
+function apReal(c,u,X){X.ensure();const M=X.me;if(!M)return '<p class="muted">Chargement…</p>';
+  const mine=(M.subs||[]).filter(s=>s.kind!=='club');
+  let h=apRec(c,u);
+  if(M.on){h+=`<div class="info ok" style="border-color:var(--ok)"><b>✓ Athlète Plus actif</b> · ${M.source==='club'?'payé par '+esc(M.club_name||'votre club')+(M.group_name?' ('+esc(M.group_name)+')':''):M.mine?'votre abonnement':'inclus dans un abonnement familial'}${M.period_end?' · '+(M.cancel?'se termine le ':'jusqu\'au ')+apD(M.period_end)+(M.cancel?'':', renouvelé automatiquement'):''}. Tous les outils avancés sont débloqués.</div>`+consBox(M)}
+  if(mine.length)h+=`<h3 class="sech" style="margin-top:16px">Mes abonnements</h3><div class="list">${mine.map(s=>apSubCard(s,X,false)).join('')}</div>`;
+  if(!M.on)h+=`<div class="two" style="margin-top:4px"><div>${apBuyForm(c,u,X)}</div><div class="panel"><span class="eyebrow">Prix famille</span><h3>Un abonnement, toute la famille</h3>${apFamTbl(apDraft(c,u).rows.filter(r=>apOkEm(r.email)).length||1)}</div></div>`;
+  return h+apCols()}
+function apDemo(c,u){const on=u.aplus&&u.aplus.on;const n=Math.max(1,myRs(c,u).length);
+  return apRec(c,u)+(on?`<div class="info ok" style="border-color:var(--ok)"><b>✓ Athlète Plus actif (démo)</b> · ${money(window.fc7aplus(n))} par mois. <button class="linkbtn small" data-a="ap7off">Arrêter</button></div>`
+   :`<div class="panel"><span class="eyebrow">Athlète Plus</span><h3>${money(window.fc7aplus(n))} par mois</h3><p class="small muted">${n>1?n+' athlètes, un seul abonnement familial':'1 athlète'} · sans essai gratuit, sans engagement. Dans la plateforme en ligne (fidjicoach.ca), le paiement se fait par carte.</p><div class="actions"><button class="btn btn-accent" data-a="ap7on">S'abonner (démo)</button></div></div>`)
+   +`<div class="panel" style="margin-top:12px"><span class="eyebrow">Prix famille</span>${apFamTbl(n)}</div>`+apCols()}
+VIEWS.a_plus=(c,u)=>{const X=APX();const intro=`<p class="p3note" style="margin-bottom:12px"><b>Athlète Plus</b> ajoute les outils d'entraînement avancés à votre espace de club. Tout le fonctionnement du club reste gratuit.</p>`;
+  return intro+(X&&X.real()?apReal(c,u,X):apDemo(c,u))};
+/* démo : plus d'essai gratuit */
+A.ap7on=function(){const u=me(),c=CC();if(!u)return;u.aplus={on:1,at:today(),n:c?Math.max(1,myRs(c,u).length):1,consent:null};save();render();flash('Athlète Plus activé (démo)')};
+
+Object.assign(A,{
+  apAdd(){const D=st.apDraft;if(!D)return;if(D.rows.length>=10)return flash('10 athlètes au maximum');D.rows.push({name:'',email:''});render()},
+  apDel(d){const D=st.apDraft;if(!D)return;D.rows.splice(+d.i,1);render()},
+  async apBuy(){const X=APX();const D=st.apDraft;if(!X||!D)return;const rows=D.rows.filter(r=>r.me||apOkEm(r.email));const bad=D.rows.filter(r=>!r.me&&(r.email||r.name)&&!apOkEm(r.email));
+    if(bad.length)return flash('Courriel invalide : '+(bad[0].name||bad[0].email||'athlète sans courriel'));
+    await X.checkout({kind:rows.length>1?'famille':'athlete',seats:rows.map(r=>({email:r.email,name:r.name})),consent:!!D.consent})},
+  apCons(d){const X=APX();if(X)X.consent(d.v==='1')},
+  apEdit(d){const X=APX();const s=((X&&X.me&&X.me.subs)||[]).find(x=>x.id===d.id);if(!s)return;const em=X.email();st.apEdit={id:s.id,rows:(s.list||[]).map(x=>({name:x.name||'',email:x.email,me:s.kind!=='club'&&x.email===em}))};render()},
+  apEAdd(){if(st.apEdit){st.apEdit.rows.push({name:'',email:''});render()}},
+  apEDel(d){if(st.apEdit){st.apEdit.rows.splice(+d.i,1);render()}},
+  apECancel(){st.apEdit=null;render()},
+  async apESave(d){const X=APX();const E=st.apEdit;if(!X||!E)return;const bad=E.rows.filter(r=>!apOkEm(r.email)&&(r.email||r.name));if(bad.length)return flash('Courriel invalide : '+(bad[0].name||bad[0].email));
+    if(await X.seats(d.id,E.rows.filter(r=>apOkEm(r.email)).map(r=>({email:r.email,name:r.name}))))st.apEdit=null;render()},
+  apStop(d){const X=APX();if(X&&confirm('Arrêter Athlète Plus à la fin du mois payé? Aucun remboursement du mois en cours; l\'accès reste ouvert jusqu\'à la fin du mois.'))X.cancel(d.id,true)},
+  apResume(d){const X=APX();if(X)X.cancel(d.id,false)},
+  apPortal(){const X=APX();if(X)X.portal()},
+  apGo(){st.vol='coach';st.trAct=null;A.p3go({p:'a_plus'})}});
+document.addEventListener('input',e=>{const t=e.target;if(!t.dataset)return;
+  if(t.dataset.apf){const [i,k]=t.dataset.apf.split(':');const D=st.apDraft;if(D&&D.rows[+i])D.rows[+i][k]=t.value.trim();
+    if(k==='email'){const b=document.querySelector('[data-a="apBuy"]');if(b&&D){const n=Math.max(1,D.rows.filter(r=>apOkEm(r.email)).length);b.textContent='S\'abonner : '+money(window.fc7aplus(n))+' par mois'}}return}
+  if(t.dataset.ape){const [i,k]=t.dataset.ape.split(':');const E=st.apEdit;if(E&&E.rows[+i])E.rows[+i][k]=t.value.trim()}});
+document.addEventListener('change',e=>{const t=e.target;if(!t.dataset)return;
+  if(t.dataset.apdc!==undefined&&st.apDraft){st.apDraft.consent=t.checked;return}
+  if(t.dataset.apcons!==undefined){const X=APX();if(X&&X.real())X.consent(t.checked);else{const u=me();if(u&&u.aplus){u.aplus.consent=t.checked;save();render()}}return}
+  if(t.dataset.apg!==undefined){st.apGrp=t.value;st.apSel=null;render();return}
+  if(t.dataset.aps!==undefined){st.apSel=st.apSel||{};st.apSel[t.dataset.aps]=t.checked;render()}});
+
+/* accueil : plus de mention d'essai; rappel de la question du partage */
+VIEWS.a_home=(old=>function(c,u){let h=old(c,u);try{h=h.replace(/, 0 jours d'essai/g,'').replace(/, \d+ jours d'essai/g,'');const X=APX();
+  if(X&&X.real()&&X.me&&X.me.on){h=h.replace(/<button class="todo warn" data-a="p3go" data-p="a_plus"[\s\S]*?<\/button>/,'');if(X.me.consent==null)h=`<button class="todo warn" data-a="p3go" data-p="a_plus" style="margin-bottom:12px"><span><b>Athlète Plus : une question pour vous</b><small>Voulez-vous partager vos données d'entraînement avec les entraîneurs de votre groupe?</small></span><span>›</span></button>`+h}}catch(e){}return h})(VIEWS.a_home);
+
+/* pages de l'athlète : les verrous mènent à Athlète Plus (pas aux forfaits d'un entraîneur privé) */
+Object.keys(VIEWS).filter(k=>/^a_/.test(k)&&k!=='a_plus').forEach(k=>{VIEWS[k]=(old=>function(c,u){let h=old.apply(this,arguments);try{const X=APX();if(X&&isAth(c,u)&&!X.ok(u.id))h=X.relock(h);
+  if(k==='a_suivi'&&X&&isAth(c,u)&&!X.ok(u.id)&&!staffOf(c,u))h=X.lock('Charge et suivi détaillé','Votre charge d\'entraînement, vos zones et votre progression font partie d\'Athlète Plus. L\'historique simple de vos sorties reste gratuit (Entraînement › Historique).')}catch(e){console.error(e)}return h})(VIEWS[k])});
+
+/* entraîneurs du club : les données d'un athlète avec compte ne sont visibles qu'avec Athlète Plus et son accord */
+s5see=(old=>function(c,u,r){const v=old(c,u,r);try{const X=APX();if(!X||!r||!r.uid||r.uid===u.id||myRs(c,u).some(x=>x.id===r.id))return v;
+  if(!X.coachOk(r.uid,apEm(r))){v.tr=false;v.rd=false;v.aplus=false}else v.aplus=true}catch(e){}return v})(s5see);
+window.fcApClubEmails=c=>roster(c).map(apEm).filter(apOkEm);
+
+/* ---------- équipe : Licence FidjiCoach › payer Athlète Plus pour un groupe ---------- */
+function apClubPanel(c,u){const X=APX();const ro=!canEdit(c,u,'licence');const P=window.fc7();const unit=+(P.aplus.club!=null?P.aplus.club:P.aplus.m);
+  let h=`<h3 class="sech" style="margin-top:18px">Payer Athlète Plus pour un groupe</h3><p class="small muted" style="margin-bottom:8px">Le club peut offrir Athlète Plus à tout un groupe (élite, maîtres…) : ${money(unit)} par athlète par mois, payé par carte à FidjiCoach, sans essai gratuit, arrêt à la fin du mois payé. Chaque athlète décide lui-même s'il partage ses données avec les entraîneurs.</p>`;
+  if(!X||!X.real())return h+'<p class="small muted">Le paiement par carte se fait dans la plateforme en ligne (fidjicoach.ca), avec votre compte.</p>';
+  X.ensure();const subs=((X.me&&X.me.subs)||[]).filter(s=>s.kind==='club'&&s.club_ref===String(c.id));
+  if(subs.length)h+=`<div class="list" style="margin-bottom:12px">${subs.map(s=>apSubCard(s,X,true)).join('')}</div>`;
+  if(ro)return h+'<p class="small muted">Seuls l\'administrateur, le trésorier et le président du club peuvent payer pour un groupe (Équipe › Accès et droits).</p>';
+  const G=c.groups||[];if(!G.length)return h+'<div class="empty">Aucun groupe.</div>';const g=st.apGrp&&G.find(x=>x.id===st.apGrp)||G[0];
+  const R=roster(c).filter(r=>r.g===g.id&&(r.status==='inscrit'||r.status==='en attente'));const sel=st.apSel||{};
+  const on=r=>apOkEm(apEm(r))&&sel[r.id]!==false;const n=R.filter(on).length;
+  return h+`<div class="panel" style="display:grid;gap:8px"><label class="field"><span>Groupe</span><select data-apg>${G.map(x=>`<option value="${esc(x.id)}" ${x.id===g.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
+   ${R.length?`<div class="p3list">${R.map(r=>{const e=apEm(r);return `<label class="check2"><input type="checkbox" data-aps="${esc(r.id)}" ${on(r)?'checked':''} ${apOkEm(e)?'':'disabled'}><span>${esc(apNm(r))} <small class="muted">${apOkEm(e)?esc(e):'courriel manquant : à ajouter dans sa fiche de membre'}</small></span></label>`}).join('')}</div>`:'<p class="small muted">Aucun athlète inscrit dans ce groupe.</p>'}
+   <div class="actions"><button class="btn btn-accent" data-a="apClub" data-c="${esc(c.id)}" data-g="${esc(g.id)}" ${n&&!X.busy?'':'disabled'}>Payer pour ${n} athlète${n>1?'s':''} : ${money(unit*n)} par mois</button></div>
+   <p class="small muted" style="margin:0">Pour changer la liste plus tard : « Modifier la liste » ci-dessus (le prix suit, au prorata).${apTest()}</p>
+   ${X.err?`<p class="small" style="color:var(--danger,#b00);margin:0">${esc(X.err)}</p>`:''}</div>`}
+A.apClub=async function(d){const X=APX();const c=(db.clubs||[]).find(x=>String(x.id)===String(d.c));if(!X||!c)return;const g=(c.groups||[]).find(x=>x.id===d.g);const sel=st.apSel||{};
+  const R=roster(c).filter(r=>r.g===d.g&&(r.status==='inscrit'||r.status==='en attente')&&apOkEm(apEm(r))&&sel[r.id]!==false);
+  if(!R.length)return flash('Aucun athlète avec un courriel');
+  await X.checkout({kind:'club',club_ref:String(c.id),club_name:c.name||c.nom||'Club',group_name:g?g.name:'',seats:R.map(r=>({email:apEm(r),name:apNm(r)}))})};
+VIEWS.of_lic=(old=>(c,u)=>{let h=old(c,u);try{h=h.replace(/0 jours d'essai\. /,'Sans essai gratuit. ').replace(/le club n'a rien à payer pour cette option/,'le club peut aussi le payer pour un groupe (plus bas)')+apClubPanel(c,u)}catch(e){console.error('Athlète Plus (club)',e)}return h})(VIEWS.of_lic);
+}catch(e){console.error('Athlète Plus (club)',e)}
+
 })();
 </script>
 
@@ -23698,8 +23825,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-08-c16';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='8 nov. 2026 · Intégrations et clubs (fichiers de montre, Spotify, licence des clubs)';
+const FC_BUILD='2026-11-08-c17';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='8 nov. 2026 · Athlète Plus (abonnement réel, famille, payé par le club, consentement)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -26008,6 +26135,91 @@ if(typeof coachsAdmin==='function')coachsAdmin=(old=>function(){let h=old();try{
 /* les formules modifiées par l'administrateur deviennent le prix exigé par le serveur */
 let tT=null;document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!/^clubs\.tiers\./.test(t.dataset.plat7||''))return;const R=FR();if(!R.on||R.role!=='admin'||!R.sb)return;clearTimeout(tT);
   tT=setTimeout(async()=>{try{const T=window.fc7().clubs.tiers.map(x=>({id:x.id,n:x.n,max:x.max==null?null:Number(x.max),price:Number(x.price)||0,per:Number(x.per)||0}));const {error}=await R.sb.rpc('admin_club_tiers',{p_tiers:T});if(error)throw error;flash('Prix des licences enregistrés en ligne')}catch(err){flash('Prix des licences : '+(err.message||err))}},700)});
+})();
+</script>
+<script>
+/* ================= Athlète Plus réel (8 nov. 2026) : état en ligne, paiement, verrous, administrateur =================
+   Gratuit pour l'athlète de club : fonctionnement du club, plan du groupe tel qu'écrit, import des montres et historique simple.
+   Athlète Plus : plan adaptatif, Ruffier + VFC, charge, zones et analyse des sorties, nutrition, musculation, étirements,
+   vidéo, GPS en direct et partage de position, suivi par l'entraîneur (avec le consentement de l'athlète).
+   100 % à FidjiCoach (pas de Stripe Connect). Stripe en mode test. */
+(function(){
+const FR=()=>window.fcReal||{};
+const AP=window.fcAplus={me:null,busy:false,err:null,loading:false,cons:{},consAt:{}};
+AP.real=()=>{const R=FR();return !!(R.on&&R.sb&&R.uid)};
+AP.email=()=>{try{const u=me();return String((u&&u.email)||FR().email||'').toLowerCase()}catch(e){return ''}};
+const errOf=async(error,data)=>{if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(e){}return m}return data&&data.error||null};
+/* prix réglés par l'administrateur (cents en ligne → dollars dans fc7) */
+function applyPrices(p){try{if(!p)return;const A=window.fc7().aplus;A.m=p.m/100;A.fam=(p.fam||[]).map(x=>x/100);A.club=p.club/100;A.trial=0}catch(e){}}
+AP.load=async function(){if(!AP.real()||AP.loading)return;AP.loading=true;try{const {data,error}=await FR().sb.rpc('aplus_me');if(error)throw error;AP.me=data||{on:false,subs:[]};applyPrices(AP.me.prices);
+    const u=me();if(u){u.aplus={on:!!AP.me.on,src:AP.me.source||null,consent:AP.me.consent,end:AP.me.period_end||null,real:1}}}
+  catch(e){console.warn('Athlète Plus',e);AP.me=AP.me||{on:false,subs:[]};AP.err=e.message||String(e)}finally{AP.loading=false;render()}};
+AP.ensure=()=>{if(AP.real()&&!AP.me&&!AP.loading)setTimeout(AP.load,0)};
+const call=async(body)=>{const {data,error}=await FR().sb.functions.invoke('athlete-plus',{body});const m=await errOf(error,data);if(m)throw new Error(m);return data};
+AP.checkout=async function(body){if(!AP.real())return flash('Connectez-vous à la plateforme en ligne pour payer');AP.busy=true;AP.err=null;render();
+  try{flash('Ouverture de la page de paiement…');const d=await call({action:'checkout',...body});location.href=d.url}catch(e){AP.err=e.message||String(e);flash('Athlète Plus : '+AP.err)}finally{AP.busy=false;render()}};
+AP.seats=async function(id,seats){AP.busy=true;AP.err=null;try{const d=await call({action:'seats',id,seats});flash('Liste mise à jour : '+money(d.cents/100)+' par mois');await AP.load();return true}catch(e){AP.err=e.message;flash('Athlète Plus : '+e.message);return false}finally{AP.busy=false;render()}};
+AP.cancel=async function(id,stop){try{await call({action:stop?'cancel':'resume',id});flash(stop?'Athlète Plus s\'arrêtera à la fin du mois payé':'Abonnement gardé');await AP.load()}catch(e){flash('Athlète Plus : '+e.message)}};
+AP.portal=async function(){try{const d=await call({action:'portal'});location.href=d.url}catch(e){flash(e.message)}};
+AP.consent=async function(v){try{const {data,error}=await FR().sb.rpc('aplus_set_consent',{p_on:!!v});if(error)throw error;AP.me=data;const u=me();if(u&&u.aplus)u.aplus.consent=data.consent;render();flash(v?'Données partagées avec les entraîneurs de votre groupe':'Vos données restent privées')}catch(e){flash('Partage : '+(e.message||e))}};
+
+/* qui a Athlète Plus */
+const tester=x=>!!(x&&x.tester&&!x.tester.revoked&&x.tester.until>=today());
+AP.ok=function(uid){try{const u=me();if(!uid||!u)return false;const x=userById(uid);
+  if(tester(x)||(uid===u.id&&(u.role==='admin'||u.role==='coach')))return true;
+  if(AP.real()){if(uid===u.id||(window.fcApFam&&window.fcApFam(uid))||(x&&x.ghost))return !!(AP.me&&AP.me.on);return !!(x&&x.aplus&&x.aplus.on&&!x.aplus.real)}
+  if(x&&x.ghost)return !!(u.aplus&&u.aplus.on);return !!(x&&x.aplus&&x.aplus.on)}catch(e){return false}};
+/* l'entraîneur voit les données d'un athlète (avec compte) seulement avec Athlète Plus et son accord */
+let consT=null;
+AP.coachOk=function(uid,email){const x=userById(uid);
+  if(!AP.real())return !!(x&&x.aplus&&x.aplus.on&&x.aplus.consent!==false)||tester(x);
+  const e=String(email||(x&&x.email)||'').toLowerCase();if(!e)return false;
+  if(!(e in AP.cons)){AP.cons[e]=false;clearTimeout(consT);consT=setTimeout(async()=>{try{const L=Object.keys(AP.cons);const {data,error}=await FR().sb.rpc('aplus_consents',{p_emails:L});if(error)throw error;const ok=new Set(data||[]);L.forEach(k=>{AP.cons[k]=ok.has(k)});render()}catch(err){console.warn('Athlète Plus (partage)',err)}},300)}
+  return AP.cons[e]};
+const price=()=>{try{const A=window.fc7().aplus;return 'À partir de '+money(A.m)+' par mois (famille de 2 : '+money(A.fam[0])+')'}catch(e){return ''}};
+AP.lock=(t,txt)=>`<section class="panel lockp aplock"><span class="lockico" aria-hidden="true">🔒</span><div><b>${esc(t||'Inclus dans Athlète Plus')}</b><p class="muted small">${txt?esc(txt)+' ':''}Inclus dans Athlète Plus. ${price()}, sans essai gratuit, sans engagement.</p><button class="btn btn-sm btn-accent" data-a="apGo">Découvrir Athlète Plus</button></div></section>`;
+AP.relock=h=>String(h).replace(/<section class="panel lockp">[\s\S]*?<\/section>/g,m=>{const t=(m.match(/<b>([^<]*)<\/b>/)||[])[1]||'';return AP.lock(t?t.replace(/&#39;/g,'\'').replace(/&amp;/g,'&'):'')});
+
+/* modules avancés d'un athlète de club : Athlète Plus (le privé garde ses forfaits; les testeurs et les entraîneurs ont tout) */
+const PK=['forme','stretch','muscu','nutri','ia','dfa','gps'];
+const clubAth=uid=>{const x=userById(uid);return !!(x&&(x.club||x.ghost)&&(!x.club||x.club.status!=='retire')&&x.role!=='coach'&&x.role!=='admin')};
+{const prev=window.clubInc;window.clubInc=function(uid,k){try{if(st.p3on&&PK.includes(k)&&clubAth(uid))return AP.ok(uid)}catch(e){}return prev?prev(uid,k):false}}
+/* volet Entraînement d'un athlète de club sans Athlète Plus : import et historique simple gratuits */
+const gated=u=>{try{return !!(u&&st.p3on&&clubAth(u.id)&&!(window.fcHasInc&&window.fcHasInc(u.id,'gps')))}catch(e){return false}};
+function simpleAct(u,id){const a=(db.acts||[]).find(x=>x.id===id);if(!a)return '<div class="empty">Sortie introuvable.</div>';const h=Math.floor(a.dur/3600),m=Math.round(a.dur%3600/60);
+  return `<div class="actions" style="margin-bottom:10px"><button class="btn btn-plain btn-sm" data-a="apActBack">‹ Mes sorties</button></div><div class="pagehead"><h2>${esc(a.title||'Sortie')}</h2><span class="eyebrow">${new Date(a.start).toLocaleDateString('fr-CA',{weekday:'long',day:'numeric',month:'long'})}</span></div>
+   <div class="stats four"><div class="stat"><b>${(a.dist/1000).toFixed(1).replace('.',',')}</b><span>km</span></div><div class="stat"><b>${h?h+' h '+String(m).padStart(2,'0'):m+' min'}</b><span>durée</span></div><div class="stat"><b>${Math.round(a.gain||0)}</b><span>m de dénivelé</span></div><div class="stat"><b>${a.hrAvg||'–'}</b><span>FC moyenne</span></div></div>`
+   +AP.lock('Analyse détaillée de la sortie','Tracé, vitesse, zones cardio, intervalles et charge de la sortie.')}
+trainV=(old=>function(u){const t=st.trTab||'rec';
+  if(gated(u)&&(t==='share'||(t==='hist'&&st.trAct))){const body=t==='share'?AP.lock('Partager ma position','Partage de votre position en direct avec vos entraîneurs et vos amis pendant une sortie.'):simpleAct(u,st.trAct);
+    return `<main class="wrap app v6 tr">${volSwitch(u)}${trNav(t)}${t==='share'?'<div class="pagehead"><h2>Partager ma position</h2><span class="eyebrow">Entraînement</span></div>':''}${body}</main>`}
+  let h=old.apply(this,arguments);try{if(gated(u))h=AP.relock(h)}catch(e){}return h})(trainV);
+A.apActBack=function(){st.trAct=null;render();window.scrollTo(0,0)};
+
+/* retour de Stripe */
+{const q=new URLSearchParams(location.search);const v=q.get('aplus');if(v){const sid=q.get('sid');q.delete('aplus');q.delete('sid');history.replaceState(history.state,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);
+  (async()=>{if(v==='annule'){setTimeout(()=>flash('Paiement Athlète Plus annulé'),1500);return}
+    for(let i=0;i<80&&!AP.real();i++)await new Promise(r=>setTimeout(r,250));if(!AP.real())return;
+    try{if(v==='ok'&&sid)await call({action:'sync',session_id:sid});else await call({action:'sync'})}catch(e){console.warn(e)}
+    await AP.load();try{if(v==='ok'){st.p3on=true;st.p3p=st.p3p||'a_plus'}}catch(e){}render();flash(v==='ok'?(AP.me&&AP.me.on?'Bienvenue dans Athlète Plus!':'Paiement reçu : Athlète Plus s\'active dans quelques instants'):'Abonnement à jour')})()}}
+/* chargement à la connexion */
+(async()=>{for(let i=0;i<120&&!AP.real();i++)await new Promise(r=>setTimeout(r,500));if(AP.real()&&!AP.me)AP.load()})();
+
+/* administrateur : Entraîneurs FidjiCoach › Clubs › Athlète Plus, et prix modifiables */
+const ADM={rows:null,pay:null,busy:false};
+async function admLoad(){const R=FR();if(ADM.busy||!R.sb)return;ADM.busy=true;try{const [a,b]=await Promise.all([R.sb.from('athlete_plus_subs').select('*, athlete_plus_seats(email,name,consent_coach)').neq('status','incomplete').order('created_at',{ascending:false}).limit(300),R.sb.from('athlete_plus_payments').select('sub_id,amount_cents,paid_at').order('paid_at',{ascending:false}).limit(1000)]);
+  if(a.error)throw a.error;ADM.rows=a.data||[];ADM.pay=b.data||[]}catch(e){ADM.rows=[];ADM.pay=[];ADM.err=e.message}finally{ADM.busy=false;render()}}
+const KL={athlete:'1 athlète',famille:'Famille',club:'Payé par un club'};
+if(typeof coachsAdmin==='function')coachsAdmin=(old=>function(){let h=old();try{const R=FR();const t=st.coTab||'dem';
+  if(t==='tarifs')h=h.replace(/<label class="field"><span>Essai gratuit \(jours\)<\/span><input type="number" min="0" data-plat7="aplus\.trial"[^>]*><\/label>/,()=>{const A=window.fc7().aplus;return `<label class="field"><span>Payé par un club ($/athlète/mois)</span><input type="number" min="0" step="0.01" data-plat7="aplus.club" value="${A.club!=null?A.club:A.m}"></label>`});
+  if(t==='clubs'&&R.on&&R.role==='admin'){if(ADM.rows==null)setTimeout(admLoad,0);const L=ADM.rows||[];const act=L.filter(x=>['active','past_due'].includes(x.status));
+    const mrr=act.reduce((s,x)=>s+x.amount_cents,0);const ath=act.reduce((s,x)=>s+(x.seats||0),0);const m0=new Date();m0.setDate(1);m0.setHours(0,0,0,0);
+    const month=(ADM.pay||[]).filter(p=>new Date(p.paid_at)>=m0).reduce((s,p)=>s+p.amount_cents,0);
+    h+=`<h3 class="sech" style="margin-top:22px">Athlète Plus</h3><div class="stats four"><div class="stat"><b>${act.length}</b><span>abonnements actifs</span></div><div class="stat"><b>${ath}</b><span>athlètes couverts</span></div><div class="stat"><b>${money(mrr/100)}</b><span>par mois (récurrent)</span></div><div class="stat"><b>${money(month/100)}</b><span>reçus ce mois-ci</span></div></div>
+    <p class="muted small" style="margin:6px 0 8px">100 % à FidjiCoach, versés à votre compte Stripe (mode test pour l'instant). Taxes : à régler avec le passage aux paiements réels.</p>`+
+    (ADM.rows==null?'<p class="small muted">Chargement…</p>':L.length?`<div class="list" style="gap:4px">${L.map(x=>`<div class="invrow small"><span><b>${esc(KL[x.kind]||x.kind)}</b>${x.club_name?' · '+esc(x.club_name)+(x.group_name?' ('+esc(x.group_name)+')':''):''} · ${x.seats} athlète${x.seats>1?'s':''} · ${money(x.amount_cents/100)}/mois · ${esc(x.status==='active'?(x.cancel_at_period_end?'s\'arrête le '+new Date(x.current_period_end).toLocaleDateString('fr-CA'):'actif'):x.status==='past_due'?'paiement en retard':x.status==='canceled'?'terminé':x.status)}<br><span class="muted">${(x.athlete_plus_seats||[]).map(s=>esc(s.name||s.email)+(s.consent_coach===true?' ✓':'')).join(' · ')}</span></span></div>`).join('')}</div><p class="small muted" style="margin-top:6px">✓ : l'athlète partage ses données avec les entraîneurs de son club.</p>`:'<div class="empty">Aucun abonnement Athlète Plus pour l\'instant.</div>')}}catch(e){console.error(e)}return h})(coachsAdmin);
+let pT=null;document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!/^aplus\.(m|club|fam\.\d+)$/.test(t.dataset.plat7||''))return;const R=FR();if(!R.on||R.role!=='admin'||!R.sb)return;clearTimeout(pT);
+  pT=setTimeout(async()=>{try{const A=window.fc7().aplus;const c=v=>Math.round((Number(v)||0)*100);const {data,error}=await R.sb.rpc('admin_aplus_prices',{p:{m:c(A.m),fam:A.fam.map(c),club:c(A.club!=null?A.club:A.m)}});if(error)throw error;applyPrices(data);flash('Prix d\'Athlète Plus enregistrés en ligne')}catch(err){flash('Prix d\'Athlète Plus : '+(err.message||err))}},700)});
 })();
 </script>
 </body></html>
