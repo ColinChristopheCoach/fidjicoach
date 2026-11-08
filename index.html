@@ -1520,7 +1520,7 @@ const TERMS=[
  ['6. Parrainage','Le code de parrainage donne 5 % au nouveau client sur sa première réservation et un crédit de 5 % au parrain lorsque ce cours est payé. Un rabais à la fois, non cumulable, sans valeur monétaire. Le programme peut être modifié ou retiré.'],
  ['7. Location d\'équipement','L\'équipement loué demeure la propriété de Colin Christophe. Vous l\'utilisez normalement et le rapportez à la date prévue. Les bris, pertes ou retards attribuables à une utilisation anormale peuvent vous être facturés au coût de réparation ou de remplacement. La fin anticipée d\'une location n\'est pas remboursée automatiquement.'],
  ['8. Santé, sécurité et risques','Le ski de fond est une activité physique en plein air qui comporte des risques inhérents (chutes, froid, conditions de neige variables). Vous déclarez être en condition de pratiquer l\'activité, informez l\'entraîneur de toute blessure ou condition pertinente, et suivez les consignes de sécurité. Cette clause vous informe des risques; elle ne limite pas la responsabilité de l\'entraîneur pour une faute de sa part.'],
- ['9. Renseignements personnels','Nous recueillons vos coordonnées, votre fiche (niveau, condition physique, taille, poids, pointure, contact d\'urgence) et votre historique de réservations, seulement pour organiser vos cours, assurer votre sécurité, gérer la location et la facturation. Ils sont accessibles à Colin Christophe seulement, hébergés de façon sécurisée et conservés pendant la durée de la relation d\'affaires et le délai exigé par les lois fiscales. Vous pouvez demander l\'accès, la correction ou la suppression de vos renseignements. Responsable de la protection des renseignements personnels : Colin Christophe, colin.christophe@hotmail.fr. Les paiements par carte sont traités par Stripe; nous ne conservons pas vos numéros de carte.'],
+ ['9. Renseignements personnels','Nous recueillons vos coordonnées, votre fiche (niveau, condition physique, taille, poids, pointure, contact d\'urgence) et votre historique de réservations, seulement pour organiser vos cours, assurer votre sécurité, gérer la location et la facturation. Ils sont accessibles à Colin Christophe seulement, hébergés de façon sécurisée et conservés pendant la durée de la relation d\'affaires et le délai exigé par les lois fiscales. Vous pouvez demander l\'accès, la correction ou la suppression de vos renseignements. Responsable de la protection des renseignements personnels : Colin Christophe, ⟦coach-mail⟧. Les paiements par carte sont traités par Stripe; nous ne conservons pas vos numéros de carte.'],
  ['10. Communications','Vous recevrez des avis liés à vos réservations (confirmations, rappels, messages). L\'infolettre est envoyée seulement si vous y consentez, et vous pouvez vous désabonner en tout temps.'],
  ['11. Documents et contenus','Les plans d\'entraînement et documents déposés dans votre compte sont pour votre usage personnel et ne peuvent pas être redistribués.'],
  ['12. Modifications et droit applicable','Ces conditions peuvent être mises à jour; la version en vigueur est publiée sur le site. Elles sont régies par les lois du Québec.']];
@@ -1705,10 +1705,10 @@ function homeV(){
     <form id="nlForm" class="fs" style="margin:0" novalidate><label class="field"><span>Votre courriel</span><input id="nlEmail" type="email" autocomplete="email" placeholder="vous@exemple.ca"></label><label class="check2"><input id="nlOk" type="checkbox"> <span>J'accepte de recevoir l'infolettre de Colin Christophe. Je peux me désabonner en tout temps.</span></label><button class="btn btn-accent" type="submit">M'abonner</button></form></div></div></section>
   <section class="contact"><div class="wrap">
     <div><p class="eyebrow" style="color:var(--navy-soft)">Pour réserver ou poser une question</p><img class="contactlogo" src="${brand('white')}" alt="Colin Christophe, entraîneur de ski de fond"><p style="color:var(--navy-soft)">Entraîneur de ski de fond · Québec et environs</p></div>
-    <div class="rows"><div><span>Cellulaire</span><b>819-640-2429</b></div><div><span>Courriel</span><b>colin.christophe@hotmail.fr</b></div></div>
+    <div class="rows"><div><span>Cellulaire</span><b>819-640-2429</b></div><div><span>Courriel</span><b>⟦coach-mail⟧</b></div></div>
     <div><button class="btn btn-accent" data-a="bookNow">Réserver en ligne</button></div><p class="small" style="color:var(--navy-soft)">Au plaisir de vous voir sur les pistes!</p>${POWERED(true)}</div></section>`;
 }
-function footerMini(){return `<footer class="wrap muted small foot" style="padding-block:24px;border-top:1px solid var(--line)"><span>Colin Christophe · Entraîneur de ski de fond · 819-640-2429 · colin.christophe@hotmail.fr</span>${POWERED(false)}</footer>`}
+function footerMini(){return `<footer class="wrap muted small foot" style="padding-block:24px;border-top:1px solid var(--line)"><span>Colin Christophe · Entraîneur de ski de fond · 819-640-2429 · ⟦coach-mail⟧</span>${POWERED(false)}</footer>`}
 
 /* ---------- Météo ---------- */
 /* ---------- Connexion ---------- */
@@ -2042,7 +2042,7 @@ function adminNotif(){
   const todo=[];db.bookings.filter(b=>!b.cancelled).forEach(b=>b.sessions.forEach(s=>{if(hoursUntil(s)*60+b.dur<0&&!s.report)todo.push({b,s})}));
   const html=`<div class="book"><div>${todo.length?`<h3 style="margin-bottom:10px">Rapports de cours à rédiger</h3><div class="list" style="gap:6px;margin-bottom:20px">${todo.map(({b,s})=>`<div class="invrow"><span><b>${esc(name(userById(b.owner)))}</b><br><small>${dfmt(s.date)} · ${bDesc(b)}</small></span><button class="btn btn-sm btn-accent" data-a="report" data-b="${b.id}" data-s="${s.id}">Rédiger</button></div>`).join('')}</div>`:''}<h3 style="margin-bottom:10px">Alertes</h3>${notifList(db.notifs,'aAck','aAckAll')}</div>
   <aside class="summary"><span class="eyebrow">Recevoir les alertes</span>
-    <p class="muted small">Courriel : colin.christophe@hotmail.fr · Texto : 819-640-2429 · App : notifications sur votre cellulaire quand le site est installé comme application.</p>
+    <p class="muted small">Courriel : ⟦coach-mail⟧ · Texto : 819-640-2429 · App : notifications sur votre cellulaire quand le site est installé comme application.</p>
     ${alertMatrix()}
     <span class="eyebrow" style="margin-top:8px">Calendrier Apple</span><h3>Vos cours dans votre calendrier</h3>
     <div class="copy"><input id="feed" type="text" readonly value="webcal://votre-site.ca/calendrier/colin-7f3k.ics"><button class="btn btn-sm btn-plain" data-a="copy" data-src="feed">Copier</button></div>
@@ -2104,7 +2104,7 @@ function modalV(u){
     <div class="actions"><button class="btn btn-accent" type="submit">Enregistrer le rapport</button><button class="btn btn-plain" type="button" data-a="close">Annuler</button></div></form>`}
   else if(m.kind==='invoice'){wide=true;const p=b.parts[m.i];const cl=userById(p.userId);
     const lines=p.lines||[[bDesc(b)+(b.nb>1?' (part d\'un participant)':''),p.amount]];
-    inner=`<div class="invoice"><div class="row" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div class="invbrand"><img src="${brand('color')}" alt="Colin Christophe, entraîneur de ski de fond"><span class="muted small">Québec · 819-640-2429 · colin.christophe@hotmail.fr</span></div>
+    inner=`<div class="invoice"><div class="row" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div class="invbrand"><img src="${brand('color')}" alt="Colin Christophe, entraîneur de ski de fond"><span class="muted small">Québec · 819-640-2429 · ⟦coach-mail⟧</span></div>
       <div style="text-align:right"><b>Facture ${p.invNo}</b><br><span class="muted small">Date : ${dfmt(p.paidAt||today())}<br>Réservation ${b.ref}</span></div></div>
       <div><span class="muted small">Facturé à</span><br><b>${esc(name(cl))}</b><br><span class="small">${esc(cl?cl.email:'')}</span></div>
       <table><tbody>${lines.map(([d,a])=>`<tr><td>${esc(d)}</td><td>${a<0?'−'+money(-a):money(a)}</td></tr>`).join('')}<tr class="tot"><td>Total payé</td><td>${money(p.amount)}</td></tr></tbody></table>
@@ -2117,7 +2117,7 @@ function modalV(u){
     if(m.kind==='stripeR')inner=`<span class="eyebrow">Paiement sécurisé</span><h3>Paiement par carte</h3><div class="stripe"><span class="muted small">Location ${KLBL[r.kind]} · ${esc(rentalDesc(r))}</span><span class="amt">${money(r.amount)}</span></div><p class="info">Dans la vraie version, le client paie sur la page sécurisée de Stripe.</p><div class="actions"><button class="btn btn-accent" data-a="stripeROk">Simuler un paiement réussi</button><button class="btn btn-plain" data-a="close">Annuler</button></div>`;
     else if(m.kind==='interacR')inner=`<span class="eyebrow">Location enregistrée</span><h3>Virement Interac</h3><dl class="kv"><dt>Destinataire</dt><dd><b>819-640-2429</b></dd><dt>Montant</dt><dd class="num"><b>${money(r.amount)}</b></dd><dt>Message</dt><dd><b>LOC-${r.id.toUpperCase()}</b></dd></dl><div class="actions"><button class="btn btn-accent" data-a="close">Compris</button></div>`;
     else{wide=true;const cl=userById(r.userId);const unit=KLBL[r.kind];
-      inner=`<div class="invoice"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div class="invbrand"><img src="${brand('color')}" alt="Colin Christophe, entraîneur de ski de fond"><span class="muted small">Québec · 819-640-2429 · colin.christophe@hotmail.fr</span></div><div style="text-align:right"><b>Facture ${r.invNo}</b><br><span class="muted small">Date : ${dfmt(r.paidAt||today())}</span></div></div>
+      inner=`<div class="invoice"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div class="invbrand"><img src="${brand('color')}" alt="Colin Christophe, entraîneur de ski de fond"><span class="muted small">Québec · 819-640-2429 · ⟦coach-mail⟧</span></div><div style="text-align:right"><b>Facture ${r.invNo}</b><br><span class="muted small">Date : ${dfmt(r.paidAt||today())}</span></div></div>
       <div><span class="muted small">Facturé à</span><br><b>${esc(name(cl))}</b><br><span class="small">${esc(cl?cl.email:'')}</span></div>
       <table><tbody><tr><td>Location ${unit} : ${esc(rentalDesc(r))}, du ${dfmt(r.from)} au ${dfmt(r.to)}</td><td>${money(r.amount)}</td></tr><tr class="tot"><td>Total payé</td><td>${money(r.amount)}</td></tr></tbody></table>
       <p class="muted small">Payé par ${r.method==='carte'?'carte de crédit':'virement Interac'}.</p></div><div class="actions"><button class="btn btn-accent" data-a="close">Fermer</button></div>`}}
@@ -3460,7 +3460,7 @@ A.plan=(old=>function(d){old(d);if(st.pk)st.pk.lieu=B(d.b).lieu;render()})(A.pla
 A.move=(old=>function(d){old(d);if(st.pk)st.pk.lieu=B(d.b).lieu;render()})(A.move);
 
 /* ================= v3 : fenêtres, cartes, calendrier, centres, comptabilité, inventaire ================= */
-const invHead=(no,date,extra)=>`<div class="row" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div class="invbrand"><img src="${brand('color')}" alt="Colin Christophe, entraîneur de ski de fond"><span class="muted small">Cap-Rouge (Québec) · 819-640-2429 · colin.christophe@hotmail.fr</span></div>
+const invHead=(no,date,extra)=>`<div class="row" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div class="invbrand"><img src="${brand('color')}" alt="Colin Christophe, entraîneur de ski de fond"><span class="muted small">Cap-Rouge (Québec) · 819-640-2429 · ⟦coach-mail⟧</span></div>
   <div style="text-align:right"><b>Facture ${esc(no)}</b><br><span class="muted small">Date : ${dfmt(date)}${extra?'<br>'+extra:''}</span></div></div>`;
 function eqTable(r){if(!r||!(r.lines||[]).length)return '';const ds=rentDates(r);const days=ds.length;
   return `<h4 class="invh">Équipement loué</h4><table class="eqinv"><thead><tr><th>N° d'inventaire</th><th>Article</th><th>Pour</th><th>Début</th><th>Fin</th><th>Durée</th></tr></thead><tbody>${r.lines.map(l=>{const i=lineItem(l);const u=lineUnitObj(l);
@@ -3926,7 +3926,7 @@ function applyPalette(){try{document.documentElement.dataset.palette=ui().palett
 
 /* ---------- Identité de l'entraîneur partout dans le texte ---------- */
 function coachify(h){const c=ui().coach,d=UI0.coach;let o=h;
-  if(c.email&&c.email!==d.email)o=o.split(d.email).join(c.email);
+  {let oth=false;try{const r=window.fcReal;oth=(typeof fcOther==='function'&&!!fcOther())||!!(r&&r.on&&r.realRole==='coach')}catch(e){}o=o.split('⟦coach-mail⟧').join(c.email||(oth?'':d.email))}
   if(c.tel&&c.tel!==d.tel)o=o.split(d.tel).join(c.tel);
   if(c.name&&c.name!==d.name){o=o.split('COLIN CHRISTOPHE').join(c.name.toUpperCase()).split(d.name).join(c.name);const f=c.name.split(' ')[0];o=o.replace(/\bColin\b/g,f)}
   const hm=ui().home.name;if(hm&&hm!=='Cap-Rouge')o=o.split('Cap-Rouge').join(hm);
@@ -4322,7 +4322,7 @@ Object.assign(EN5,{
 'Le code de parrainage donne # % au nouveau client sur sa première réservation et un crédit de # % au parrain lorsque ce cours est payé. Un rabais à la fois, non cumulable, sans valeur monétaire. Le programme peut être modifié ou retiré.':'The referral code gives # % to the new client on their first booking and a # % credit to the referrer once that lesson is paid. One discount at a time, not combinable, no cash value. The program may be changed or withdrawn.',
 'L\'équipement loué demeure la propriété de @N. Chaque location fait l\'objet d\'un contrat signé dans l\'application, envoyé par courriel, qui indique le numéro d\'inventaire, la période et la valeur de remplacement de chaque article. Vous l\'utilisez normalement et le rapportez à la date prévue. Les retards, bris et pertes sont facturés selon le tableau des frais publié au contrat. La fin anticipée d\'une location n\'est pas remboursée automatiquement.':'Rented equipment remains the property of @N. Each rental is covered by an agreement signed in the app and sent by email, stating the inventory number, period and replacement value of each item. You use it normally and return it on the scheduled date. Late returns, damage and loss are charged according to the fee table in the agreement. Ending a rental early is not refunded automatically.',
 'Le ski de fond est une activité physique en plein air qui comporte des risques inhérents : chutes, collisions, blessures musculaires ou articulaires, froid, engelures, conditions de neige et de piste variables. En réservant, vous reconnaissez ces risques et les acceptez pour vous et pour les participants que vous inscrivez. Vous déclarez être en condition de pratiquer l\'activité, informez l\'entraîneur de toute blessure ou condition pertinente et suivez ses consignes. @N n\'est pas responsable des blessures, accidents ou pertes qui découlent des risques inhérents à l\'activité, du non-respect des consignes, de l\'état des pistes entretenues par les centres ou de l\'équipement personnel des participants. Cette clause ne s\'applique pas à un préjudice causé par une faute de l\'entraîneur. Nous recommandons une assurance personnelle couvrant les activités sportives.':'Cross-country skiing is an outdoor physical activity with inherent risks: falls, collisions, muscle or joint injuries, cold, frostbite, and variable snow and trail conditions. By booking, you acknowledge these risks and accept them for yourself and for the participants you register. You declare that you are fit for the activity, inform the coach of any relevant injury or condition and follow their instructions. @N is not liable for injuries, accidents or losses arising from the inherent risks of the activity, failure to follow instructions, the condition of trails maintained by the centres or participants\' personal equipment. This clause does not apply to harm caused by the coach\'s fault. We recommend personal insurance covering sports activities.',
-'Nous recueillons vos coordonnées, votre fiche (niveau, condition physique, taille, poids, pointure, contact d\'urgence) et votre historique de réservations, seulement pour organiser vos cours, assurer votre sécurité, gérer la location et la facturation. Ils sont accessibles à @N seulement, hébergés de façon sécurisée et conservés pendant la durée de la relation d\'affaires et le délai exigé par les lois fiscales. Vous pouvez demander l\'accès, la correction ou la suppression de vos renseignements. Responsable de la protection des renseignements personnels : @N, colin.christophe@hotmail.fr. Les paiements par carte sont traités par Stripe; nous ne conservons pas vos numéros de carte.':'We collect your contact details, your profile (level, fitness, height, weight, shoe size, emergency contact) and your booking history, only to organize your lessons, ensure your safety, and manage rentals and billing. Only @N can access them; they are hosted securely and kept for the duration of the business relationship and the period required by tax law. You can request access to, correction or deletion of your information. Person responsible for personal information: @N, colin.christophe@hotmail.fr. Card payments are processed by Stripe; we do not keep your card numbers.',
+'Nous recueillons vos coordonnées, votre fiche (niveau, condition physique, taille, poids, pointure, contact d\'urgence) et votre historique de réservations, seulement pour organiser vos cours, assurer votre sécurité, gérer la location et la facturation. Ils sont accessibles à @N seulement, hébergés de façon sécurisée et conservés pendant la durée de la relation d\'affaires et le délai exigé par les lois fiscales. Vous pouvez demander l\'accès, la correction ou la suppression de vos renseignements. Responsable de la protection des renseignements personnels : @N, ⟦coach-mail⟧. Les paiements par carte sont traités par Stripe; nous ne conservons pas vos numéros de carte.':'We collect your contact details, your profile (level, fitness, height, weight, shoe size, emergency contact) and your booking history, only to organize your lessons, ensure your safety, and manage rentals and billing. Only @N can access them; they are hosted securely and kept for the duration of the business relationship and the period required by tax law. You can request access to, correction or deletion of your information. Person responsible for personal information: @N, ⟦coach-mail⟧. Card payments are processed by Stripe; we do not keep your card numbers.',
 'Les plans d\'entraînement et documents déposés dans votre compte sont pour votre usage personnel et ne peuvent pas être redistribués.':'Training plans and documents in your account are for your personal use and may not be redistributed.',
 'Les frais d\'accès aux pistes de l\'entraîneur et de la personne qui réserve sont facturés en supplément à la personne qui réserve, au tarif du centre. Certains centres éloignés de @H comportent des frais de déplacement indiqués avant le paiement.':'Trail access fees for the coach and the person booking are charged in addition to the person booking, at the centre\'s rate. Some centres far from @H have a travel fee shown before payment.',
 'Les présentes conditions encadrent l\'utilisation du site et des services de @N, entraîneur de ski de fond (cours, ateliers, location d\'équipement, documents et messagerie). En créant un compte, vous les acceptez.':'These terms govern the use of the site and services of @N, cross-country ski coach (lessons, workshops, equipment rental, documents and messaging). By creating an account, you accept them.',
@@ -21025,6 +21025,51 @@ A.book=(old=>async function(){
     console.error(e);db.bookings=db.bookings.filter(x=>x!==b);st.R=Rq;st.modal=null;
     flash(fr(e.message).replace(/^Erreur : /,''));try{await loadAgenda()}catch(_){}
   }finally{busyOff();save();render()}})(A.book);
+/* ================= c20 : réserver pour un client (entraîneur), approbation du jour même, petits correctifs ================= */
+const c20Coach=()=>R.on&&(R.role==='admin'||R.realRole==='coach');
+/* jour même en attente d'approbation : aucun bouton de paiement (ni carte, ni Interac) */
+bookingCard=(old=>function(b,u,admin){let h=old(b,u,admin);try{if(b&&b.approval==='pending'&&!admin)h=h.replace(/<button[^>]*data-a="(fcToInterac|fcToCarte|payMine|showInterac)"[^>]*>[^<]*<\/button>/g,'')}catch(e){}return h})(bookingCard);
+decorate=(old=>function(){try{old()}catch(e){console.warn(e)}try{
+   /* « Envoyer la demande » au lieu de « Payer … et réserver » pour un cours d'aujourd'hui */
+   const bk=document.querySelector('[data-a="book"]');const Rq=st.R;
+   if(bk&&Rq&&c5Client()&&Array.isArray(Rq.sel)&&Rq.sel.some(x=>x&&x.date===today())&&!/Envoyer la demande/.test(bk.textContent))bk.textContent='Envoyer la demande à '+c5First()+' (vous paierez après son accord)';
+   /* un seul ✕ par rapport de cours à rédiger */
+   document.querySelectorAll('[data-a="fcRepX"]').forEach(x=>{const p=x.parentElement;if(p)p.querySelectorAll('[data-a="fcTodoX"]').forEach(y=>y.remove())});
+  }catch(e){console.warn('c20 decorate',e)}})(decorate);
+/* bouton « + Réservation pour un client » : Réservations et fiche du client */
+adminResa=(old=>function(){const h=old();if(!c20Coach())return h;return `<div class="actions" style="justify-content:flex-end;margin-bottom:10px"><button class="btn btn-accent btn-sm" data-a="fcBookFor">+ Réservation pour un client</button></div>`+h})(adminResa);
+adminClient=(old=>function(u){let h=old(u);if(!c20Coach()||!u)return h;return h.replace(/(<button[^>]*data-a="msgTo"[^>]*>[^<]*<\/button>)/,`$1 <button class="btn btn-plain" data-a="fcBookFor" data-c="${esc(u.id)}">+ Réserver un cours pour ce client</button>`)})(adminClient);
+A.fcBookFor=function(d){if(!c20Coach())return;st.modal={kind:'fcBookFor',cid:(d&&d.c)||''};render()};
+MOD3.fcBookFor=function(u,m){
+  const cl=(db.users||[]).filter(x=>x.role==='client'&&String(x.id).length>20).sort((a,b)=>name(a).localeCompare(name(b),'fr'));
+  const ct=(db.ctypes||[]).filter(c=>c.actif!==false&&c.id!=='location');
+  const ce=(db.centres||[]).filter(c=>c.ok);const h=new Date();const nx=String(Math.min(20,h.getHours()+1)).padStart(2,'0')+':00';
+  const sel=(id,L)=>`<select id="${id}">${L.map(([v,l,on])=>`<option value="${esc(v)}" ${on?'selected':''}>${esc(l)}</option>`).join('')}</select>`;
+  return [`<span class="eyebrow">Réservation par l'entraîneur</span><h3>Réserver un cours pour un client</h3>
+   <p class="muted small">Pour un client qui vous appelle ou vous écrit. La réservation est créée tout de suite (jamais « sur approbation ») et le client reçoit un avis. Vous pouvez choisir une heure hors de vos disponibilités, mais pas par-dessus un autre cours.</p>
+   <div class="fs" style="display:grid;gap:10px">
+    <label class="field"><span>Client *</span>${sel('bfC',[['','Choisir un client…',!m.cid]].concat(cl.map(x=>[x.id,name(x)+(x.email?' · '+x.email:''),x.id===m.cid])))}</label>
+    <label class="field"><span>Cours *</span>${sel('bfT',ct.map((c,i)=>[c.id,c.title||c.id,i===0]))}</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+     <label class="field"><span>Niveau</span>${sel('bfN',['Débutant','Intermédiaire','Avancé','Élite'].map((x,i)=>[x,x,i===0]))}</label>
+     <label class="field"><span>Technique</span>${sel('bfK',['Classique','Patin'].map((x,i)=>[x,x,i===0]))}</label>
+     <label class="field"><span>Durée</span>${sel('bfD',[[60,'1 h',1],[90,'1 h 30',0],[120,'2 h',0]])}</label>
+     <label class="field"><span>Lieu *</span>${sel('bfL',ce.map((c,i)=>[c.name,c.name,i===0]))}</label>
+     <label class="field"><span>Date *</span><input type="date" id="bfDt" value="${today()}" min="${today()}"></label>
+     <label class="field"><span>Heure *</span><input type="time" id="bfH" value="${nx}" step="900"></label>
+    </div>
+    <label class="field"><span>Paiement</span>${sel('bfP',[['carte','Carte : le client paie sa part dans son compte',1]].concat(R.role==='admin'||(R.interacOk)?[['interac','Virement Interac (ou comptant) : vous confirmez la réception',0]]:[]))}</label>
+   </div>
+   <div class="actions" style="margin-top:14px"><button class="btn btn-accent" data-a="fcBookForGo">Créer la réservation</button><button class="btn btn-plain" data-a="close">Annuler</button></div>`,false]};
+A.fcBookForGo=async function(){if(!c20Coach())return;const v=id=>((document.getElementById(id)||{}).value||'').trim();
+  const cid=v('bfC'),dt=v('bfDt'),hh=v('bfH');if(!cid){flash('Choisissez le client.');return}if(!dt||!hh){flash('Choisissez la date et l\'heure.');return}
+  const c=userById(cid);const p={coach_id:R.coachId,for_client:cid,type:v('bfT')||'cours',formule:'ind',dur:Number(v('bfD'))||60,qty:1,nb:1,niveau:v('bfN'),tech:v('bfK'),lieu:v('bfL'),
+    me:true,payAll:false,pay:v('bfP')==='interac'?'interac':'carte',ref:'',sessions:[{date:dt,start:hh}],others:[],details:{byCoach:true}};
+  st.modal=null;busyOn('Création de la réservation…');
+  try{const {data,error}=await R.sb.rpc('create_booking',{p});if(error)throw error;await syncAll();
+    flash('Réservation '+data.ref+' créée pour '+(c?name(c):'le client')+' : il a reçu un avis'+(p.pay==='carte'?' pour payer sa part par carte.':' avec les instructions Interac.'))}
+  catch(e){console.error(e);flash(fr(e.message).replace(/^Erreur : /,''))}finally{busyOff();save();render()}};
+
 
 /* ================= Étape 4 : paiement par carte (Stripe Checkout) et lien « chacun paie sa part » =================
    Carte   : le site demande à l'Edge Function « create-checkout » une page de paiement Stripe, créée à partir du
@@ -22435,7 +22480,7 @@ applyPub=(old=>function(d){old(d);if(d&&d.coachInfo&&R.role!=='admin')R.coachInf
 loadCoachSide=(old=>async function(){await old();try{const {data}=await R.sb.from('coach_public').select('data').eq('coach_id',R.coachId).maybeSingle();if(data&&data.data&&!data.data.coachInfo){R.snap.pub=null;setTimeout(queueSync,80)}}catch(e){}})(loadCoachSide);
 loadMe=(old=>async function(){const r=await old();try{fcIdent()}catch(e){console.warn(e)}return r})(loadMe);
 resetLocal=(old=>function(){old();R.myCoaches=[];R.coachInfo=null})(resetLocal);
-coachify=(old=>function(h){let o=old(h);if(!fcOther())return o;const c=ui().coach,d=UI0.coach;if(!c.tel)o=o.split(d.tel).join('');if(!c.email){o=o.split(d.email).join('');o=o.split('colinchristophe.coach@outlook.com').join('')}return o})(coachify);
+coachify=(old=>function(h){let o=old(h);if(!fcOther())return o;const c=ui().coach,d=UI0.coach;if(!c.tel)o=o.split(d.tel).join('');return o})(coachify);
 header=(old=>function(u){let h=old(u);if(!fcOther())return h;const c=R.coachRow;
   return h.replace(/<img class="brandmark"[^>]*>/,'').replace(/(<button class="brand"[\s\S]*?<span>)[^<]*(<\/span>)/,(m,a,b)=>a+esc([c.sport,ui().coach.region].filter(Boolean).join(' · '))+b)})(header);
 function fcPicker(){if(!R.on||R.role!=='client')return;const L=R.myCoaches||[];if(L.length<2)return;const side=document.querySelector('.v5side');if(!side||side.querySelector('.fcmc'))return;
@@ -22744,7 +22789,7 @@ header=(old=>function(u){let h=old(u);if(platMode())return h;
   if(!u&&R.coachRow&&!/data-a="fcPlatform"/.test(h))h=h.replace('<nav><span class="navlinks">','<nav><span class="navlinks"><button class="btn btn-ghost btn-sm" data-a="fcPlatform" title="Tous les entraîneurs de FidjiCoach">‹ FidjiCoach</button>');
   return h})(header);
 /* l'entraîneur invité : ni le téléphone ni le courriel du fondateur dans ses textes tant qu'il n'a pas entré les siens */
-coachify=(old=>function(h){let o=old(h);if(!(R.on&&R.realRole==='coach'))return o;const c=ui().coach,d=UI0.coach;if(!c.tel)o=o.split(d.tel).join('');if(!c.email)FOUNDER_MAILS.forEach(m=>{o=o.split(m).join('')});return o})(coachify);
+coachify=(old=>function(h){let o=old(h);if(!(R.on&&R.realRole==='coach'))return o;const c=ui().coach,d=UI0.coach;if(!c.tel)o=o.split(d.tel).join('');if(!c.email)o=o.split('⟦coach-mail⟧').join('');return o})(coachify);
 /* accueil de la vitrine : politique d'annulation de l'entraîneur, infolettre (ou non), pas d'Interac chez les autres entraîneurs */
 homeV=(old=>function(){let h=old();if(platMode()||st.p3on||st.p8pub||st.rep)return h;const s=show9();
   try{
@@ -23862,8 +23907,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-08-c19b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='8 nov. 2026 · Poses 3D corrigées (appuis au sol, vues de face, accessoires)';
+const FC_BUILD='2026-11-08-c20';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='8 nov. 2026 · Corrections 20 (réserver pour un client, GPS et sports)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
