@@ -2144,7 +2144,7 @@ function login(email,pass){const u=db.users.find(x=>(x.email||'').toLowerCase()=
 function afterLogin(){const u=me();st.authErr='';if(!u)return;if(u.role==='admin'){checkRentalReminders();st.pushes=db.notifs.filter(n=>!n.read&&(n.ch||chan(n.kind)).includes('app')).slice(0,3)}else st.pushes=(db.cnotifs||[]).filter(n=>n.userId===u.id&&!n.read&&(n.ch||[]).includes('app')).slice(0,3);
   if(st.after==='join'){st.view='join';st.after=null}else{st.view=u.role==='admin'?'admin':'client';st.tab=u.role==='admin'?'today':'accueil'}
   render();window.scrollTo(0,0)}
-const B=id=>db.bookings.find(x=>x.id===id);
+const B=id=>db.bookings.find(x=>x.id===id)||(window.fcLocB||[]).find(x=>x.id===id);
 const A={
   go(d){st.view=d.v;st.tab=null;st.client=null;st.confirm=null;if(d.v!=='join')history.replaceState(null,'',location.pathname+location.search);render();window.scrollTo(0,0)},
   bookNow(){const u=me();if(!u){st.view='auth';st.authMode='signup'}else if(u.role==='admin'){st.view='admin';st.tab='today'}else{st.view='client';st.tab='reserver'}render();window.scrollTo(0,0)},
@@ -22158,13 +22158,15 @@ function buildRentals(){const prev={};(db.rentals||[]).forEach(r=>{if(r&&r.real)
     const r={id,real:true,sid:b.sid,ref:b.ref,userId:b.owner,bookingId:b.kindSrv==='location'?null:b.id,inBooking:b.kindSrv!=='location',kind:rt.kind,lines,
       from:ds[0],to:ds[ds.length-1],sizes:rt.sizes||{},contract:{name:(rt.contract||{}).name||'',at:String((rt.contract||{}).at||'').slice(0,16).replace('T',' ')},
       amount:Number(rt.total)||0,method:'carte',paid:!!(p0&&p0.paid),paidAt:p0&&p0.paidAt,created:String(b.created||'').slice(0,10),cancelled:!!b.cancelled,cardOnly:true,lieu:b.lieu,
-      fees:b.feesSrv||[],partPid:p0&&p0.pid};
+      fees:b.feesSrv||[],partPid:p0&&p0.pid,invNo:(p0&&p0.invNo)||o.invNo||null,invAt:(p0&&p0.invAt)||null};
     if(rt.kind==='jour')r.days=ds;
     try{syncRental(r)}catch(e){}
     if(R.role==='admin'){try{const taken=[];r.lines.forEach(l=>{if(l.unit)taken.push(l.unit)});r.lines.forEach(l=>{if(l.unit)return;const it=(db.inventory||[]).find(x=>x.id===l.itemId);const un=it&&allocUnit(it,ds,r.id,taken);if(un){l.unit=un.key;taken.push(un.key)}})}catch(e){}}
     out.push(r)});
   const keep=R.role==='admin'?(db.rentals||[]).filter(r=>r&&!r.real&&!(r.bookingId&&!(db.bookings||[]).some(b=>b.id===r.bookingId))):[];
   db.rentals=keep.concat(out);
+  /* Corrections 23 : les locations seules restent hors des cours, mais gardées pour les factures (voir B()) */
+  window.fcLocB=(db.bookings||[]).filter(b=>b.kindSrv==='location');
   db.bookings=(db.bookings||[]).filter(b=>b.kindSrv!=='location');
   db.bookings.forEach(b=>{if(b.rentSrv)b.rentalId='r'+b.sid})}
 loadBookings=(old=>async function(){await old();try{buildRentals()}catch(e){console.warn('Locations',e)}})(loadBookings);
@@ -24809,7 +24811,7 @@ abosAdmin=(old=>function(){let h=old();try{if(!R.on||R.role!=='admin')return h;c
 /* client : « Mes factures » = cours + frais de location + abonnements */
 window.fcFactV10=(old=>function(u){try{if(!R.on)return old(u);
   const fam=[u.id,...db.users.filter(x=>x.guardian===u.id).map(x=>x.id)];const L=[];
-  (db.bookings||[]).forEach(b=>{(b.parts||[]).forEach((p,i)=>{if(p.paid&&p.invNo&&fam.includes(p.userId))L.push({no:p.invNo,d:p.invAt||p.paidAt||'',amt:Number(p.amount)||0,ref_:Number(p.refunded)||0,
+  (db.bookings||[]).concat(window.fcLocB||[]).forEach(b=>{(b.parts||[]).forEach((p,i)=>{if(p.paid&&p.invNo&&fam.includes(p.userId))L.push({no:p.invNo,d:p.invAt||p.paidAt||'',amt:Number(p.amount)||0,ref_:Number(p.refunded)||0,
       what:String((p.lines&&p.lines[0]&&p.lines[0][0])||bDesc(b))+' · '+b.ref,btn:`<button class="btn btn-sm btn-plain" data-a="invoice" data-b="${esc(b.id)}" data-i="${i}">Voir la facture</button>`})});
     (b.feesSrv||[]).forEach(f=>{if(f.invNo&&['payee','remboursee'].includes(f.status)&&fam.includes(f.payer))L.push({no:f.invNo,d:f.invAt||f.paidAt||'',amt:Number(f.amount)||0,ref_:Number(f.refunded)||0,
       what:'Frais de location : '+(f.reason||'')+' · '+b.ref,btn:invBtn11('fee',`data-b="${esc(b.id)}" data-p="${esc(f.pid)}"`,'Voir la facture')})})});
@@ -24830,13 +24832,13 @@ st.fcF=st.fcF||{t:'tout',s:'recent',q:''};
 const FCF_T=[['tout','Toutes'],['cours','Cours'],['location','Locations'],['frais','Frais de location'],['abonnement','Abonnements'],['nc','Notes de crédit']];
 const FCF_L={cours:'Cours',location:'Location',frais:'Frais de location',abonnement:'Abonnement',nc:'Note de crédit'};
 function fcFAll(){const L=[];
-  (db.bookings||[]).forEach(b=>{if(!b.real)return;const loc=b.type==='location'||b.kindSrv==='location';
+  (db.bookings||[]).concat(window.fcLocB||[]).forEach(b=>{if(!b.real)return;const loc=b.type==='location'||b.kindSrv==='location';
     (b.parts||[]).forEach((p,i)=>{if(!p.paid||!p.invNo)return;L.push({t:loc?'location':'cours',no:p.invNo,d:p.invAt||p.paidAt||'',cl:name(userById(p.userId)),amt:Number(p.amount)||0,ref_:Number(p.refunded)||0,sent:p.invSent,
       what:String((p.lines&&p.lines[0]&&p.lines[0][0])||bDesc(b))+(!loc&&b.rentSrv?' + location':'')+' · '+b.ref,btn:`<button class="btn btn-sm btn-plain" data-a="invoice" data-b="${esc(b.id)}" data-i="${i}">Voir</button>`})});
     (b.feesSrv||[]).forEach(f=>{if(!f.invNo||!['payee','remboursee'].includes(f.status))return;L.push({t:'frais',no:f.invNo,d:f.invAt||f.paidAt||'',cl:name(userById(f.payer)),amt:Number(f.amount)||0,ref_:Number(f.refunded)||0,sent:f.invSent,
       what:'Frais de location : '+(f.reason||'')+' · '+b.ref,btn:invBtn11('fee',`data-b="${esc(b.id)}" data-p="${esc(f.pid)}"`,'Voir')})})});
   (db.subInv||[]).forEach(v=>L.push({t:'abonnement',no:v.no,d:v.at||'',cl:name(userById(v.userId)),amt:v.total,ref_:0,sent:v.sent,what:'Abonnement · '+(v.plan||'mensuel'),btn:subBtn11(v,'Voir')}));
-  const cn=db.cnotes||[];(db.bookings||[]).forEach(b=>{(b.parts||[]).forEach(p=>{const r=L.find(x=>x.no===p.invNo&&x.pid===undefined);if(r)r.pid=p.pid});(b.feesSrv||[]).forEach(f=>{const r=L.find(x=>x.no===f.invNo);if(r)r.pid=f.pid})});
+  const cn=db.cnotes||[];(db.bookings||[]).concat(window.fcLocB||[]).forEach(b=>{(b.parts||[]).forEach(p=>{const r=L.find(x=>x.no===p.invNo&&x.pid===undefined);if(r)r.pid=p.pid});(b.feesSrv||[]).forEach(f=>{const r=L.find(x=>x.no===f.invNo);if(r)r.pid=f.pid})});
   L.forEach(x=>{if(x.pid&&cn.some(n=>n.pid===x.pid))x.net=x.amt});
   cn.forEach(n=>{const b=n.bid?B(n.bid):null;L.push({t:'nc',no:n.no,d:n.at||'',cl:name(userById(n.userId)),amt:-n.total,net:-n.total,ref_:0,sent:n.sent,what:'Remboursement de la facture '+(n.invRef||'?')+(b?' · '+b.ref:'')+(n.reason?' · '+n.reason:''),btn:cnBtn12(n,'Voir')})});
   return L}
