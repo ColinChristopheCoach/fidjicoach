@@ -21027,6 +21027,7 @@ A.book=(old=>async function(){
   }finally{busyOff();save();render()}})(A.book);
 /* ================= c20 : réserver pour un client (entraîneur), approbation du jour même, petits correctifs ================= */
 const c20Coach=()=>R.on&&(R.role==='admin'||R.realRole==='coach');
+try{document.head.insertAdjacentHTML('beforeend','<style id="c20css">.fc9x~.fctx{display:none!important}</style>')}catch(e){}
 /* jour même en attente d'approbation : aucun bouton de paiement (ni carte, ni Interac) */
 bookingCard=(old=>function(b,u,admin){let h=old(b,u,admin);try{if(b&&b.approval==='pending'&&!admin)h=h.replace(/<button[^>]*data-a="(fcToInterac|fcToCarte|payMine|showInterac)"[^>]*>[^<]*<\/button>/g,'')}catch(e){}return h})(bookingCard);
 decorate=(old=>function(){try{old()}catch(e){console.warn(e)}try{
@@ -23907,7 +23908,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-08-c20';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-08-c20b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='8 nov. 2026 · Corrections 20 (réserver pour un client, GPS et sports)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
