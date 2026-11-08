@@ -23912,8 +23912,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-08-c21';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='8 nov. 2026 · Corrections 21 (clubs en ligne, logo sur les factures)';
+const FC_BUILD='2026-11-08-c22';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='8 nov. 2026 · Corrections 22 (Athlète Plus au changement de compte, lien du code QR du club)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -26404,14 +26404,18 @@ let tT=null;document.addEventListener('change',e=>{const t=e.target;if(!t||!t.da
 (function(){
 const FR=()=>window.fcReal||{};
 const AP=window.fcAplus={me:null,busy:false,err:null,loading:false,cons:{},consAt:{}};
-AP.real=()=>{const R=FR();return !!(R.on&&R.sb&&R.uid)};
+/* c22 : l'état Athlète Plus appartient au compte connecté; on le vide dès que le compte change (démo, déconnexion, connexion) */
+AP.uid=null;
+AP.real=()=>{const R=FR();const on=!!(R.on&&R.sb&&R.uid);const id=on?R.uid:null;
+  if(AP.uid!==id){AP.uid=id;AP.me=null;AP.err=null;AP.cons={};AP.consAt={};try{st.apDraft=null;st.apEdit=null}catch(e){}if(on)setTimeout(()=>{if(!AP.me&&!AP.loading)AP.load()},0)}
+  return on};
 AP.email=()=>{try{const u=me();return String((u&&u.email)||FR().email||'').toLowerCase()}catch(e){return ''}};
 const errOf=async(error,data)=>{if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(e){}return m}return data&&data.error||null};
 /* prix réglés par l'administrateur (cents en ligne → dollars dans fc7) */
 function applyPrices(p){try{if(!p)return;const A=window.fc7().aplus;A.m=p.m/100;A.fam=(p.fam||[]).map(x=>x/100);A.club=p.club/100;A.trial=0}catch(e){}}
-AP.load=async function(){if(!AP.real()||AP.loading)return;AP.loading=true;try{const {data,error}=await FR().sb.rpc('aplus_me');if(error)throw error;AP.me=data||{on:false,subs:[]};applyPrices(AP.me.prices);
+AP.load=async function(){if(!AP.real()||AP.loading)return;AP.loading=true;const uid0=FR().uid;try{const {data,error}=await FR().sb.rpc('aplus_me');if(error)throw error;if(FR().uid!==uid0){AP.me=null;return}AP.me=data||{on:false,subs:[]};applyPrices(AP.me.prices);
     const u=me();if(u){u.aplus={on:!!AP.me.on,src:AP.me.source||null,consent:AP.me.consent,end:AP.me.period_end||null,real:1}}}
-  catch(e){console.warn('Athlète Plus',e);AP.me=AP.me||{on:false,subs:[]};AP.err=e.message||String(e)}finally{AP.loading=false;render()}};
+  catch(e){console.warn('Athlète Plus',e);AP.me=AP.me||{on:false,subs:[]};AP.err=e.message||String(e)}finally{AP.loading=false;if(!AP.me&&AP.real())setTimeout(AP.load,0);render()}};
 AP.ensure=()=>{if(AP.real()&&!AP.me&&!AP.loading)setTimeout(AP.load,0)};
 const call=async(body)=>{const {data,error}=await FR().sb.functions.invoke('athlete-plus',{body});const m=await errOf(error,data);if(m)throw new Error(m);return data};
 AP.checkout=async function(body){if(!AP.real())return flash('Connectez-vous à la plateforme en ligne pour payer');AP.busy=true;AP.err=null;render();
@@ -26603,7 +26607,29 @@ CLS.push=async function(){const R=FR();if(!real()||CLS.pulled!==R.uid)return;if(
 const JKEY='fc-club-join';
 try{const q=new URLSearchParams(location.search);const c=q.get('club');if(c&&/^[A-Za-z0-9_-]{2,80}$/.test(c)){localStorage.setItem(JKEY,JSON.stringify({c,g:q.get('groupe')||q.get('tok')||''}));
   q.delete('club');q.delete('groupe');q.delete('tok');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);
-  setTimeout(async()=>{if(real())return;try{const R=FR();const {data}=await R.sb.rpc('club_preview',{p_club:c});if(data&&data.name)flash('Invitation du club '+data.name+' : connectez-vous ou créez votre compte pour vous inscrire')}catch(e){}},1500)}}catch(e){}
+  /* c22 : on attend la session gardée sur l'appareil; un membre connecté n'a ni bandeau ni accueil d'invitation */
+  let g0='';try{g0=(JSON.parse(localStorage.getItem(JKEY)||'{}').g)||''}catch(_){}
+  (async()=>{try{let R=FR();for(let i=0;i<40&&!(R&&R.sb);i++){await new Promise(r=>setTimeout(r,250));R=FR()}if(!R||!R.sb)return;
+    const {data:s}=await R.sb.auth.getSession();if(s&&s.session)return;
+    const {data}=await R.sb.rpc('club_preview',{p_club:c});if(!data||!data.name)return;
+    const {data:s2}=await R.sb.auth.getSession();if(s2&&s2.session)return;
+    clubInvite(data,g0)}catch(e){}})()}}catch(e){}
+/* c22 : accueil du club pour un visiteur qui ouvre le lien du code QR */
+function clubInvite(d,tok){const old=document.getElementById('fcClubInv');if(old)old.remove();
+  const grp=(d.groups||[]).find(g=>g.tok&&String(g.tok).toUpperCase()===String(tok||'').toUpperCase());
+  const ini=String(d.name||'').split(/\s+/).filter(w=>/^[A-Za-zÀ-ÿ0-9]/.test(w)&&!/^(de|du|des|la|le|les|et|d'|l')$/i.test(w)).map(w=>w[0]).join('').slice(0,3).toUpperCase()||'C';
+  const el=document.createElement('div');el.id='fcClubInv';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-labelledby','fcClubInvT');
+  el.innerHTML=`<div class="fcci-box"><div class="fcci-logo" aria-hidden="true">${esc(ini)}</div><span class="eyebrow">Invitation</span>
+    <h2 id="fcClubInvT">${esc(d.name)}</h2>${grp?`<p class="fcci-grp">Groupe <b>${esc(grp.name||'')}</b></p>`:''}
+    <p class="muted">Votre club utilise FidjiCoach pour l'horaire, les inscriptions, les messages et le suivi d'entraînement. Créez votre compte (ou connectez-vous) : votre inscription sera envoyée au club, qui la confirmera.</p>
+    <div class="fcci-act"><button class="btn btn-accent" data-ci="signup">Créer mon compte</button><button class="btn btn-plain" data-ci="login">J'ai déjà un compte</button></div>
+    <button class="linkbtn small" data-ci="later">Plus tard</button></div>`;
+  el.addEventListener('click',e=>{const b=e.target.closest('[data-ci]');if(!b&&e.target!==el)return;const m=b?b.dataset.ci:'later';el.remove();
+    if(m==='later'){try{localStorage.removeItem(JKEY)}catch(_){}return}
+    st.view='auth';st.authMode=m;st.authErr='';render();window.scrollTo(0,0);flash('Après la connexion, votre inscription sera envoyée à '+d.name)});
+  document.addEventListener('keydown',function k(e){if(e.key==='Escape'&&document.getElementById('fcClubInv')){el.remove();document.removeEventListener('keydown',k)}});
+  document.body.appendChild(el);const f=el.querySelector('[data-ci="signup"]');if(f)f.focus()}
+document.head.insertAdjacentHTML('beforeend','<style>#fcClubInv{position:fixed;inset:0;z-index:9000;background:rgba(5,12,24,.62);display:flex;align-items:center;justify-content:center;padding:16px}#fcClubInv .fcci-box{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:16px;max-width:440px;width:100%;padding:24px 20px;text-align:center;display:grid;gap:10px;justify-items:center;box-shadow:0 20px 60px rgba(0,0,0,.35)}#fcClubInv h2{margin:0;font-size:1.5rem}#fcClubInv .fcci-logo{width:64px;height:64px;border-radius:14px;background:var(--ink);color:var(--surface);display:grid;place-items:center;font-weight:800;letter-spacing:.04em}#fcClubInv .fcci-grp{margin:0}#fcClubInv .muted{margin:0;font-size:.95rem}#fcClubInv .fcci-act{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:6px}</style>');
 CLS.joinPending=async function(){let J=null;try{J=JSON.parse(localStorage.getItem(JKEY)||'null')}catch(e){}if(!J||!real())return;
   try{localStorage.removeItem(JKEY)}catch(e){}
   const u=me();if(u&&u.club&&u.club.id===J.c){st.p3on=true;st.p3c=J.c;return}
