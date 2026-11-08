@@ -2951,7 +2951,7 @@ function syncRental(r){r.items={};(r.lines||[]).forEach(l=>{r.items[l.itemId]=(r
   if(r.days&&r.days.length){r.from=r.days[0];r.to=r.days[r.days.length-1]}
   if(r.bookingId){const b=B(r.bookingId);if(b){b.rental={...r.items};b.rentalId=r.id}}}
 usedOn=function(itemId,date,exceptRid){return (db.rentals||[]).filter(r=>r.id!==exceptRid&&rentActiveOn(r,date)).reduce((n,r)=>n+(r.lines||[]).filter(l=>l.itemId===itemId&&!l.ret).length,0)};
-availFor=function(item,dates,exceptRid){const ok=(item.units||[]).filter(u=>u.etat!=='Hors service').length;if(!item.actif)return 0;if(!dates.length)return ok;return ok-Math.max(...dates.map(d=>usedOn(item.id,d,exceptRid)))};
+availFor=function(item,dates,exceptRid){const ok=(item.units&&item.units.length)?item.units.filter(u=>u.etat!=='Hors service').length:(+item.qty||0);if(!item.actif)return 0;if(!dates.length)return ok;return ok-Math.max(...dates.map(d=>usedOn(item.id,d,exceptRid)))};
 function unitBusy(key,dates,exceptRid){return (db.rentals||[]).some(r=>r.id!==exceptRid&&!r.cancelled&&!r.ended&&(r.lines||[]).some(l=>l.unit===key&&!l.ret)&&rentDates(r).some(d=>dates.includes(d)))}
 function allocUnit(item,dates,exceptRid,taken){return (item.units||[]).find(u=>u.etat!=='Hors service'&&!(taken||[]).includes(u.key)&&!unitBusy(u.key,dates,exceptRid)&&(!u.out||u.out.rid===exceptRid))||null}
 function unitStatus(i,u){if(u.out)return ['Distribué','warn'];if(u.etat==='Hors service'||!i.actif)return ['Hors service','bad'];
@@ -23912,8 +23912,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-08-c22';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='8 nov. 2026 · Corrections 22 (Athlète Plus au changement de compte, lien du code QR du club)';
+const FC_BUILD='2026-11-08-c23';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='8 nov. 2026 · Corrections 23 (location : articles disponibles chez le client)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
