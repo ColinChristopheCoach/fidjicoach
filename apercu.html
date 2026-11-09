@@ -12269,7 +12269,7 @@ function p3header(u){const c=curClub(u);const s=c&&staffOf(c,u);
    <nav>${spaceSwitch(u)}<span class="p3who"><span>${esc(u.role==='admin'?(ui().coach.name||'Colin'):name(u))}${s?' · '+esc(roleL(c,s.role)):''}</span></span><button class="hicon" data-a="${hasPriv(u)?'logout':'logout'}" aria-label="Se déconnecter" title="Se déconnecter">${ico('out')}</button></nav></div></header>`}
 function clubSpaceV(u){const c=curClub(u);if(!c)return '<main class="wrap app"><div class="empty">Aucun club.</div></main>';p3fix(c);st.clC=c.id;
   const k=curPage(c,u);st.p3p=k;let body='';
-  try{body=(VIEWS[k]||(()=>'<div class="empty">Page à venir.</div>'))(c,u)}catch(e){console.error(e);body='<div class="empty">Cette page n\'a pas pu s\'afficher : '+esc(e.message)+'</div>'}
+  try{const vf=()=>(VIEWS[k]||(()=>'<div class="empty">Page à venir.</div>'))(c,u);body=window.FC26club?window.FC26club(c,u,vf):vf();if(k==='a_comm'&&window.FC26theme)body=window.FC26theme()+body}catch(e){console.error(e);body='<div class="empty">Cette page n\'a pas pu s\'afficher : '+esc(e.message)+'</div>'}
   const s=staffOf(c,u);const title=PG[k].l;const ro=PG[k].perm&&can(c,u,PG[k].perm)==='r';
   return `<main class="wrap app v6 cl v5 p3"><div class="v5grid">${clubSide(c,u)}<section class="v5main"><div class="pagehead"><h2>${esc(title)}</h2><span class="p3role">${esc(c.name.replace(/\s*\(exemple\)/,''))}${s&&PG[k].who==='s'?' · '+esc(roleL(c,s.role)):''}${ro?' <span class="p3lock">Lecture seulement</span>':''}</span></div>${body}</section></div></main>`}
 const VIEWS={};
@@ -26930,14 +26930,13 @@ render=(old=>function(){const r=old.apply(this,arguments);
 const R=window.fcReal||{};
 /* ---------- 1. tests Ruffier du club ---------- */
 function clubKeys(c){const M=window.FC26_CLUBRD||{};return M['club:'+(c&&c.id)]||null}
-if(typeof clubSpaceV==='function')clubSpaceV=(old=>function(u){
-  const c=(typeof curClub==='function')?curClub(u):null;
-  if(!R.on||!c||!u)return old(u);
+window.FC26club=function(c,u,old){
+  if(!R.on||!c||!u)return old();
   const K=clubKeys(c)||new Set();const mid=u.id;
   const keep=col=>e=>!e||e.userId===mid||e.demo||K.has(col+'|'+e.id+'|'+e.userId);
   const r0=db.rd,h0=db.hrv5;SW={r:r0,h:h0};
-  try{db.rd=(r0||[]).filter(keep('rd'));db.hrv5=(h0||[]).filter(keep('hrv5'));return old(u)}
-  finally{SW=null;db.rd=r0;db.hrv5=h0}})(clubSpaceV);
+  try{db.rd=(r0||[]).filter(keep('rd'));db.hrv5=(h0||[]).filter(keep('hrv5'));return old()}
+  finally{SW=null;db.rd=r0;db.hrv5=h0}};
 /* un enregistrement pendant l'affichage du club garde toujours les listes complètes */
 let SW=null;
 save=(old=>function(){if(!SW)return old.apply(this,arguments);const a=db.rd,b=db.hrv5;db.rd=SW.r;db.hrv5=SW.h;try{return old.apply(this,arguments)}finally{db.rd=a;db.hrv5=b}})(save);
@@ -26945,7 +26944,7 @@ save=(old=>function(){if(!SW)return old.apply(this,arguments);const a=db.rd,b=db
 function themeBlk(){const t=(ui().theme)||'auto';
   return `<div class="panel fc26theme"><span class="eyebrow">Affichage</span><h3>Mode clair ou sombre</h3><div class="themepick" style="margin-top:6px"><div class="seg mini">${[['auto','Suivre l\'appareil','Clair le jour, sombre si l\'appareil est en mode sombre'],['light','Toujours clair','Ignore le mode sombre de l\'appareil'],['dark','Toujours sombre','Même si l\'appareil est en mode clair']].map(([v,l,s])=>`<button class="${t===v?'on':''}" data-a="themeSet" data-v="${v}">${l}<small>${s}</small></button>`).join('')}</div></div><p class="muted small" style="margin-top:6px">Ce choix vaut pour cet appareil.</p></div>`}
 if(typeof clientSetV==='function')clientSetV=(old=>function(u){const h=old(u);try{const k=h.indexOf('<div class="panel fcpwaP"');if(k>=0){const e=h.indexOf('</div></div>',h.indexOf('<div style="margin-top:8px">',k));if(e>0)return h.slice(0,e+12)+themeBlk()+h.slice(e+12)}return themeBlk()+h}catch(x){return h}})(clientSetV);
-if(typeof VIEWS==='object'&&VIEWS.a_comm)VIEWS.a_comm=(old=>function(c,u){return themeBlk()+old(c,u)})(VIEWS.a_comm);
+window.FC26theme=themeBlk;
 /* ---------- 4. licences des clubs nommées selon la taille : Club 50, Club 150, Club 300, Club 300+ ---------- */
 function lic26(){try{if(typeof window.fc7!=='function')return;const P=window.fc7();const T=P&&P.clubs&&P.clubs.tiers;if(!T)return;
   const NM={depart:['Club Départ','Club 50'],regional:['Club Régional','Club 150'],provincial:['Club Provincial','Club 300'],elite:['Club Élite','Club 300+']};let ch=false;
