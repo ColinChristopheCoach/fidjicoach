@@ -23952,8 +23952,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-09-c27';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='9 nov. 2026 · Corrections 27 (abonnements directs FidjiCoach : 15 $/mois ou 162 $/an, parrainage, adresse Gmail)';
+const FC_BUILD='2026-11-09-c27b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='9 nov. 2026 · Corrections 27b (menu Mon abonnement, changement de formule) · Corrections 27 (abonnements directs FidjiCoach : 15 $/mois ou 162 $/an, parrainage, adresse Gmail)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -25097,6 +25097,15 @@ function c27dom(){const ap=document.getElementById('app')||document.body;
   /* abonnement actif annuel */
   const sub=(db.subs||[]).find(x=>x.userId===(me()||{}).id&&x.status==='actif'&&AN.includes(x.planId));
   if(sub)ap.querySelectorAll('.panel.fs').forEach(pn=>txt(pn,[[/par mois/g,'par année'],[/fin du mois payé/g,'fin de l\'année payée']]));
+  /* c27b : menu « Mon abonnement »; abonné : pas d'ajout d'une 2e formule, une note à la place */
+  ap.querySelectorAll('[data-a="v5go"][data-t="forfaits"]').forEach(b=>txt(b,[[/Forfaits mensuels/g,'Mon abonnement']]));
+  const mySub=(db.subs||[]).find(x=>x.userId===(me()||{}).id&&x.status==='actif');
+  if(mySub)ap.querySelectorAll('[data-a="v5cartAdd"]').forEach(b=>{if(b.dataset.id===mySub.planId)return;
+    const n=document.createElement('p');n.className='small muted fc27sw';
+    n.textContent=AN.includes(b.dataset.id)&&!AN.includes(mySub.planId)
+      ?'Pour passer à l\'annuel, annulez votre abonnement mensuel; l\'annuel pourra commencer à la fin de votre mois payé.'
+      :'Pour changer de formule, annulez votre abonnement actuel; la nouvelle formule pourra commencer à la fin de votre période payée.';
+    b.replaceWith(n)});
   /* page Mon abonnement (abonné) : tableau comparatif et textes sans entraîneur */
   AN_N.forEach(n=>[...ap.querySelectorAll('th,td,div,span,b,h3,h4,p')].forEach(el=>{if(el.children.length<6&&el.textContent.includes(n)&&el.textContent.length<n.length+40)txt(el,[[/\/ mois/g,'/ an']])}));
   txt(ap,[[/Plans mensuels à distance/g,'Forfait tout-en-un'],[/Préparés par votre entraîneur/g,'Préparés par FidjiCoach'],[/Préparé par votre entraîneur/g,'Préparé par FidjiCoach'],
