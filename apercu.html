@@ -25062,22 +25062,51 @@ homeV=(old=>function(){let h=old.apply(this,arguments);try{if(!platMode())return
   else{h=h.replace(/(<div class="cta">[\s\S]*?data-v="trouver">[^<]*<\/button>)/,'$1'+GO_BTN)}}catch(e){console.warn('c27 public',e)}return h})(homeV);
 
 /* ---------- 2. espace du client de FidjiCoach ---------- */
-const HIDE_T=['reserver','msg'];
-function c27dom(){if(!directClient())return;const ap=document.getElementById('app')||document.body;
-  ap.querySelectorAll('[data-a="bookNow"]').forEach(e=>e.remove());
-  HIDE_T.forEach(t=>ap.querySelectorAll(`[data-a="tab"][data-t="${t}"]`).forEach(e=>e.remove()));
-  /* cartes de l'accueil qui mènent à la réservation, la location ou aux cours publics */
-  ap.querySelectorAll('[data-t="reserver"],[data-t="__rent"],[data-t="__pub"],[data-a="rentOpen"]').forEach(e=>{const c=e.closest('article,.hubcard,.card')||e;c.remove()});
-  /* abonnement annuel : libellés par année */
-  const P=(db.subPlans||[]).filter(p=>p&&p.per==='an').map(p=>p.id);
-  P.forEach(id=>ap.querySelectorAll(`[data-p="${id}"]`).forEach(b=>{const card=b.closest('article');if(card)txt(card,[[/\/ mois/g,'/ an'],[/par mois/g,'par année']])}));
-  const pk=st.subPick&&P.includes(st.subPick);
-  const sub=(db.subs||[]).find(s=>s.userId===(me()||{}).id&&s.status==='actif');const subAn=sub&&P.includes(sub.planId);
-  if(pk||subAn)ap.querySelectorAll('.panel.fs').forEach(pn=>txt(pn,[[/Paiement mensuel/g,'Paiement annuel'],[/Total par mois/g,'Total par année'],[/par mois/g,'par année'],[/chaque mois/g,'chaque année'],[/fin du mois payé/g,'fin de l\'année payée']]));
-  txt(ap,[[/Un suivi par votre entraîneur, où que vous soyez : plan d'entraînement ajusté chaque semaine, messages et analyses\. Payé chaque mois, annulable en tout temps\./g,'Votre entraînement complet avec FidjiCoach, sans entraîneur : plan personnalisé, test Ruffier, musculation et étirements. Payé chaque mois ou chaque année, annulable en tout temps (aucun remboursement, accès jusqu\'à la fin de la période payée).'],
-          [/Plans mensuels à distance/g,'Forfait tout-en-un']])}
+A.fc27Find=()=>{try{localStorage.removeItem(CKEY)}catch(e){}busyOn('Un instant…');location.replace(location.pathname)};
+A.fc27Signup=()=>{R.info='';st.view='auth';st.authMode='signup';st.authErr='';render();window.scrollTo(0,0)};
+const HIDE_SEL=['[data-a="bookNow"]','[data-a="hMsg"]','[data-a="v5go"][data-t="resa5"]','[data-a="v5go"][data-t="msg"]','[data-a="v5go"][data-x="rent"]','[data-a="v5go"][data-x="find"]',
+  '[data-a="v5go"][data-p="video"]','[data-a="v5go"][data-p="docs"]','[data-a="hub"][data-k="reserver"]','[data-a="hub"][data-k="__rent"]','[data-a="hub"][data-k="__pub"]','[data-a="hub"][data-k="video"]',
+  '.findpanel','article.nextc','section.v5dur'];
+const annualIds=()=>(db.subPlans||[]).filter(p=>p&&p.per==='an').map(p=>p.id);
+const annualNames=()=>(db.subPlans||[]).filter(p=>p&&p.per==='an').map(p=>p.name);
+function c27dom(){const ap=document.getElementById('app')||document.body;
+  if(R.direct){ /* en-tête : pas de Centres, Météo ni Réserver chez FidjiCoach */
+    ap.querySelectorAll('header [data-a]').forEach(b=>{const t=b.textContent.trim();if(t==='Centres'||t==='Météo'||b.dataset.a==='bookNow')b.remove()})}
+  if(!directClient())return;
+  HIDE_SEL.forEach(q=>ap.querySelectorAll(q).forEach(e=>e.remove()));
+  const AN=annualIds(),AN_N=annualNames();
+  /* Forfaits : textes adaptés, libellés annuels */
+  const ph=[...ap.querySelectorAll('.pagehead h2')].find(h=>/Forfaits mensuels|Mon panier/.test(h.textContent));
+  if(ph&&/Forfaits mensuels/.test(ph.textContent)){ph.textContent='Mon abonnement FidjiCoach';
+    const root=ph.closest('.pagehead').parentElement;
+    root.querySelectorAll(':scope > p.muted').forEach(x=>{if(/coaching à distance/.test(x.textContent))x.textContent='Un forfait tout-en-un, sans entraîneur : plan personnalisé ajusté chaque jour par le test Ruffier et la VFC, musculation et étirements guidés. 15 $ par mois, ou 162 $ par année (10 % de rabais). Annulable en tout temps : aucun remboursement, l\'accès reste actif jusqu\'à la fin de la période payée.'});
+    root.querySelectorAll(':scope > h3.v5h').forEach(x=>{if(/Forfaits/.test(x.textContent))x.textContent='Choisissez votre formule'});
+    root.querySelectorAll(':scope > p.small.muted').forEach(x=>{if(/Comparer les forfaits/.test(x.textContent))x.remove()})}
+  AN.forEach(id=>ap.querySelectorAll(`[data-id="${id}"],[data-p="${id}"]`).forEach(b=>{let c=b.parentElement;for(let i=0;i<4&&c&&!/\/ mois/.test(c.textContent);i++)c=c.parentElement;if(c)txt(c,[[/\/ mois/g,'/ an'],[/par mois/g,'par année']])}));
+  /* panier : forfait annuel -> textes annuels; pas de choix de durée chez FidjiCoach */
+  const cart=((db.v5cart||{})[(me()||{}).id])||[];
+  if(ph&&/Mon panier/.test(ph.textContent)){const root=ph.closest('.pagehead').parentElement;
+    root.querySelectorAll('select').forEach(sel=>{const f=sel.closest('label,.field,div');if(f&&/Durée/.test(f.textContent)&&f.textContent.length<200)f.style.display='none'});
+    if(cart.length&&AN.includes(cart[0].id)){
+      [...root.querySelectorAll('*')].forEach(el=>{if(el.children.length===0&&AN_N.some(n=>el.textContent.trim()===n)){let c=el.parentElement;if(c)txt(c,[[/\/ mois/g,'/ an']])}});
+      txt(root,[[/Total par mois/g,'Total par année'],[/aujourd'hui puis chaque mois à la même date/g,'aujourd\'hui puis chaque année à la même date'],[/le mois payé reste actif/g,'l\'année payée reste active'],[/Renouvelé automatiquement chaque mois, sans date de fin\./g,'Renouvelé automatiquement chaque année, sans date de fin.']])}
+    txt(root,[[/Taxes applicables en sus\. /g,'']])}
+  /* abonnement actif annuel */
+  const sub=(db.subs||[]).find(x=>x.userId===(me()||{}).id&&x.status==='actif'&&AN.includes(x.planId));
+  if(sub)ap.querySelectorAll('.panel.fs').forEach(pn=>txt(pn,[[/par mois/g,'par année'],[/fin du mois payé/g,'fin de l\'année payée']]));
+  txt(ap,[[/Plans mensuels à distance/g,'Forfait tout-en-un']])}
 function txt(root,R2){const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode())){let v=n.nodeValue,o=v;R2.forEach(([a,b])=>{v=v.replace(a,b)});if(v!==o)n.nodeValue=v}}
-render=(old=>function(){if(directClient()&&(st.tab==='reserver'||st.tab==='msg'))st.tab='accueil';const r=old.apply(this,arguments);try{c27dom()}catch(e){console.warn('c27',e)}return r})(render);
+
+/* ---------- 3. page de FidjiCoach pour un visiteur (avant le compte) ---------- */
+homeV=(old=>function(){try{if(R.direct&&!me()&&!platMode()){const P=(db.subPlans||[]).filter(p=>p&&p.actif!==false);
+  return `<main class="wrap app fc9plat fc27home"><div><span class="eyebrow">FidjiCoach · sans entraîneur</span><h2 style="font-size:2.4rem;margin-top:6px">Entraînez-vous avec FidjiCoach</h2>
+  <p class="muted" style="margin-top:6px;max-width:44rem">Pas besoin d'entraîneur : FidjiCoach prépare votre plan d'entraînement et l'ajuste chaque jour selon votre forme du matin (test Ruffier et VFC). Musculation et étirements guidés inclus, avec vos sorties GPS et vos montres.</p></div>
+  <div class="fc9cards" style="margin-top:16px">${P.map(p=>`<article class="fc9card"><div class="bd"><h3>${esc(p.name)}</h3><p><b style="font-size:1.6rem">${money(Number(p.price)||0)}</b> <span class="muted">/ ${p.per==='an'?'an':'mois'}</span></p><p>${esc(p.desc||'')}</p><ul class="feats">${(p.feats||[]).map(f=>`<li>${esc(f)}</li>`).join('')}</ul></div></article>`).join('')}</div>
+  <section class="panel" style="display:grid;gap:8px;margin-top:16px"><span class="eyebrow">Parrainage</span><p>Un mois gratuit pour chaque personne que vous recommandez, dès qu'elle paie son premier mois.</p>
+  <p class="small muted">Annulable en tout temps, sans remboursement : l'accès reste actif jusqu'à la fin de la période payée. Aucun suivi par un entraîneur.</p>
+  <div class="actions"><button class="btn btn-accent" data-a="fc27Signup">Créer mon compte</button><button class="btn btn-plain" data-a="hLogin">J'ai déjà un compte</button><button class="btn btn-ghost" data-a="fc27Find">Je préfère un entraîneur</button></div></section></main>`}}catch(e){console.warn('c27 vitrine',e)}
+  return old.apply(this,arguments)})(homeV);
+render=(old=>function(){if(directClient()&&['reserver','msg','resa5'].includes(st.tab))st.tab='accueil';const r=old.apply(this,arguments);try{c27dom()}catch(e){console.warn('c27',e)}return r})(render);
 })();
 })();
 </script>
