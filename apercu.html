@@ -25091,6 +25091,7 @@ function c27dom(){const ap=document.getElementById('app')||document.body;
       [...root.querySelectorAll('*')].forEach(el=>{if(el.children.length===0&&AN_N.some(n=>el.textContent.trim()===n)){let c=el.parentElement;if(c)txt(c,[[/\/ mois/g,'/ an']])}});
       txt(root,[[/Total par mois/g,'Total par année'],[/aujourd'hui puis chaque mois à la même date/g,'aujourd\'hui puis chaque année à la même date'],[/le mois payé reste actif/g,'l\'année payée reste active'],[/Renouvelé automatiquement chaque mois, sans date de fin\./g,'Renouvelé automatiquement chaque année, sans date de fin.']])}
     txt(root,[[/Taxes applicables en sus\. /g,'']])}
+  if(cart.length&&AN.includes(cart[0].id))[...ap.querySelectorAll('*')].forEach(el=>{if(el.children.length<3&&/\d+ article/.test(el.textContent)&&el.textContent.length<80)txt(el,[[/\/ mois/g,'/ an']])});
   /* abonnement actif annuel */
   const sub=(db.subs||[]).find(x=>x.userId===(me()||{}).id&&x.status==='actif'&&AN.includes(x.planId));
   if(sub)ap.querySelectorAll('.panel.fs').forEach(pn=>txt(pn,[[/par mois/g,'par année'],[/fin du mois payé/g,'fin de l\'année payée']]));
