@@ -25081,7 +25081,9 @@ function c27dom(){const ap=document.getElementById('app')||document.body;
     const root=ph.closest('.pagehead').parentElement;
     root.querySelectorAll(':scope > p.muted').forEach(x=>{if(/coaching à distance/.test(x.textContent))x.textContent='Un forfait tout-en-un, sans entraîneur : plan personnalisé ajusté chaque jour par le test Ruffier et la VFC, musculation et étirements guidés. 15 $ par mois, ou 162 $ par année (10 % de rabais). Annulable en tout temps : aucun remboursement, l\'accès reste actif jusqu\'à la fin de la période payée.'});
     root.querySelectorAll(':scope > h3.v5h').forEach(x=>{if(/Forfaits/.test(x.textContent))x.textContent='Choisissez votre formule'});
-    root.querySelectorAll(':scope > p.small.muted').forEach(x=>{if(/Comparer les forfaits/.test(x.textContent))x.remove()})}
+    root.querySelectorAll(':scope > p.small.muted').forEach(x=>{if(/Comparer les forfaits/.test(x.textContent))x.remove()});
+    const h3=root.querySelector(':scope > h3.v5h');if(h3&&!root.querySelector('.fc27refp')){const rp=refPanel();if(rp)h3.insertAdjacentHTML('beforebegin',rp)}}
+  if(!refTried)setTimeout(refAfterLogin,500);
   AN.forEach(id=>ap.querySelectorAll(`[data-id="${id}"],[data-p="${id}"]`).forEach(b=>{let c=b.parentElement;for(let i=0;i<4&&c&&!/\/ mois/.test(c.textContent);i++)c=c.parentElement;if(c)txt(c,[[/\/ mois/g,'/ an'],[/par mois/g,'par année']])}));
   /* panier : forfait annuel -> textes annuels; pas de choix de durée chez FidjiCoach */
   const cart=((db.v5cart||{})[(me()||{}).id])||[];
@@ -25097,6 +25099,31 @@ function c27dom(){const ap=document.getElementById('app')||document.body;
   if(sub)ap.querySelectorAll('.panel.fs').forEach(pn=>txt(pn,[[/par mois/g,'par année'],[/fin du mois payé/g,'fin de l\'année payée']]));
   txt(ap,[[/Plans mensuels à distance/g,'Forfait tout-en-un'],[/Préparés par votre entraîneur/g,'Préparés par FidjiCoach']])}
 function txt(root,R2){const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode())){let v=n.nodeValue,o=v;R2.forEach(([a,b])=>{v=v.replace(a,b)});if(v!==o)n.nodeValue=v}}
+
+/* ---------- 2b. inscription chez FidjiCoach : sans le choix Club/Entraîneur, avec le code de parrainage ---------- */
+const RKEY='fc27-ref';
+authV=(old=>function(){let h=old.apply(this,arguments);try{if(!R.direct||st.authMode==='login'||me())return h;
+  st.p3sign='prive';
+  const cut=open=>{const i=h.indexOf(open);if(i<0)return;let j=i+open.length,depth=1;while(depth&&j<h.length){const o=h.indexOf('<div',j),c=h.indexOf('</div>',j);if(c<0)return;if(o>=0&&o<c){depth++;j=o+4}else{depth--;j=c+6}}h=h.slice(0,i)+h.slice(j)};
+  cut('<div class="v7who"');cut('<div class="p3signup');
+  h=h.replace(/<p class="muted[^"]*">Votre compte vous permet de remplir votre fiche[^<]*<\/p>/,'<p class="muted">Votre compte FidjiCoach, sans entraîneur : vous choisirez ensuite votre formule (15 $ par mois ou 162 $ par année) dans « Mon abonnement FidjiCoach ».</p>');
+  h=h.replace(/(<label class="check2"><input id="aNews")/,`<label class="field fc27ref"><span>Code de parrainage (facultatif)</span><input id="fc27ref" autocomplete="off" maxlength="20" placeholder="Ex. : E411FD5D9F" value="${esc((()=>{try{return localStorage.getItem(RKEY)||''}catch(e){return ''}})())}"><small class="muted">Le code de la personne qui vous a recommandé FidjiCoach : elle recevra un mois gratuit quand vous paierez votre premier mois.</small></label>$1`);
+  h=h.replace(/s'engage à suivre les consignes de l'entraîneur/g,"s'engage à suivre les consignes de l'application").replace(/je m'engage à suivre les consignes de l'entraîneur/g,"je m'engage à suivre les consignes et à adapter l'entraînement à ma condition")}catch(e){console.warn('c27 inscription',e)}return h})(authV);
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='fc27ref'){try{localStorage.setItem(RKEY,e.target.value.trim().toUpperCase())}catch(x){}}});
+/* après la connexion : on enregistre le code gardé à l'inscription (une fois) */
+let refTried=false;
+async function refAfterLogin(){if(refTried||!directClient())return;const u=me();if(!u)return;let c='';try{c=localStorage.getItem(RKEY)||''}catch(e){}
+  refTried=true;if(!c||u.refBy)return;
+  try{const {data,error}=await R.sb.rpc('fc_set_referrer',{p_code:c});if(error)throw error;u.refBy=c;flash('Code de parrainage enregistré : '+data+' recevra un mois gratuit à votre premier paiement.')}
+  catch(e){flash('Code de parrainage : '+String(e.message||e).replace(/^Erreur : /,''))}
+  try{localStorage.removeItem(RKEY)}catch(e){}}
+/* code entré plus tard, dans Mon abonnement FidjiCoach (avant le premier paiement) */
+A.fc27Ref=async()=>{const el=document.getElementById('fc27refAbo');const c=(el&&el.value||'').trim().toUpperCase();if(!c){flash('Entrez le code.');return}
+  try{const {data,error}=await R.sb.rpc('fc_set_referrer',{p_code:c});if(error)throw error;(me()||{}).refBy=c;flash('Code enregistré : '+data+' recevra un mois gratuit à votre premier paiement.');render()}
+  catch(e){flash(String(e.message||e).replace(/^Erreur : /,''))}};
+function refPanel(){const u=me();if(!u||u.refBy)return '';if((db.subs||[]).some(x=>x.userId===u.id))return '';
+  return `<section class="panel fc27refp" style="display:grid;gap:8px;margin:12px 0"><span class="eyebrow">Parrainage</span><p class="small">Quelqu'un vous a recommandé FidjiCoach? Entrez son code avant de payer : il recevra un mois gratuit.</p>
+   <div class="actions"><input id="fc27refAbo" class="input" style="max-width:14rem" maxlength="20" placeholder="Code de parrainage" autocomplete="off"><button class="btn btn-sm btn-plain" data-a="fc27Ref">Appliquer</button></div></section>`}
 
 /* ---------- 3. page de FidjiCoach pour un visiteur (avant le compte) ---------- */
 homeV=(old=>function(){try{if(R.direct&&!me()&&!platMode()){const P=(db.subPlans||[]).filter(p=>p&&p.actif!==false);
