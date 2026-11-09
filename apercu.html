@@ -25066,7 +25066,7 @@ A.fc27Find=()=>{try{localStorage.removeItem(CKEY)}catch(e){}busyOn('Un instant�
 A.fc27Signup=()=>{R.info='';st.view='auth';st.authMode='signup';st.authErr='';render();window.scrollTo(0,0)};
 const HIDE_SEL=['[data-a="bookNow"]','[data-a="hMsg"]','[data-a="v5go"][data-t="resa5"]','[data-a="v5go"][data-t="msg"]','[data-a="v5go"][data-x="rent"]','[data-a="v5go"][data-x="find"]',
   '[data-a="v5go"][data-p="video"]','[data-a="v5go"][data-p="docs"]','[data-a="hub"][data-k="reserver"]','[data-a="hub"][data-k="__rent"]','[data-a="hub"][data-k="__pub"]','[data-a="hub"][data-k="video"]',
-  '.findpanel','article.nextc','section.v5dur'];
+  '[data-a="v5go"][data-t="reserver"]','[data-a="ptab"][data-p="video"]','[data-a="hub"][data-k="__ctr"]','.findpanel','article.nextc','section.v5dur'];
 const annualIds=()=>(db.subPlans||[]).filter(p=>p&&p.per==='an').map(p=>p.id);
 const annualNames=()=>(db.subPlans||[]).filter(p=>p&&p.per==='an').map(p=>p.name);
 function c27dom(){const ap=document.getElementById('app')||document.body;
@@ -25094,7 +25094,7 @@ function c27dom(){const ap=document.getElementById('app')||document.body;
   /* abonnement actif annuel */
   const sub=(db.subs||[]).find(x=>x.userId===(me()||{}).id&&x.status==='actif'&&AN.includes(x.planId));
   if(sub)ap.querySelectorAll('.panel.fs').forEach(pn=>txt(pn,[[/par mois/g,'par année'],[/fin du mois payé/g,'fin de l\'année payée']]));
-  txt(ap,[[/Plans mensuels à distance/g,'Forfait tout-en-un']])}
+  txt(ap,[[/Plans mensuels à distance/g,'Forfait tout-en-un'],[/Préparés par votre entraîneur/g,'Préparés par FidjiCoach']])}
 function txt(root,R2){const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode())){let v=n.nodeValue,o=v;R2.forEach(([a,b])=>{v=v.replace(a,b)});if(v!==o)n.nodeValue=v}}
 
 /* ---------- 3. page de FidjiCoach pour un visiteur (avant le compte) ---------- */
