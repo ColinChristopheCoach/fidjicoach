@@ -15546,6 +15546,8 @@ function s5merge(c){const S=suOf(c);let n=0;roster(c).forEach(r=>{const gid=S.gh
 const RD0=rdEntries;
 rdEntries=(old=>function(c,r){if(r&&!r.uid){const gid=suOf(c).gh[r.id];if(gid){const L=F5.rdOf(gid);if(L.length||!r.demo)return L}}return old(c,r)})(rdEntries);
 rdState=(old=>function(c,r){if(r&&r.uid){const u=userById(r.uid);if(u&&u.rdShare===false)return {r,e:null,s:null,why:[],priv:1}}if(r&&!s5consent(c,r))return {r,e:null,s:null,why:[],lock:1};return old(c,r)})(rdState);
+/* c25 : même statut que l'athlète (moins de 5 tests = barème général, avant : « Feu vert » faute de moyenne) */
+rdState=(old=>function(c,r){const x=old(c,r);try{const F=window.FC5;if(x&&x.e&&r&&r.uid&&F&&F.rdStatus){const e=(db.rd||[]).find(v=>v&&v.userId===r.uid&&v.date===x.e.date);if(e){const S=F.rdStatus(e);if(S&&S.s){x.s=S.s;if(Array.isArray(S.why)&&S.why.length)x.why=S.why.filter(Boolean).map(w=>String(w).replace(/votre moyenne/g,'sa moyenne'))}}}}catch(err){}return x})(rdState);
 
 /* ---------- exemple : les membres de démonstration ont maintenant de vraies données (tests, plan du groupe, séances), ajoutées chaque jour ---------- */
 const S5TY={g1:'course',g2:'patin',g3:'classique'};
