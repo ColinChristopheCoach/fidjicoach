@@ -6474,6 +6474,10 @@ function trCentre(id){const k=id||st.trC;const L=trCentres();let c=L.find(x=>x.i
 const myActs=u=>(db.acts||[]).filter(a=>a.userId===u.id).sort((a,b)=>b.start-a.start);
 function weightOf(u){const p=parseFloat(String((u&&u.fiche&&u.fiche.poids)||'').replace(',','.'));if(!p)return 70;return /lb/i.test(String(u.fiche.poids))||p>140?p/2.2046:p}
 function hrMaxOf(u){const a=u&&u.fiche&&ageOf(u.fiche.naissance);return a&&a>8&&a<100?220-a:190}
+/* Corrections 26 : dénivelé du GPS du téléphone = altitude lissée sur 5 s, seuil de 1,5 m (le GPS seul dérive : 68 m mesurés pour 30 m à la montre) */
+function elevGL(P){const Q=P.filter(p=>p&&p[2]!=null);if(Q.length<2)return [0,0];let g=0,l=0,ref=null,j0=0,j1=0,sum=0;
+  for(let i=0;i<Q.length;i++){const t=Q[i][3];while(j1<Q.length&&Q[j1][3]<=t+5){sum+=Q[j1][2];j1++}while(Q[j0][3]<t-5){sum-=Q[j0][2];j0++}const z=sum/(j1-j0);
+    if(ref==null){ref=z;continue}const d=z-ref;if(d>1.5){g+=d;ref=z}else if(d<-1.5){l-=d;ref=z}}return [Math.round(g),Math.round(l)]}
 function actStats(a){const P=a.pts||[];let dist=0,mov=0,gain=0,loss=0,maxS=0,hs=0,hn=0,hm=0,ref=P.length?P[0][2]:0;const c={lat:P[0]?P[0][0]:0,lon:P[0]?P[0][1]:0};let prev=null;const spl=[];let nextK=1000,kT=0,kE=P.length?P[0][2]:0;
   const vmax=trVmax(a.type);let gapN=0,gapT=0,gapD=0;let w0=null;
   P.forEach((p,j)=>{const xy=toXY(c,p[0],p[1]);if(prev){const d=segLen(prev.xy,xy),dt=p[3]-prev.p[3];
@@ -6484,7 +6488,8 @@ function actStats(a){const P=a.pts||[];let dist=0,mov=0,gain=0,loss=0,maxS=0,hs=
     if(p[2]!=null){const dz=p[2]-ref;if(dz>2){gain+=dz;ref=p[2]}else if(dz<-2){loss-=dz;ref=p[2]}}if(p[4]){hs+=p[4];hn++;hm=Math.max(hm,p[4])}prev={xy,p}});
   if(P.length&&dist-(nextK-1000)>150)spl.push({km:dist/1000,t:P[P.length-1][3]-kT,e:(P[P.length-1][2]||0)-kE,part:true});
   if(mov-gapT>=30)maxS=Math.max(maxS,(dist-gapD)/(mov-gapT));if(mov>0)maxS=Math.max(maxS,dist/mov);
-  Object.assign(a,{dist:Math.round(dist),dur:Math.round(mov||((P[P.length-1]||[])[3]||0)),elapsed:(P[P.length-1]||[0,0,0,0])[3],gain:Math.round(gain),loss:Math.round(loss),maxSpd:r2(maxS),gaps:gapN?{n:gapN,t:Math.round(gapT),d:Math.round(gapD)}:null,sv:3,hrAvg:hn?Math.round(hs/hn):null,hrMax:hm||null,splits:spl});return a}
+  Object.assign(a,{dist:Math.round(dist),dur:Math.round(mov||((P[P.length-1]||[])[3]||0)),elapsed:(P[P.length-1]||[0,0,0,0])[3],gain:Math.round(gain),loss:Math.round(loss),maxSpd:r2(maxS),gaps:gapN?{n:gapN,t:Math.round(gapT),d:Math.round(gapD)}:null,sv:3,hrAvg:hn?Math.round(hs/hn):null,hrMax:hm||null,splits:spl});
+  if(a.src==='GPS du téléphone'){const g=elevGL(P);a.gain=g[0];a.loss=g[1];a.sv=4}return a}
 function kcalOf(a,u){const t=trType(a.type);return Math.round(t[2]*weightOf(u)*(a.dur||0)/3600)}
 /* génère une sortie simulée sur un sentier (démo, import de montre) */
 function simAct(c,ti,laps,type,start,hr,src,u){const net=trailNet(c);const t=net.trails[ti%net.trails.length];const T=trType(type);const base=T[3];let s=0,tm=0,h=105;const P=[];const R=rngOf(hashS(start+':'+ti));const total=t.open?Math.max(3000,Math.min(15000,t.len*laps*2)):t.len*laps;
@@ -6516,7 +6521,7 @@ document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!t.da
     if(a.title&&TRALL.some(x=>a.title.startsWith(x[1]+' ·')||a.title.startsWith(x[1]+' à '))){const old=TRALL.find(x=>a.title.startsWith(x[1]));if(old)a.title=trType(a.type)[1]+a.title.slice(old[1].length)}
     save();render();flash('Sport changé : '+trType(a.type)[1])}});
 /* anciennes sorties GPS du téléphone : recalculées une fois avec la nouvelle règle (trous de signal estimés au lieu d'être perdus) */
-function trRestat(){try{if(!db||!Array.isArray(db.acts))return;let ch=false;db.acts.forEach(a=>{if(a.sv===3||!a.pts||a.pts.length<2||a.sim||a.imp||a.nogps)return;if(a.src!=='GPS du téléphone'){a.sv=3;return}actStats(a);ch=true});if(ch)save()}catch(e){console.warn('trRestat',e)}}
+function trRestat(){try{if(!db||!Array.isArray(db.acts))return;let ch=false;db.acts.forEach(a=>{if(a.sv>=3||!a.pts||a.pts.length<2||a.sim||a.imp||a.nogps)return;if(a.src!=='GPS du téléphone'){a.sv=3;return}actStats(a);ch=true});if(ch)save()}catch(e){console.warn('trRestat',e)}}
 /* ---------- Positions partagées (démo : amis et clients en mouvement sur les sentiers) ---------- */
 function simPos(c,ti,s0,v){const net=trailNet(c);const t=net.trails[ti%net.trails.length];const s=s0+v*(Date.now()/1000%100000);const p=trailAt(t,s);const ll=toLL(c,p[0],p[1]);return {...ll,trail:t.n,ti:t.i}}
 function sharedWithMe(u){const c=trCentre();const fr=((db.friends||{})[u.id]||[]).filter(f=>f.sh).map((f,j)=>({id:'fr'+f.id,fid:f.id,name:f.n.split(' ')[0],full:f.n,color:FRC[j%FRC.length],...simPos(c,f.ti,f.s0,f.v)}));
@@ -6529,7 +6534,8 @@ function recNew(u){const c=trCentre();const ty=st.trType||TRTYPES()[0][0];return
 function recPush(R,lat,lon,ele,hr,acc){const now=Date.now();const c=trCentre(R.cid);const tsec=(now-R.t0)/1000;const p=[+lat.toFixed(6),+lon.toFixed(6),ele==null?null:Math.round(ele*10)/10,Math.round(tsec*10)/10,hr==null?null:Math.round(hr)];
   if(R.last){const a=toXY(c,R.last[0],R.last[1]),b=toXY(c,lat,lon);const d=segLen(a,b),dt=tsec-R.last[3];if(d<2&&dt<10){R.me={lat,lon,acc,hd:R.me&&R.me.hd};return}const vmax=trVmax(R.type);if(dt>0&&dt<20&&d/dt>vmax*1.4&&(acc||0)>30){R.me={lat,lon,acc,hd:R.me&&R.me.hd};return}
     R.dist+=d;if(dt>=20&&d>=50){R.gapN=(R.gapN||0)+1;R.gapT=(R.gapT||0)+dt;if(d/dt>0.4)R.mov+=dt;R.spd=0}else if(dt>0){R.spd=d/dt;if(d/dt>0.4)R.mov+=dt;if(dt>=1.5)R.maxSpd=Math.max(R.maxSpd,Math.min(vmax,d/dt))}if(d>1)R.hd=Math.atan2(b[0]-a[0],b[1]-a[1])*180/Math.PI}
-  if(ele!=null){if(R.ref==null)R.ref=ele;const dz=ele-R.ref;if(dz>2){R.gain+=dz;R.ref=ele}else if(dz<-2){R.loss-=dz;R.ref=ele}}
+  if(ele!=null){let z=ele;if(R.src!=='sim'){R.eb=(R.eb||[]).filter(q=>q[0]>=tsec-5);R.eb.push([tsec,ele]);z=R.eb.reduce((n,q)=>n+q[1],0)/R.eb.length}
+    const th=R.src!=='sim'?1.5:2;if(R.ref==null)R.ref=z;const dz=z-R.ref;if(dz>th){R.gain+=dz;R.ref=z}else if(dz<-th){R.loss-=dz;R.ref=z}}
   R.pts.push(p);R.last=p;R.me={lat,lon,acc,hd:R.hd};R.ele=ele;R.hr=hr}
 function recSimStep(R,dt){const c=trCentre(R.cid);const net=trailNet(c);const t=net.trails[R.ti%net.trails.length];const T=trType(R.type);const p=trailAt(t,R.simS);const e=net.ele(p[0],p[1]);const p2=trailAt(t,R.simS+15);const sl=(net.ele(p2[0],p2[1])-e)/15;
   const sp=Math.max(T[3]*.35,Math.min(T[3]*1.9,T[3]*(1-sl*7)*(0.94+Math.random()*.12)));R.simS+=sp*dt;const q=trailAt(t,R.simS);const ll=toLL(c,q[0]+(Math.random()-.5)*2.5,q[1]+(Math.random()-.5)*2.5);
@@ -6615,7 +6621,7 @@ function recV(u){const D=db.recDraft;if(!st.rec&&D&&D.userId===u.id&&D.pts&&D.pt
      <div class="small"><span class="pill ${R.src==='gps'?'ok':'warn'} srcpill ${R.src==='gps'?'gps':''}" id="trSrc"><i></i>${R.src==='gps'?'GPS du téléphone':'Simulation (le GPS est bloqué dans cet aperçu)'}</span> ${R.src==='sim'?`<button class="linkbtn" data-a="recFast">${R.fast>1?'Temps réel':'Accélérer × 10'}</button>`:''}</div>
      ${fr.length?`<div><h3 class="sech" style="margin:4px 0 6px">Autour de vous</h3><div class="trlist">${fr.map(f=>`<div class="frrow"><span><i class="frdot" style="background:${f.color}"></i><span><b>${esc(f.full)}</b><br><small class="muted">${esc(f.trail)}</small></span></span><button class="btn-xs" data-a="findFriend" data-f="${f.id}">Trouver</button></div>`).join('')}</div></div>`:''}`;
   return `<div id="trLive" class="trgrid"><div style="display:grid;gap:12px;min-width:0">${ready?'':tiles}${mapBox(svg2,'live',{cur:st.trStyle||'plan',follow:ready?null:R.follow})}${btns}${ready?mapNote(c):''}</div><div class="trside">${setup}</div></div>`}
-function recSummary(u,R,c){const a=actStats({pts:R.pts,type:R.type});return `<div class="panel" style="display:grid;gap:14px"><span class="eyebrow">Sortie terminée · ${esc(c.name)}</span>
+function recSummary(u,R,c){const a=actStats({pts:R.pts,type:R.type,src:R.src==='gps'?'GPS du téléphone':''});return `<div class="panel" style="display:grid;gap:14px"><span class="eyebrow">Sortie terminée · ${esc(c.name)}</span>
   <div class="mtiles"><div class="mtile"><span>Distance</span><b>${fmtKm(a.dist)}<small>km</small></b></div><div class="mtile"><span>Temps</span><b>${fmtT(a.dur)}</b></div><div class="mtile"><span>Dénivelé +</span><b>${a.gain}<small>m</small></b></div></div>
   ${mapBox(trailMapSVG(c,{key:'sum',style:st.trStyle||'plan',track:R.pts,fit:'track',labels:false,bare:R.src!=='sim',sig:'sum'+R.t0+(st.trStyle||'plan')}),'sum',{cur:st.trStyle||'plan'})}
   <label class="field"><span>Titre</span><input type="text" id="recTitle" placeholder="${esc(trType(R.type)[1]+' à '+c.name)}"></label>
@@ -12263,7 +12269,7 @@ function p3header(u){const c=curClub(u);const s=c&&staffOf(c,u);
    <nav>${spaceSwitch(u)}<span class="p3who"><span>${esc(u.role==='admin'?(ui().coach.name||'Colin'):name(u))}${s?' · '+esc(roleL(c,s.role)):''}</span></span><button class="hicon" data-a="${hasPriv(u)?'logout':'logout'}" aria-label="Se déconnecter" title="Se déconnecter">${ico('out')}</button></nav></div></header>`}
 function clubSpaceV(u){const c=curClub(u);if(!c)return '<main class="wrap app"><div class="empty">Aucun club.</div></main>';p3fix(c);st.clC=c.id;
   const k=curPage(c,u);st.p3p=k;let body='';
-  try{body=(VIEWS[k]||(()=>'<div class="empty">Page à venir.</div>'))(c,u)}catch(e){console.error(e);body='<div class="empty">Cette page n\'a pas pu s\'afficher : '+esc(e.message)+'</div>'}
+  try{const vf=()=>(VIEWS[k]||(()=>'<div class="empty">Page à venir.</div>'))(c,u);body=window.FC26club?window.FC26club(c,u,vf):vf();if(k==='a_comm'&&window.FC26theme)body=window.FC26theme()+body}catch(e){console.error(e);body='<div class="empty">Cette page n\'a pas pu s\'afficher : '+esc(e.message)+'</div>'}
   const s=staffOf(c,u);const title=PG[k].l;const ro=PG[k].perm&&can(c,u,PG[k].perm)==='r';
   return `<main class="wrap app v6 cl v5 p3"><div class="v5grid">${clubSide(c,u)}<section class="v5main"><div class="pagehead"><h2>${esc(title)}</h2><span class="p3role">${esc(c.name.replace(/\s*\(exemple\)/,''))}${s&&PG[k].who==='s'?' · '+esc(roleL(c,s.role)):''}${ro?' <span class="p3lock">Lecture seulement</span>':''}</span></div>${body}</section></div></main>`}
 const VIEWS={};
@@ -20456,7 +20462,7 @@ render();
 const PF=()=>legalCfg().plateforme;
 /* ---------- configuration (dans db.settings.plat) ---------- */
 window.fc7=function(){const P=platCfg2();
-  if(!P.clubs)P.clubs={tiers:[{id:'depart',n:'Club Départ',max:60,price:299},{id:'regional',n:'Club Régional',max:150,price:599},{id:'provincial',n:'Club Provincial',max:300,price:999},{id:'elite',n:'Club Élite',max:null,price:999,per:3}],
+  if(!P.clubs)P.clubs={tiers:[{id:'depart',n:'Club 50',max:50,price:299},{id:'regional',n:'Club 150',max:150,price:599},{id:'provincial',n:'Club 300',max:300,price:999},{id:'elite',n:'Club 300+',max:null,price:999,per:3}],
     feats:['Inscriptions, cotisations et paiements en ligne (carte, Interac)','Finances, budget, factures et reçus annuels','Équipement du club : inventaire, codes QR, prêts et retours','Calendrier de la saison, présences et remplacements','Communication : messages, annonces, sondages, courriels','Boutique du club, courses amicales, bénévolat et commanditaires','Suivi des athlètes et plans d\'entraînement par groupe','Page publique du club, séances d\'essai et journées découverte','Sauvegardes, passation entre CA et guides d\'utilisation','Soutien par courriel et mises à jour incluses']};
   if(!P.aplus)P.aplus={m:4.99,fam:[8.99,10.99,12.99,14.99],trial:14,feats:['Plan d\'entraînement adaptatif, ajusté chaque semaine','Test Ruffier (indice de Dickson, VFC, symptômes) et charge d\'entraînement','Sorties GPS, zones cardio et cartes des sentiers','Nutrition, étirements et récupération','Analyse vidéo de la technique','Partage de position avec l\'entraîneur et les amis']};
   /* le forfait Club mensuel des entraîneurs n'existe plus : les clubs ont leur licence par saison */
@@ -23947,7 +23953,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
 const FC_BUILD='2026-11-08-c24';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='8 nov. 2026 · Corrections 25 (tests Ruffier et VFC en ligne, Athlète Plus club seulement, Spotify : Titres aimés et recherche, avis du haut)';
+const FC_BUILD_LBL='9 nov. 2026 · Corrections 26 (tests Ruffier du club selon le consentement, mode clair chez le client, reçus avec PDF, dénivelé GPS, licences Club 50/150/300+)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -25029,6 +25035,10 @@ addEventListener('keydown',e=>{if(e.key!=='Escape'||e.defaultPrevented)return;
 CLIENT_TABS.push('fact10');
 /* PWA : fonctions internes dont l'app installable a besoin (notifications touchées, hors ligne) */
 window.fcPwaHooks={loadNotifs,nAny,syncAll,errTxt};
+/* Corrections 26 : le logo des factures (celui de Ma marque ou le logo intégré) est publié en petit format pour les reçus PDF du serveur */
+pubData=(old=>function(){const d=old();try{if(R.role==='admin'&&window.FC26invLogo)d.invLogo=window.FC26invLogo}catch(e){}return d})(pubData);
+window.FC26logoSrc=()=>{try{const S=show9()||{};return S.logo||brand('color')}catch(e){return ''}};
+window.FC26pubSync=()=>{try{R.snap.pub=null;queueSync()}catch(e){}};
 R.bootP=bootReal();R.bootP.then(stripeReturn).catch(e=>console.error(e));
 })();
 </script>
@@ -26822,6 +26832,8 @@ function applyRows(rows,privateIds,tag){const users=new Set();const add=[];
   rows.forEach(r=>{const x=(db.users||[]).find(v=>v&&(v.sid===r.user||v.id===r.user));if(!x||x.id===(me()||{}).id)return;users.add(x.id);
     add.push({col:r.kind==='hv'?'hrv5':'rd',e:Object.assign({},r.data,{id:r.id,userId:x.id,date:r.date,_on:1})})});
   const prev=HT.src[tag]||[];prev.forEach(i=>users.add(i));HT.src[tag]=Array.from(users);
+  /* Corrections 26 : on garde la trace des tests reçus par le club (consentement vérifié par le serveur) */
+  if(/^club:/.test(tag)){const K=new Set();add.forEach(({col,e})=>K.add(col+'|'+e.id+'|'+e.userId));(window.FC26_CLUBRD=window.FC26_CLUBRD||{})[tag]=K}
   ['rd','hrv5'].forEach(col=>{db[col]=(db[col]||[]).filter(e=>!(e&&e._on&&users.has(e.userId)))});
   add.forEach(({col,e})=>{const L=db[col]=db[col]||[];if(L.some(x=>x&&String(x.id)===String(e.id)&&x.userId===e.userId))return;
     /* une saisie faite ici pour cet athlète le même jour s'efface devant la version de l'athlète */
@@ -26911,5 +26923,53 @@ render=(old=>function(){const r=old.apply(this,arguments);
   catch(e){}return r})(render);
 })();
 
+</script>
+<script>
+/* ================= Corrections 26 (9 nov. 2026) =================
+   1. Club › En direct et tests Ruffier (et fiches d'athlètes du club) : seulement les tests reçus du serveur pour ce club
+      (rd_club : partage + consentement Athlète Plus). Les tests reçus comme entraîneur privé (rd_coach) ne débordent plus au club.
+   2. Mode clair / sombre dans les Réglages du client et dans Préférences de communication de l'athlète du club.
+   3. Dénivelé du GPS du téléphone : altitude lissée (voir elevGL); anciennes sorties du téléphone recalculées une fois. */
+(function(){
+const R=window.fcReal||{};
+/* ---------- 1. tests Ruffier du club ---------- */
+function clubKeys(c){const M=window.FC26_CLUBRD||{};return M['club:'+(c&&c.id)]||null}
+window.FC26club=function(c,u,old){
+  if(!R.on||!c||!u)return old();
+  const K=clubKeys(c)||new Set();const mid=u.id;
+  const keep=col=>e=>!e||e.userId===mid||e.demo||K.has(col+'|'+e.id+'|'+e.userId);
+  const r0=db.rd,h0=db.hrv5;SW={r:r0,h:h0};
+  try{db.rd=(r0||[]).filter(keep('rd'));db.hrv5=(h0||[]).filter(keep('hrv5'));return old()}
+  finally{SW=null;db.rd=r0;db.hrv5=h0}};
+/* un enregistrement pendant l'affichage du club garde toujours les listes complètes */
+let SW=null;
+save=(old=>function(){if(!SW)return old.apply(this,arguments);const a=db.rd,b=db.hrv5;db.rd=SW.r;db.hrv5=SW.h;try{return old.apply(this,arguments)}finally{db.rd=a;db.hrv5=b}})(save);
+/* ---------- 2. mode clair / sombre ---------- */
+function themeBlk(){const t=(ui().theme)||'auto';
+  return `<div class="panel fc26theme"><span class="eyebrow">Affichage</span><h3>Mode clair ou sombre</h3><div class="themepick" style="margin-top:6px"><div class="seg mini">${[['auto','Suivre l\'appareil','Clair le jour, sombre si l\'appareil est en mode sombre'],['light','Toujours clair','Ignore le mode sombre de l\'appareil'],['dark','Toujours sombre','Même si l\'appareil est en mode clair']].map(([v,l,s])=>`<button class="${t===v?'on':''}" data-a="themeSet" data-v="${v}">${l}<small>${s}</small></button>`).join('')}</div></div><p class="muted small" style="margin-top:6px">Ce choix vaut pour cet appareil.</p></div>`}
+if(typeof clientSetV==='function')clientSetV=(old=>function(u){const h=old(u);try{const k=h.indexOf('<div class="panel fcpwaP"');if(k>=0){const e=h.indexOf('</div></div>',h.indexOf('<div style="margin-top:8px">',k));if(e>0)return h.slice(0,e+12)+themeBlk()+h.slice(e+12)}return themeBlk()+h}catch(x){return h}})(clientSetV);
+window.FC26theme=themeBlk;
+/* ---------- 5. logo des factures pour les reçus PDF du serveur ---------- */
+let lgBusy=false,lgDone='';
+async function invLogo26(){try{if(lgBusy||!R.on||R.role!=='admin'||typeof window.FC26logoSrc!=='function')return;const src=window.FC26logoSrc();if(!src||src===lgDone)return;lgBusy=true;
+  const im=await new Promise((res,rej)=>{const i=new Image();i.crossOrigin='anonymous';i.onload=()=>res(i);i.onerror=rej;i.src=src});
+  const k=Math.min(1,360/Math.max(im.naturalWidth||1,im.naturalHeight||1));const cv=document.createElement('canvas');cv.width=Math.max(1,Math.round((im.naturalWidth||1)*k));cv.height=Math.max(1,Math.round((im.naturalHeight||1)*k));
+  const g=cv.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,cv.width,cv.height);g.drawImage(im,0,0,cv.width,cv.height);
+  const d=cv.toDataURL('image/jpeg',.88);lgDone=src;if(d&&d!==window.FC26invLogo){window.FC26invLogo=d;if(typeof window.FC26pubSync==='function')window.FC26pubSync()}}
+  catch(e){console.warn('Logo des factures',e)}finally{lgBusy=false}}
+/* ---------- 4. licences des clubs nommées selon la taille : Club 50, Club 150, Club 300, Club 300+ ---------- */
+function lic26(){try{if(typeof window.fc7!=='function')return;const P=window.fc7();const T=P&&P.clubs&&P.clubs.tiers;if(!T)return;
+  const NM={depart:['Club Départ','Club 50'],regional:['Club Régional','Club 150'],provincial:['Club Provincial','Club 300'],elite:['Club Élite','Club 300+']};let ch=false;
+  T.forEach(t=>{const m=NM[t.id];if(m&&t.n===m[0]){t.n=m[1];ch=true}if(t.id==='depart'&&t.n==='Club 50'&&+t.max===60){t.max=50;ch=true}});
+  if(!ch)return;save();
+  /* le serveur (prix exigé au paiement) est mis à jour seulement depuis la page principale, pas depuis l'aperçu */
+  if(R.on&&R.role==='admin'&&R.sb&&!/apercu/.test(location.pathname)){const L=T.map(x=>({id:x.id,n:x.n,max:x.max==null?null:Number(x.max),price:Number(x.price)||0,per:Number(x.per)||0}));
+    R.sb.rpc('admin_club_tiers',{p_tiers:L}).then(({error})=>{if(error)console.warn('Licences des clubs',error.message)})}}catch(e){console.warn('lic26',e)}}
+/* ---------- 3. dénivelé des anciennes sorties du téléphone (une seule fois) ---------- */
+function elevFix(){try{const u=me();if(!u||!Array.isArray(db.acts)||typeof elevGL!=='function')return;let ch=0;
+  db.acts.forEach(a=>{if(!a||a.userId!==u.id||a.sv!==3||a.src!=='GPS du téléphone'||!a.pts||a.pts.length<2)return;const g=elevGL(a.pts);a.gain=g[0];a.loss=g[1];a.sv=4;ch++});
+  if(ch){save();console.info('Corrections 26 : dénivelé recalculé pour '+ch+' sortie(s)')}}catch(e){console.warn('elevFix',e)}}
+if(typeof render==='function')render=(old=>function(){const r=old.apply(this,arguments);if(me()&&Date.now()-(window.__fc26e||0)>10000){window.__fc26e=Date.now();setTimeout(()=>{elevFix();lic26();invLogo26()},800)}return r})(render);
+})();
 </script>
 </body></html>
