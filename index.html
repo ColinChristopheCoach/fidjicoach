@@ -10913,7 +10913,7 @@ const EXP=[
  ['Polar','Polar Flow','#d10a11',['<b>Sur ordinateur</b> : flow.polar.com › <b>Journal</b> › ouvrez la séance.','Menu ⋯ (ou l\'engrenage) › <b>Exporter la séance</b> › <b>TCX</b> ou <b>GPX</b>.','Le TCX garde la fréquence cardiaque; le GPX garde le trajet et la fréquence cardiaque.']],
  ['Suunto','Suunto','#1d1d1b',['Application Suunto › ouvrez l\'activité › menu <b>⋯</b> (en haut à droite) › <b>Exporter</b> (.fit ou .gpx selon la version).','Enregistrez dans Fichiers (iPhone) ou Téléchargements (Android), puis importez-le ici.','Si l\'option n\'apparaît pas : synchronisez Suunto avec Strava et exportez de Strava.']],
  ['Strava','Strava','#fc4c02',['<b>Sur ordinateur</b> (strava.com) : ouvrez la sortie › menu <b>⋯</b> à gauche › <b>Exporter l\'original</b> (le fichier de la montre) ou <b>Exporter GPX</b>.','L\'application Strava du cellulaire ne permet pas d\'exporter : ouvrez strava.com dans le navigateur du cellulaire en « version ordinateur ».','Plusieurs sorties d\'un coup : Paramètres › Mon compte › Télécharger ou supprimer votre compte › <b>Demander votre archive</b>; importez ensuite les fichiers du dossier activities (.fit.gz, .gpx acceptés).']],
- ['Apple','Apple Watch','#111111',['Apple Santé n\'exporte pas une sortie seule. Le plus simple : l\'application gratuite <b>HealthFit</b> ou <b>RunGap</b> exporte vos entraînements Apple Watch en <b>.fit</b> ou <b>.gpx</b> (vers Fichiers).','Ou synchronisez Apple Santé avec Strava, puis exportez de Strava (voir l\'onglet Strava).']]];
+ ['Apple','Apple Watch','#111111',['Apple Santé n\'exporte pas une sortie seule. Le plus simple : l\'application <b>HealthFit</b> (App Store, quelques dollars) ou <b>RunGap</b> exporte vos entraînements Apple Watch en <b>.fit</b> ou <b>.gpx</b> (vers Fichiers).','Ou synchronisez Apple Santé avec Strava, puis exportez de Strava (voir l\'onglet Strava).']]];
 function expGuide(k){const g=EXP.find(x=>x[0]===k)||EXP[0];return `<div class="fc16g"><ol>${g[3].map(s=>`<li>${s}</li>`).join('')}</ol></div>`}
 MOD3.fcImp=function(u){const m=st.modal||{};const tab=m.tab||'Garmin';const T=TRTYPES();const res=st.fcImpRes||[];const cl=u.role==='client';
   return [`<span class="eyebrow">Fichier de montre</span><h3>Importer une sortie</h3>
@@ -10957,9 +10957,9 @@ actV=(old=>function(u,id,coach){const a=(db.acts||[]).find(x=>x.id===id);if(!a||
     <div class="actions">${mine&&u.role==='client'?`<button class="btn btn-sm btn-plain" data-a="actShare" data-i="${a.id}">${a.shared?'✓ Partagée avec l\'entraîneur':'Partager avec l\'entraîneur'}</button>`:''}${mine?`<button class="btn btn-sm btn-plain" data-a="actDel" data-i="${a.id}">${st.actDel===a.id?'Confirmer la suppression':'Supprimer'}</button>`:''}</div></div></div>`})(actV);
 
 /* ---------- 2. Musique : Spotify réel (testeurs) et « Ouvrir dans… » pour tous ---------- */
-const SP={cid:'5a1cadb5a4b341c8bf9df0eef20db0a9',scope:'user-read-private user-read-email playlist-read-private playlist-read-collaborative user-read-playback-state user-modify-playback-state user-read-currently-playing streaming',
+const SP={cid:'5a1cadb5a4b341c8bf9df0eef20db0a9',scope:'user-read-private user-read-email user-library-read playlist-read-private playlist-read-collaborative user-read-playback-state user-modify-playback-state user-read-currently-playing streaming',
   ok:null,okUid:null,tok:null,prof:null,lists:null,devs:null,now:null,load:false,err:null,player:null,webDev:null,poll:null,testers:null};
-window.fcSpotify=SP;
+window.fcSpotify=SP;window.fcSpFns=()=>({api:spApi,play:spPlay,connect:spConnect,err:spErr,on:spOn,uri:spUri});
 const SPK='fc-sp-tok',SPP='fc-sp-pkce';
 const spRedirect=()=>location.hostname==='fidjicoach.ca'?'https://fidjicoach.ca/':location.origin+location.pathname;
 const b64u=b=>btoa(String.fromCharCode(...b)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
@@ -10967,7 +10967,7 @@ function spTok(){if(SP.tok)return SP.tok;try{const t=JSON.parse(localStorage.get
 const spOn=()=>!!(SP.ok&&spTok());
 async function spToken(params){const r=await fetch('https://accounts.spotify.com/api/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(Object.assign({client_id:SP.cid},params))});
   const j=await r.json().catch(()=>({}));if(!r.ok){if(j.error==='invalid_grant'&&params.grant_type==='refresh_token')spForget();throw new Error(j.error_description||j.error||'Spotify : connexion refusée')}
-  const t={a:j.access_token,r:j.refresh_token||(SP.tok&&SP.tok.r),exp:Date.now()+((j.expires_in||3600)-60)*1000,uid:FR().uid||(SP.tok&&SP.tok.uid)||null};SP.tok=t;try{localStorage.setItem(SPK,JSON.stringify(t))}catch(e){}return t}
+  const t={a:j.access_token,r:j.refresh_token||(SP.tok&&SP.tok.r),exp:Date.now()+((j.expires_in||3600)-60)*1000,uid:FR().uid||(SP.tok&&SP.tok.uid)||null,sc:j.scope||(SP.tok&&SP.tok.sc)||''};SP.tok=t;try{localStorage.setItem(SPK,JSON.stringify(t))}catch(e){}return t}
 function spForget(){SP.tok=null;SP.prof=SP.lists=SP.devs=SP.now=null;try{localStorage.removeItem(SPK)}catch(e){}try{if(SP.player)SP.player.disconnect()}catch(e){}SP.player=null;SP.webDev=null}
 async function spFresh(){let t=spTok();if(!t)throw new Error('Spotify n\'est pas connecté');if(Date.now()>t.exp)t=await spToken({grant_type:'refresh_token',refresh_token:t.r});return t}
 async function spApi(path,opt){opt=opt||{};const t=await spFresh();const r=await fetch('https://api.spotify.com/v1'+path,{method:opt.method||'GET',headers:Object.assign({Authorization:'Bearer '+t.a},opt.body?{'Content-Type':'application/json'}:{}),body:opt.body?JSON.stringify(opt.body):undefined});
@@ -11027,7 +11027,7 @@ musicV=function(u){const S=musOf(u);const L=coachLists(u);const R=FR();if(R.on&&
      ${SP.err?`<div class="info" style="margin-top:10px">${esc(SP.err)}</div>`:''}
      ${on?`<section class="panel" style="margin-top:14px;display:grid;gap:8px"><span class="eyebrow">Lecture sur</span><div class="actions" style="align-items:center"><select data-sp="dev" style="max-width:320px">${D.length?D.map(x=>`<option value="${esc(x.id)}" ${x.id===tgt?'selected':''}>${esc(x.name)}${x.is_active?' · actif':''}</option>`).join(''):'<option value="">Aucun appareil : ouvrez Spotify</option>'}</select><button class="btn btn-sm btn-plain" data-a="spDevs">Actualiser</button><button class="btn btn-sm btn-plain" data-a="spWeb">Jouer dans ce navigateur</button><button class="btn btn-sm btn-plain" data-a="mpTry">Afficher le lecteur</button></div>
        <p class="small muted">Sur cellulaire, ouvrez l'application Spotify une première fois : elle apparaît dans la liste et FidjiCoach la contrôle pendant l'entraînement.</p></section>
-     <h3 class="sech">Mes listes Spotify</h3>${SP.load?'<p class="muted small">Chargement…</p>':myL?`<div class="sp16g">${myL}</div>`:'<p class="muted small">Aucune liste.</p>'}`:''}
+     ${window.fcSpLib?window.fcSpLib(S):''}<h3 class="sech">Mes listes Spotify</h3>${SP.load?'<p class="muted small">Chargement…</p>':myL?`<div class="sp16g">${myL}</div>`:'<p class="muted small">Aucune liste.</p>'}`:''}
      ${L.length?`<h3 class="sech">Listes recommandées par votre entraîneur</h3><div class="sp16g">${L.map(r=>{const uri=spUri(r.url);return `<div class="sp16"><span class="sp16i">${musIco(musById(musGuess(r.url)||'spotify'))}</span><span class="sp16t"><b>${esc(r.t)}</b><small>${esc(r.d||'')}</small></span>${on&&uri?`<button class="btn-xs" data-a="spPlay" data-u="${esc(uri)}">▶</button><button class="btn-xs ${S.spPl===uri?'on':''}" data-a="spPick" data-u="${esc(uri)}" data-n="${esc(r.t)}">${S.spPl===uri?'✓ Entraînement':'Pour l\'entraînement'}</button>`:openLinks(r)}</div>`}).join('')}</div>`:''}
      ${on?prefsBox(S):''}${spTesterAdmin(u)}
      <p class="small muted" style="margin-top:12px">Apple Music, YouTube Music et les autres : les listes s'ouvrent dans leur application (bouton « Ouvrir dans… »).</p>`}
@@ -11043,7 +11043,7 @@ musicV=function(u){const S=musOf(u);const L=coachLists(u);const R=FR();if(R.on&&
 document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||t.dataset.sp!=='dev')return;const S=musOf(me());S.spDev=t.value;save();if(t.value)spApi('/me/player',{method:'PUT',body:{device_ids:[t.value],play:false}}).then(()=>setTimeout(spNow,600)).catch(e=>flash(spErr(e)))});
 Object.assign(A,{spGo(){spConnect()},spOff(){spForget();render();flash('Spotify déconnecté de FidjiCoach')},spDevs(){spDevs()},spWeb(){spWeb()},
   spPlay(d){spPlay(d.u)},spPick(d){const S=musOf(me());S.spPl=d.u;S.spPlN=d.n;save();render();flash('Liste choisie pour l\'entraînement')},
-  async spTestersSave(){const v=((document.getElementById('spTesters')||{}).value||'').split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean);try{const {data,error}=await FR().sb.rpc('admin_spotify_testers',{p_emails:v});if(error)throw error;SP.testers=data||[];render();flash('Testeurs Spotify enregistrés · ajoutez-les aussi dans User Management chez Spotify')}catch(e){flash(e.message||String(e))}},
+  async spTestersSave(){const v=((document.getElementById('spTesters')||{}).value||'').split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean);try{const {data,error}=await FR().sb.rpc('admin_spotify_testers',{p_emails:v});if(error)throw error;SP.testers=data||[];render();flash(v.length?'Testeurs Spotify enregistrés · ajoutez-les aussi dans User Management chez Spotify':'Aucun testeur Spotify : la liste est vide')}catch(e){flash(e.message||String(e))}},
   musOn(d){const S=musOf(me());S.svc=d.k;S.on=true;S.at=today();save();render();flash(musById(d.k)[1]+' choisi')},
   mpPlay(){if(spOn())spCmd('play');},mpNext(){if(spOn())spCmd('next')},mpPrev(){if(spOn())spCmd('prev')},
   mpUse(d){const u=me();const S=musOf(u);const r=resL().find(x=>x.id===d.r);S.pl=d.r;const uri=r&&spUri(r.url);if(spOn()&&uri){S.spPl=uri;S.spPlN=r.t;save();spPlay(uri);st.mpShow=true;st.mpHide=false;render();return}
@@ -15546,6 +15546,8 @@ function s5merge(c){const S=suOf(c);let n=0;roster(c).forEach(r=>{const gid=S.gh
 const RD0=rdEntries;
 rdEntries=(old=>function(c,r){if(r&&!r.uid){const gid=suOf(c).gh[r.id];if(gid){const L=F5.rdOf(gid);if(L.length||!r.demo)return L}}return old(c,r)})(rdEntries);
 rdState=(old=>function(c,r){if(r&&r.uid){const u=userById(r.uid);if(u&&u.rdShare===false)return {r,e:null,s:null,why:[],priv:1}}if(r&&!s5consent(c,r))return {r,e:null,s:null,why:[],lock:1};return old(c,r)})(rdState);
+/* c25 : même statut que l'athlète (moins de 5 tests = barème général, avant : « Feu vert » faute de moyenne) */
+rdState=(old=>function(c,r){const x=old(c,r);try{const F=window.FC5;if(x&&x.e&&r&&r.uid&&F&&F.rdStatus){const e=(db.rd||[]).find(v=>v&&v.userId===r.uid&&v.date===x.e.date);if(e){const S=F.rdStatus(e);if(S&&S.s){x.s=S.s;if(Array.isArray(S.why)&&S.why.length)x.why=S.why.filter(Boolean).map(w=>String(w).replace(/votre moyenne/g,'sa moyenne'))}}}}catch(err){}return x})(rdState);
 
 /* ---------- exemple : les membres de démonstration ont maintenant de vraies données (tests, plan du groupe, séances), ajoutées chaque jour ---------- */
 const S5TY={g1:'course',g2:'patin',g3:'classique'};
@@ -22001,7 +22003,7 @@ if(typeof A.stAssign==='function')A.stAssign=(old=>function(d){const u=userById(
     const nm=x?x.n:(bt&&bt.closest('label,tr,article,div')?((bt.closest('label,tr,article,div').querySelector('b,strong,h3')||{}).textContent||''):'');notifyContent(u.id,'etirements',String(nm).trim())}}catch(e){}return r})(A.stAssign);
 /* le client voit la musculation et les étirements que son entraîneur lui a préparés (sans forfait en ligne pour l'instant) */
 {const prev=window.clubInc;window.clubInc=function(uid,k){if(prev&&prev(uid,k))return true;
-  try{if(!R.on||!['muscu','stretch'].includes(k))return false;
+  try{if(!R.on||!['muscu','stretch'].includes(k))return false;if(window.FC25_NO_BRIDGE)return false;
     if(k==='muscu')return (db.programs||[]).some(p=>p.userId===uid&&!p.self&&(p.sent||R.role==='client'));
     const u=userById(uid);return (db.stRoutines||[]).some(r=>r.userId===uid||(r.by!=='client'&&!r.userId&&(r.for||[]).includes(uid)))||!!(u&&(u.stAssign||[]).length)}catch(e){}return false}}
 
@@ -23945,7 +23947,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
 const FC_BUILD='2026-11-08-c24';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='8 nov. 2026 · Corrections 24 (location : carte seulement, location non payée à payer ou annuler, textes clairs, Échap)';
+const FC_BUILD_LBL='8 nov. 2026 · Corrections 25 (tests Ruffier et VFC en ligne, Athlète Plus club seulement, Spotify : Titres aimés et recherche, avis du haut)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -26746,5 +26748,168 @@ header=(old=>function(u){let h=old.apply(this,arguments);try{if(u&&me())h=h.repl
 document.head.insertAdjacentHTML('beforeend','<style>body.fc21in header.top .navlinks [data-v="apropos"],body.fc21in header.top .navlinks [data-v="centres"],body.fc21in header.top .navlinks [data-v="meteo"]{display:none!important}</style>');
 render=(old=>function(){const r=old.apply(this,arguments);try{document.body.classList.toggle('fc21in',!!me())}catch(e){}return r})(render);
 })();
+</script>
+<script>
+/* ================= Corrections 25 (8 nov. 2026) =================
+   1. Tests Ruffier et mesures VFC enregistrés en ligne par athlète (table health_tests, fonctions rd_put, rd_del, rd_mine,
+      rd_coach, rd_club) : l'athlète les retrouve sur tous ses appareils; l'entraîneur privé les voit dans « Forme des athlètes »
+      (ses clients liés); l'équipe du club les voit dans « En direct et tests Ruffier » seulement si l'athlète partage ses
+      résultats ET a donné son consentement Athlète Plus (vérifié par le serveur).
+   2. Athlète Plus (club) ne débloque rien dans l'espace Entraîneur privé : le « pont » de l'étape 7 (musculation et étirements
+      visibles dès que l'entraîneur a préparé un programme, sans forfait) est retiré; seul un forfait qui les inclut débloque.
+   3. Spotify : « Titres aimés » (bibliothèque) et recherche (titres, artistes, albums, listes), avec ▶ et « Pour l'entraînement ».
+   4. Avis du haut : disparaissent d'eux-mêmes après 12 s et au changement de page (ils restent dans la cloche).
+   (5. notify-client v11 : l'avis d'une location seule ne répète plus « Location d'équipement ». 6. Testeurs Spotify vides.) */
+(function(){
+const R=window.fcReal||{};
+window.FC25_NO_BRIDGE=true;
+const missing25=e=>/does not exist|schema cache|Could not find|not found|404/i.test(String(e&&e.message||e||''));
+const errTxt25=e=>String(e&&e.message||e||'').replace(/^Erreur : /,'');
+
+/* ---------- 1. tests Ruffier et VFC en ligne ---------- */
+const HT={meta:null,uid:null,booted:null,busy:false,off:false,t:null,warned:false,src:{},loadAt:0,clubAt:0,coachAt:0};
+const HK=()=>'fc-ht-'+R.uid;
+function htMeta(){if(HT.meta&&HT.uid===R.uid)return HT.meta;HT.uid=R.uid;try{HT.meta=JSON.parse(localStorage.getItem(HK())||'null')}catch(e){HT.meta=null}if(!HT.meta||!HT.meta.items)HT.meta={items:{}};return HT.meta}
+const htSave=()=>{try{localStorage.setItem(HK(),JSON.stringify(HT.meta))}catch(e){}};
+const fnv25=s=>{let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0}return h.toString(16)};
+const H=x=>fnv25(JSON.stringify(x));
+const typ=()=>{try{return typing()}catch(e){return false}};
+const mine=()=>{const u=me();if(!u||!R.on||!R.uid||!R.sb)return null;return u};
+const wire=e=>{const o=Object.assign({},e);delete o._on;delete o.userId;return o};
+function htScope(){const u=mine();if(!u)return [];const id=u.id;const out=[];
+  (db.rd||[]).forEach(e=>{if(e&&e.userId===id&&!e.demo&&!e._on&&e.id!=null&&e.date)out.push({kind:'rd',id:String(e.id),date:e.date,obj:e})});
+  (db.hrv5||[]).forEach(e=>{if(e&&e.userId===id&&!e._on&&e.id!=null&&e.date)out.push({kind:'hv',id:String(e.id),date:e.date,obj:e})});
+  return out}
+async function htPush(){const u=mine();if(!u||HT.off||HT.busy)return;const M=htMeta();if(!M.loaded)return;HT.busy=true;
+  try{const cur=htScope();const seen=new Set();const put=[];
+    cur.forEach(x=>{const k=x.kind+'|'+x.id;seen.add(k);const h=H(wire(x.obj));if(M.items[k]===h)return;put.push({kind:x.kind,id:x.id,date:x.date,data:wire(x.obj),h})});
+    const del=Object.keys(M.items).filter(k=>!seen.has(k)).map(k=>{const i=k.indexOf('|');return {kind:k.slice(0,i),id:k.slice(i+1)}});
+    const share=u.rdShare===false?false:true;let shareTodo=M.share!==share;
+    for(let i=0;i<put.length;i+=40){const part=put.slice(i,i+40);
+      const {error}=await R.sb.rpc('rd_put',{p_items:part.map(x=>({kind:x.kind,id:x.id,date:x.date,data:x.data})),p_share:shareTodo?share:null});if(error)throw error;
+      part.forEach(x=>{M.items[x.kind+'|'+x.id]=x.h});if(shareTodo){M.share=share;shareTodo=false}}
+    if(shareTodo){const {error}=await R.sb.rpc('rd_put',{p_items:[],p_share:share});if(error)throw error;M.share=share;shareTodo=false;htSave()}
+    if(del.length){const {error}=await R.sb.rpc('rd_del',{p_items:del});if(error)throw error;del.forEach(d=>delete M.items[d.kind+'|'+d.id])}
+    if(put.length||del.length)htSave()}
+  catch(e){console.warn('Tests Ruffier en ligne',e);if(missing25(e)){HT.off=true;if(!HT.warned){HT.warned=true;console.warn('Tests Ruffier : exécutez le script SQL Corrections 25.')}}
+    else if(!HT.warned){HT.warned=true;flash('Tests Ruffier : enregistrement en ligne impossible : '+errTxt25(e))}}
+  finally{HT.busy=false}}
+let tPush=null;const queueHT=()=>{if(!mine()||HT.off)return;clearTimeout(tPush);tPush=setTimeout(htPush,900)};
+async function htLoadMine(){const u=mine();if(!u||HT.off)return;const M=htMeta();
+  const {data,error}=await R.sb.rpc('rd_mine');
+  if(error){console.warn('rd_mine',error.message);if(missing25(error))HT.off=true;return}
+  while(HT.busy)await new Promise(r=>setTimeout(r,100));
+  const id=u.id;const rows=(data&&data.items)||[];const local=htScope();
+  /* on garde ce qui n'a jamais été envoyé, ou qui a changé ici depuis le dernier envoi */
+  const keep=new Set(local.filter(x=>{const k=x.kind+'|'+x.id;const m=M.items[k];return !m||m!==H(wire(x.obj))}).map(x=>x.kind+'|'+x.id));
+  const N={};const add={rd:[],hv:[]};
+  rows.forEach(r=>{if(!add[r.kind])return;const k=r.kind+'|'+r.id;N[k]=H(r.data);if(keep.has(k))return;add[r.kind].push(Object.assign({},r.data,{id:r.id,userId:id,date:r.date}))});
+  db.rd=(db.rd||[]).filter(e=>!(e&&e.userId===id&&!e.demo&&!e._on&&!keep.has('rd|'+e.id))).concat(add.rd);
+  db.hrv5=(db.hrv5||[]).filter(e=>!(e&&e.userId===id&&!e._on&&!keep.has('hv|'+e.id))).concat(add.hv);
+  /* un seul test Ruffier par jour : on garde le plus récent, les autres sont retirés (ici et en ligne) */
+  const byDate={};const dup=[];
+  (db.rd||[]).filter(e=>e&&e.userId===id&&!e.demo&&!e._on).sort((a,b)=>String(a.at||'').localeCompare(String(b.at||''))).forEach(e=>{if(byDate[e.date])dup.push(byDate[e.date]);byDate[e.date]=e});
+  if(dup.length){const ids=new Set(dup.map(e=>e.id));db.rd=db.rd.filter(e=>!ids.has(e.id));dup.forEach(e=>{delete N['rd|'+e.id];keep.delete('rd|'+e.id)});
+    try{await R.sb.rpc('rd_del',{p_items:dup.map(e=>({kind:'rd',id:String(e.id)}))})}catch(e){}}
+  keep.forEach(k=>{if(M.items[k])N[k]=M.items[k]});
+  M.items=N;
+  /* partage avec les entraîneurs du club : préférence commune à tous les appareils */
+  const srv=data?data.share:null;const loc=u.rdShare===false?false:true;
+  if(srv!=null){if(!(M.share!==undefined&&M.share!==loc))u.rdShare=srv;M.share=srv}
+  M.loaded=true;HT.loadAt=Date.now();htSave();save();setTimeout(htPush,150);render()}
+/* tests des autres (clients de l'entraîneur, membres du club) : entrées « en ligne » (_on) remplacées à chaque lecture */
+function applyRows(rows,privateIds,tag){const users=new Set();const add=[];
+  rows.forEach(r=>{const x=(db.users||[]).find(v=>v&&(v.sid===r.user||v.id===r.user));if(!x||x.id===(me()||{}).id)return;users.add(x.id);
+    add.push({col:r.kind==='hv'?'hrv5':'rd',e:Object.assign({},r.data,{id:r.id,userId:x.id,date:r.date,_on:1})})});
+  const prev=HT.src[tag]||[];prev.forEach(i=>users.add(i));HT.src[tag]=Array.from(users);
+  ['rd','hrv5'].forEach(col=>{db[col]=(db[col]||[]).filter(e=>!(e&&e._on&&users.has(e.userId)))});
+  add.forEach(({col,e})=>{const L=db[col]=db[col]||[];if(L.some(x=>x&&String(x.id)===String(e.id)&&x.userId===e.userId))return;
+    /* une saisie faite ici pour cet athlète le même jour s'efface devant la version de l'athlète */
+    db[col]=L.filter(x=>!(x&&!x._on&&x.userId===e.userId&&x.date===e.date&&!x.demo));db[col].push(e)});
+  (privateIds||[]).forEach(uid=>{const x=(db.users||[]).find(v=>v&&(v.sid===uid||v.id===uid));if(x&&x.id!==(me()||{}).id){x.rdShare=false;x._rdPriv=1}});
+  (db.users||[]).forEach(x=>{if(x&&x._rdPriv&&users.has(x.id)&&!(privateIds||[]).some(uid=>uid===x.sid||uid===x.id)){delete x._rdPriv;delete x.rdShare}})}
+async function htLoadCoach(){if(!mine()||R.role!=='admin'||!R.coachId||HT.off)return;
+  try{const {data,error}=await R.sb.rpc('rd_coach',{p_coach:R.coachId});if(error)throw error;applyRows(data||[],[],'coach');HT.coachAt=Date.now()}
+  catch(e){if(missing25(e))HT.off=true;else console.warn('rd_coach',e.message)}}
+function myStaffClubs(){const u=me();if(!u)return [];const em=String(u.email||'').toLowerCase();
+  return (db.clubs||[]).filter(c=>c&&(c._own===1||(c.staff||[]).some(s=>s&&((s.me&&u.role==='admin')||(s.uid&&s.uid===u.id)||(em&&String(s.email||'').toLowerCase()===em)))))}
+async function htLoadClubs(){if(!mine()||HT.off)return;const L=myStaffClubs();if(!L.length)return;let ch=false;
+  for(const c of L){try{const {data,error}=await R.sb.rpc('rd_club',{p_club:c.id});if(error)throw error;applyRows((data&&data.items)||[],(data&&data.private)||[],'club:'+c.id);ch=true}
+    catch(e){if(missing25(e)){HT.off=true;return}console.warn('rd_club',e.message)}}
+  HT.clubAt=Date.now();if(ch&&!typ()&&!st.modal)render()}
+async function htAll(){await htLoadMine();await htLoadCoach();await htLoadClubs()}
+/* branchements */
+save=(old=>function(){const r=old.apply(this,arguments);try{queueHT()}catch(e){}return r})(save);
+if(typeof loadClientSide==='function')loadClientSide=(old=>async function(){await old.apply(this,arguments);try{await htAll()}catch(e){console.warn(e)}})(loadClientSide);
+if(typeof loadCoachSide==='function')loadCoachSide=(old=>async function(){await old.apply(this,arguments);try{await htAll()}catch(e){console.warn(e)}})(loadCoachSide);
+if(typeof syncAll==='function')syncAll=(old=>async function(){await old.apply(this,arguments);try{if(mine()&&Date.now()-HT.coachAt>15000){await htLoadCoach();await htLoadClubs()}}catch(e){}})(syncAll);
+if(typeof resetLocal==='function')resetLocal=(old=>function(){old.apply(this,arguments);HT.meta=null;HT.uid=null;HT.booted=null;HT.off=false;HT.src={};HT.loadAt=HT.coachAt=HT.clubAt=0;
+  ['rd','hrv5'].forEach(col=>{db[col]=(db[col]||[]).filter(e=>!(e&&e._on))})})(resetLocal);
+/* les clubs arrivent un peu après la connexion; les tests du club sont relus toutes les 2 min et en entrant dans l'espace Club */
+/* comme pour les clubs : le branchement sur la connexion peut arriver trop tard dans une page de 5 Mo, on surveille la session */
+setInterval(()=>{try{if(mine()&&HT.booted!==R.uid&&!R.booting){HT.booted=R.uid;htAll()}}catch(e){}},1500);
+setTimeout(()=>{if(mine())htLoadClubs()},5000);
+setInterval(()=>{if(!mine()||document.visibilityState!=='visible')return;if(Date.now()-HT.clubAt>120000)htLoadClubs();if(R.role==='admin'&&Date.now()-HT.coachAt>120000)htLoadCoach()},30000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&mine()&&Date.now()-HT.loadAt>60000)htAll()});
+let p3was=false;render=(old=>function(){const r=old.apply(this,arguments);try{const on=!!st.p3on;if(on&&!p3was&&mine()&&Date.now()-HT.clubAt>20000)setTimeout(htLoadClubs,50);p3was=on}catch(e){}return r})(render);
+window.fcHT={push:htPush,load:htAll,state:HT};
+
+/* ---------- 3. Spotify : Titres aimés et recherche ---------- */
+const LIB={total:null,load:false,scope:null,q:'',res:null,busy:false,err:null};
+const F=()=>window.fcSpFns&&window.fcSpFns();
+const likedUri=()=>{const SP=window.fcSpotify||{};return SP.prof&&SP.prof.id?'spotify:user:'+SP.prof.id+':collection':null};
+async function libCount(){if(LIB.load||LIB.total!=null||LIB.scope===false)return;const f=F();if(!f)return;LIB.load=true;
+  try{const j=await f.api('/me/tracks?limit=1');LIB.total=j&&j.total||0;LIB.scope=true}
+  catch(e){if(e&&(e.status===403||e.status===401))LIB.scope=false;else LIB.err=f.err(e)}
+  finally{LIB.load=false;render()}}
+const row=(img,t,s,uri,pickN,S)=>`<div class="sp16"><span class="sp16i">${img?`<img src="${esc(img)}" alt="" loading="lazy">`:'♪'}</span><span class="sp16t"><b>${esc(t)}</b><small>${esc(s||'')}</small></span><button class="btn-xs" data-a="spPlay" data-u="${esc(uri)}" aria-label="Jouer">▶</button><button class="btn-xs ${S.spPl===uri?'on':''}" data-a="spPick" data-u="${esc(uri)}" data-n="${esc(pickN)}" title="Pour l'entraînement">${S.spPl===uri?'✓ Entraînement':'Pour l\'entraînement'}</button></div>`;
+window.fcSpLib=function(S){const f=F();if(!f||!f.on())return '';const SP=window.fcSpotify||{};const tok=SP.tok||{};
+    /* jeton obtenu par une autre version de la page (portée non notée) : on essaie, Spotify répond 403 si la permission manque */
+  if(LIB.total==null&&!LIB.load&&LIB.scope!==false&&!LIB.err)setTimeout(libCount,0);
+  const lu=likedUri();let h=`<h3 class="sech">Titres aimés</h3>`;
+  if(LIB.scope===false)h+=`<div class="info" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:200px">Pour voir vos Titres aimés, FidjiCoach a besoin d'une permission de plus : reconnectez Spotify (quelques secondes).</span><button class="btn btn-sm btn-accent" data-a="spGo">Reconnecter Spotify</button></div>`;
+  else if(LIB.err)h+=`<div class="info">${esc(LIB.err)}</div>`;
+  else if(LIB.load&&LIB.total==null)h+='<p class="muted small">Chargement…</p>';
+  else h+=`<div class="sp16g">${row(null,'Titres aimés',LIB.total!=null?LIB.total+' titres · votre bibliothèque Spotify':'Votre bibliothèque Spotify',lu||'spotify:collection:tracks','Titres aimés',S)}</div>`;
+  h+=`<h3 class="sech">Rechercher dans Spotify</h3><div class="actions" style="align-items:center"><input type="search" id="sp25q" value="${esc(LIB.q)}" placeholder="Titre, artiste, album ou liste" style="flex:1;min-width:200px;max-width:420px" autocomplete="off"><button class="btn btn-sm btn-accent" data-a="sp25Search">Rechercher</button></div>`;
+  if(LIB.busy)h+='<p class="muted small" style="margin-top:8px">Recherche…</p>';
+  else if(LIB.res){const R2=LIB.res;const items=[];
+    (R2.tracks||[]).forEach(t=>items.push(row(t.album&&t.album.images&&t.album.images[t.album.images.length-1]&&t.album.images[t.album.images.length-1].url,t.name,(t.artists||[]).map(a=>a.name).join(', ')+' · titre',t.uri,t.name,S)));
+    (R2.artists||[]).forEach(a=>items.push(row(a.images&&a.images[a.images.length-1]&&a.images[a.images.length-1].url,a.name,'artiste',a.uri,a.name,S)));
+    (R2.albums||[]).forEach(a=>items.push(row(a.images&&a.images[a.images.length-1]&&a.images[a.images.length-1].url,a.name,(a.artists||[]).map(x=>x.name).join(', ')+' · album',a.uri,a.name,S)));
+    (R2.playlists||[]).forEach(p=>items.push(row(p.images&&p.images[0]&&p.images[0].url,p.name,'liste'+(p.owner&&p.owner.display_name?' · '+p.owner.display_name:''),p.uri,p.name,S)));
+    h+=items.length?`<div class="sp16g" style="margin-top:10px">${items.join('')}</div>`:'<p class="muted small" style="margin-top:8px">Aucun résultat.</p>'}
+  return h};
+async function sp25Search(){const f=F();if(!f)return;const inp=document.getElementById('sp25q');const q=((inp&&inp.value)||'').trim();LIB.q=q;if(!q){LIB.res=null;render();return}LIB.busy=true;render();
+  try{const j=await f.api('/search?q='+encodeURIComponent(q)+'&type=track,artist,album,playlist&limit=6&market=from_token');
+    LIB.res={tracks:(j.tracks&&j.tracks.items||[]).filter(Boolean),artists:(j.artists&&j.artists.items||[]).filter(Boolean),albums:(j.albums&&j.albums.items||[]).filter(Boolean),playlists:(j.playlists&&j.playlists.items||[]).filter(Boolean)}}
+  catch(e){LIB.res=null;flash(f.err(e))}
+  finally{LIB.busy=false;render();const i2=document.getElementById('sp25q');if(i2&&document.activeElement!==i2){/* le champ garde sa valeur */}}}
+A.sp25Search=function(){sp25Search()};
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='sp25q'){e.preventDefault();sp25Search()}});
+/* « Titres aimés » : si Spotify refuse la collection, on joue les 50 derniers titres aimés */
+if(typeof A.spPlay==='function')A.spPlay=(old=>function(d){const u=String(d&&d.u||'');if(!/:collection/.test(u))return old.call(this,d);
+  (async()=>{const f=F();if(!f)return;try{const SP=window.fcSpotify||{};const dev=(SP.devs||[]).find(x=>x.is_active);
+    try{await f.api('/me/player/play'+(dev?'?device_id='+encodeURIComponent(dev.id):''),{method:'PUT',body:{context_uri:u}});flash('Lecture lancée : Titres aimés');return}catch(e){if(!(e&&(e.status===400||e.status===404||e.status===403)))throw e}
+    const j=await f.api('/me/tracks?limit=50');const uris=(j&&j.items||[]).map(x=>x.track&&x.track.uri).filter(Boolean);if(!uris.length){flash('Aucun titre aimé dans votre bibliothèque');return}
+    await f.api('/me/player/play'+(dev?'?device_id='+encodeURIComponent(dev.id):''),{method:'PUT',body:{uris}});flash('Lecture lancée : Titres aimés')}
+  catch(e){flash(f.err(e))}})()})(A.spPlay);
+if(typeof A.spOff==='function')A.spOff=(old=>function(d){LIB.total=null;LIB.scope=null;LIB.res=null;LIB.err=null;return old.call(this,d)})(A.spOff);
+
+/* ---------- 4. avis du haut : disparaissent après 12 s et au changement de page ---------- */
+let shownAt=0,navKey=null,pTimer=null,lastN=0;
+const navK=()=>[st.view,st.tab,st.gtab,st.invTab,st.aSec,st.ptab,st.p3on,st.p3p,st.client,st.selfTab,st.vol].map(x=>String(x==null?'':x)).join('|');
+render=(old=>function(){const r=old.apply(this,arguments);
+  try{let P=st.pushes||[];
+    if(P.length>1){const seen=new Set();const Q=P.filter(n=>{const k=(n.kind||'')+'|'+(n.text||'');if(seen.has(k))return false;seen.add(k);return true});if(Q.length!==P.length){st.pushes=P=Q;setTimeout(()=>old.call(this),0)}}
+    const k=navK();
+    if(P.length){if(!shownAt){shownAt=Date.now();navKey=k;lastN=P.length}
+      else if(k!==navKey&&Date.now()-shownAt>1500){st.pushes=[];shownAt=0;lastN=0;if(pTimer){clearTimeout(pTimer);pTimer=null}setTimeout(()=>old.call(this),0);return r}
+      if(P.length>lastN){lastN=P.length;if(pTimer){clearTimeout(pTimer);pTimer=null}}
+      if(!pTimer)pTimer=setTimeout(()=>{pTimer=null;st.pushes=[];shownAt=0;lastN=0;try{old.call(this)}catch(e){}},12000)}
+    else{shownAt=0;lastN=0;if(pTimer){clearTimeout(pTimer);pTimer=null}}}
+  catch(e){}return r})(render);
+})();
+
 </script>
 </body></html>
