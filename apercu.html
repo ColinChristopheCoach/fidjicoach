@@ -4821,7 +4821,7 @@ function migrateV7(){if(db.v7)return;db.settings.hoursMode=db.settings.hoursMode
   const msa=db.centres.find(c=>/Mont-Sainte-Anne/i.test(c.name));if(msa)msa.rules={forms:{ind:false,duo:false,groupe:true},minNb:3,minDur:120};
   if(!db.feedback){const b=db.bookings.find(x=>x.sessions.length);db.feedback=b?[{id:'fb1',bid:b.id,sid:b.sessions[0].id,userId:b.owner,anon:false,at:'2026-10-04 18:20',global:5,clarte:5,progres:4,orga:4,plateforme:5,nps:9,like:'Explications claires et beaucoup de pratique (exemple).',better:'Un peu plus de temps sur les descentes (exemple).'}]:[]}
   db.v7=true}
-function migrateV7b(){if(db.v7b)return;db.centres.forEach(ctrDefaults);const U=ui();if(U.coach.email===UI0.coach.email)U.coach.email='colinchristophe.coach@outlook.com';db.v7b=true}
+function migrateV7b(){if(db.v7b)return;db.centres.forEach(ctrDefaults);const U=ui();if(U.coach.email===UI0.coach.email)U.coach.email='colinchristophe.coach@gmail.com';db.v7b=true}
 A.reset=(old=>function(){old();migrateV7();migrateV7b();save();render()})(A.reset);
 Object.assign(EN5,{'Lever':'Sunrise','coucher':'sunset','Saison':'Season','Heures':'Hours','Éclairé le soir':'Lit at night','Oui':'Yes','Non':'No','Soleil aujourd\'hui':'Sun today','Cours offerts ici':'Lessons offered here','Ouvert':'Open','Fermé pour la saison':'Closed for the season','Fermé aujourd\'hui':'Closed today','Le centre est fermé cette journée.':'The centre is closed that day.','Le centre est fermé à une des dates choisies':'The centre is closed on one of the chosen dates','Avis des clients':'Client feedback','Donner mon avis':'Give feedback','Non merci':'No thanks','Plus tard':'Later','Envoyer':'Send','Merci pour votre avis!':'Thank you for your feedback!','Satisfaction générale':'Overall satisfaction','Clarté des explications':'Clarity of explanations','Progrès ressentis':'Progress felt','Organisation (horaire, lieu, équipement)':'Organization (schedule, location, equipment)','Facilité de réservation sur la plateforme':'Ease of booking on the platform','Ce que vous avez le plus aimé':'What you liked most','Ce qui pourrait être amélioré (cours ou plateforme)':'What could be improved (lessons or platform)','Envoyer mon avis de façon anonyme':'Send my feedback anonymously','Recommanderiez-vous ces cours à un ami? (0 = pas du tout, 10 = certainement)':'Would you recommend these lessons to a friend? (0 = not at all, 10 = definitely)','Votre avis · facultatif':'Your feedback · optional','2 minutes, facultatif et confidentiel : vos réponses aident à améliorer les cours et la plateforme.':'2 minutes, optional and confidential: your answers help improve the lessons and the platform.','De jour seulement':'Daytime only','De jour et de soir':'Day and evening','Cours de jour':'Day lessons','Cours de soir':'Evening lessons','Moments offerts':'Times offered','Cours de soir (centre non éclairé)':'Evening lessons (centre not lit)','Heures des cours':'Lesson hours','Jour ou soir':'Day or evening'});
 EN5RX.unshift([/^Comment s'est passé votre cours du (.+)\?$/,'How was your lesson on $1?'],[/^Votre cours du (.+)$/,'Your lesson on $1'],[/^Ouverture prévue le (.+)$/,'Opening planned on $1'],[/^Fermé le (.+)$/,'Closed on $1']);
@@ -20165,7 +20165,7 @@ qcCard=(old=>function(q,admin,big){let h=old(q,admin,big);if(!big)return h;const
 /* ================= V6 : soutien FidjiCoach — journal d'erreurs, « Signaler un bogue », console de soutien du propriétaire ================= */
 (function(){
 const SUP_VER='FidjiCoach V7 · version 3 (Corrections 1)';
-const SUP_MAIL='colinchristophe.coach@outlook.com';
+const SUP_MAIL='colinchristophe.coach@gmail.com';
 NI.bug=SV('<path d="M8 8a4 4 0 0 1 8 0"/><rect x="7" y="8" width="10" height="12" rx="5"/><path d="M12 12v8M3 13h4M17 13h4M4 7l3 2M20 7l-3 2M4 19l3-2M20 19l-3-2"/>');
 NI.shield=SV('<path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6Z"/><path d="M9 12l2 2 4-4"/>');
 
@@ -20580,7 +20580,7 @@ try{render()}catch(e){console.error(e)}
    Accès testeur : https://fidjicoach.ca/?testeur=CODE  (retenu dans le navigateur)
    Quitter        : bouton « Quitter le mode testeur » dans la barre de démo, ou https://fidjicoach.ca/?testeur=off */
 (function(){
-const MAIL='colinchristophe.coach@outlook.com';
+const MAIL='colinchristophe.coach@gmail.com';
 const TKEY='fc-testeur';
 const CODE_H=['3ee05878']; /* empreinte du code testeur (pas le code lui-même) */
 const hash=s=>{let h=0x811c9dc5;s=String(s).trim().toUpperCase();for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0}return h.toString(16).padStart(8,'0')};
@@ -22518,7 +22518,7 @@ function fcIdent(){const c=R.coachRow;if(!c||!db.settings)return;const U=ui();
   if(R.realRole==='admin')return;
   if(R.realRole==='coach'){if(U.coach.name===UI0.coach.name&&c.nom_affiche)U.coach.name=c.nom_affiche;if(c.ville_depart&&U.coach.region===UI0.coach.region)U.coach.region=c.ville_depart;return}
   const I=R.coachInfo||{},O=fcOther();
-  U.coach.name=c.nom_affiche||I.name||UI0.coach.name;U.coach.tel=I.tel||(O?'':UI0.coach.tel);U.coach.email=(O&&['colinchristophe.coach@outlook.com',UI0.coach.email].includes(I.email)?'':I.email)||(O?'':UI0.coach.email);U.coach.region=I.region||(O&&c.ville_depart)||UI0.coach.region;U.home.name=I.home||(O?(c.ville_depart||''):UI0.home.name)}
+  U.coach.name=c.nom_affiche||I.name||UI0.coach.name;U.coach.tel=I.tel||(O?'':UI0.coach.tel);U.coach.email=(O&&['colinchristophe.coach@outlook.com','colinchristophe.coach@gmail.com',UI0.coach.email].includes(I.email)?'':I.email)||(O?'':UI0.coach.email);U.coach.region=I.region||(O&&c.ville_depart)||UI0.coach.region;U.home.name=I.home||(O?(c.ville_depart||''):UI0.home.name)}
 /* l'identité de l'entraîneur (téléphone, courriel, région) est publiée avec ses tarifs */
 pubData=(old=>function(){const d=old();try{const U=ui();d.coachInfo={name:U.coach.name,tel:U.coach.tel,email:U.coach.email,region:U.coach.region,home:U.home.name}}catch(e){}return d})(pubData);
 applyPub=(old=>function(d){old(d);if(d&&d.coachInfo&&R.role!=='admin')R.coachInfo=d.coachInfo})(applyPub);
@@ -22766,7 +22766,7 @@ applyPub=(old=>function(d){old(d);if(!d||R.role==='admin')return;try{
   else if(!fcOther()){delete db.settings.brand;delete U.about}
   db.cm12=s&&s.sponsorsOn&&d.cm12?Object.assign({v:1,sp:[],set:{}},d.cm12):{v:1,sp:[],set:{t:'Merci à nos partenaires'}}}catch(e){console.warn(e)}})(applyPub);
 /* l'entraîneur revient : sa vitrine n'a jamais été publiée -> on la publie avec ses tarifs */
-const FOUNDER_MAILS=[UI0.coach.email,'colinchristophe.coach@outlook.com','colin.christophe42@gmail.com'];
+const FOUNDER_MAILS=[UI0.coach.email,'colinchristophe.coach@outlook.com','colinchristophe.coach@gmail.com','colin.christophe42@gmail.com'];
 function freshCoach9(){if(R.realRole!=='coach')return;const U=ui(),d=UI0.coach;const c=R.coachRow||{};let chg=false;
   if(U.coach.tel===d.tel){U.coach.tel='';chg=true}if(FOUNDER_MAILS.includes(U.coach.email)){U.coach.email='';chg=true}
   if(chg)setTimeout(()=>{R.snap.pub=null;queueSync()},100);
