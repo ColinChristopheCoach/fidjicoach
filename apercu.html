@@ -25040,6 +25040,45 @@ pubData=(old=>function(){const d=old();try{if(R.role==='admin'&&window.FC26invLo
 window.FC26logoSrc=()=>{try{const S=show9()||{};return S.logo||brand('color')}catch(e){return ''}};
 window.FC26pubSync=()=>{try{R.snap.pub=null;queueSync()}catch(e){}};
 R.bootP=bootReal();R.bootP.then(stripeReturn).catch(e=>console.error(e));
+/* ================= Corrections 27 (9 nov. 2026) : abonnements directs FidjiCoach (clients sans entraîneur) =================
+   L'entraîneur caché « FidjiCoach » (platform_direct) vend un forfait tout-en-un : 15 $/mois ou 162 $/an.
+   Côté client : pas de réservation ni de messages; Mon abonnement, plan, musculation, étirements, test Ruffier.
+   Site public : bouton « M'entraîner sans entraîneur ». */
+(function(){
+let DSLUG=null;
+async function dslug(){if(DSLUG)return DSLUG;try{const r=await R.sb.rpc('fc_direct_slug');DSLUG=(r&&r.data)||'fidjicoach'}catch(e){DSLUG='fidjicoach'}return DSLUG}
+applyPub=(old=>function(d){const r=old.apply(this,arguments);try{if(d&&typeof d==='object')R.direct=!!d.direct}catch(e){}return r})(applyPub);
+const directClient=()=>!!(R&&R.on&&R.direct&&R.role==='client');
+window.fc27=()=>({direct:!!R.direct,client:directClient(),role:R.role,on:!!R.on,uid:R.uid});
+A.fc27Go=()=>{dslug().then(s=>fcSwitch(s))};
+
+/* ---------- 1. site public ---------- */
+const GO_BTN=`<button class="btn btn-plain" data-a="fc27Go">M'entraîner sans entraîneur</button>`;
+const PANEL=`<section class="panel fc27solo" style="display:grid;gap:8px;margin-top:14px"><span class="eyebrow">Sans entraîneur</span><h3>Entraînez-vous avec FidjiCoach, seul</h3>
+  <p class="muted">Un plan personnalisé qui s'ajuste chaque jour à votre forme (test Ruffier et VFC), avec musculation et étirements guidés. <b>15 $ par mois</b> ou <b>162 $ par année</b> (10 % de rabais). Un mois gratuit pour chaque personne que vous recommandez.</p>
+  <div class="actions"><button class="btn btn-accent btn-sm" data-a="fc27Go">M'entraîner sans entraîneur</button></div></section>`;
+homeV=(old=>function(){let h=old.apply(this,arguments);try{if(!platMode())return h;
+  if((st.pubPage||'apropos')==='trouver'){h=h.replace(/(<p class="fc9note">)/,PANEL+'$1')}
+  else{h=h.replace(/(<div class="cta">[\s\S]*?data-v="trouver">[^<]*<\/button>)/,'$1'+GO_BTN)}}catch(e){console.warn('c27 public',e)}return h})(homeV);
+
+/* ---------- 2. espace du client de FidjiCoach ---------- */
+const HIDE_T=['reserver','msg'];
+function c27dom(){if(!directClient())return;const ap=document.getElementById('app')||document.body;
+  ap.querySelectorAll('[data-a="bookNow"]').forEach(e=>e.remove());
+  HIDE_T.forEach(t=>ap.querySelectorAll(`[data-a="tab"][data-t="${t}"]`).forEach(e=>e.remove()));
+  /* cartes de l'accueil qui mènent à la réservation, la location ou aux cours publics */
+  ap.querySelectorAll('[data-t="reserver"],[data-t="__rent"],[data-t="__pub"],[data-a="rentOpen"]').forEach(e=>{const c=e.closest('article,.hubcard,.card')||e;c.remove()});
+  /* abonnement annuel : libellés par année */
+  const P=(db.subPlans||[]).filter(p=>p&&p.per==='an').map(p=>p.id);
+  P.forEach(id=>ap.querySelectorAll(`[data-p="${id}"]`).forEach(b=>{const card=b.closest('article');if(card)txt(card,[[/\/ mois/g,'/ an'],[/par mois/g,'par année']])}));
+  const pk=st.subPick&&P.includes(st.subPick);
+  const sub=(db.subs||[]).find(s=>s.userId===(me()||{}).id&&s.status==='actif');const subAn=sub&&P.includes(sub.planId);
+  if(pk||subAn)ap.querySelectorAll('.panel.fs').forEach(pn=>txt(pn,[[/Paiement mensuel/g,'Paiement annuel'],[/Total par mois/g,'Total par année'],[/par mois/g,'par année'],[/chaque mois/g,'chaque année'],[/fin du mois payé/g,'fin de l\'année payée']]));
+  txt(ap,[[/Un suivi par votre entraîneur, où que vous soyez : plan d'entraînement ajusté chaque semaine, messages et analyses\. Payé chaque mois, annulable en tout temps\./g,'Votre entraînement complet avec FidjiCoach, sans entraîneur : plan personnalisé, test Ruffier, musculation et étirements. Payé chaque mois ou chaque année, annulable en tout temps (aucun remboursement, accès jusqu\'à la fin de la période payée).'],
+          [/Plans mensuels à distance/g,'Forfait tout-en-un']])}
+function txt(root,R2){const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode())){let v=n.nodeValue,o=v;R2.forEach(([a,b])=>{v=v.replace(a,b)});if(v!==o)n.nodeValue=v}}
+render=(old=>function(){if(directClient()&&(st.tab==='reserver'||st.tab==='msg'))st.tab='accueil';const r=old.apply(this,arguments);try{c27dom()}catch(e){console.warn('c27',e)}return r})(render);
+})();
 })();
 </script>
 <script>
@@ -26970,47 +27009,6 @@ function elevFix(){try{const u=me();if(!u||!Array.isArray(db.acts)||typeof elevG
   db.acts.forEach(a=>{if(!a||a.userId!==u.id||a.sv!==3||a.src!=='GPS du téléphone'||!a.pts||a.pts.length<2)return;const g=elevGL(a.pts);a.gain=g[0];a.loss=g[1];a.sv=4;ch++});
   if(ch){save();console.info('Corrections 26 : dénivelé recalculé pour '+ch+' sortie(s)')}}catch(e){console.warn('elevFix',e)}}
 if(typeof render==='function')render=(old=>function(){const r=old.apply(this,arguments);if(me()&&Date.now()-(window.__fc26e||0)>10000){window.__fc26e=Date.now();setTimeout(()=>{elevFix();lic26();invLogo26()},800)}return r})(render);
-})();
-</script>
-<script>
-/* ================= Corrections 27 (9 nov. 2026) : abonnements directs FidjiCoach (clients sans entraîneur) =================
-   L'entraîneur caché « FidjiCoach » (platform_direct) vend un forfait tout-en-un : 15 $/mois ou 162 $/an.
-   Côté client : pas de réservation ni de messages; Mon abonnement, plan, musculation, étirements, test Ruffier.
-   Site public : bouton « M'entraîner sans entraîneur ». */
-(function(){
-let DSLUG=null;
-async function dslug(){if(DSLUG)return DSLUG;try{const r=await R.sb.rpc('fc_direct_slug');DSLUG=(r&&r.data)||'fidjicoach'}catch(e){DSLUG='fidjicoach'}return DSLUG}
-applyPub=(old=>function(d){const r=old.apply(this,arguments);try{if(d&&typeof d==='object')R.direct=!!d.direct}catch(e){}return r})(applyPub);
-const directClient=()=>!!(window.R&&R.on&&R.direct&&R.role==='client');
-window.fc27=()=>({direct:!!(window.R&&R.direct),client:directClient()});
-A.fc27Go=()=>{dslug().then(s=>fcSwitch(s))};
-
-/* ---------- 1. site public ---------- */
-const GO_BTN=`<button class="btn btn-plain" data-a="fc27Go">M'entraîner sans entraîneur</button>`;
-const PANEL=`<section class="panel fc27solo" style="display:grid;gap:8px;margin-top:14px"><span class="eyebrow">Sans entraîneur</span><h3>Entraînez-vous avec FidjiCoach, seul</h3>
-  <p class="muted">Un plan personnalisé qui s'ajuste chaque jour à votre forme (test Ruffier et VFC), avec musculation et étirements guidés. <b>15 $ par mois</b> ou <b>162 $ par année</b> (10 % de rabais). Un mois gratuit pour chaque personne que vous recommandez.</p>
-  <div class="actions"><button class="btn btn-accent btn-sm" data-a="fc27Go">M'entraîner sans entraîneur</button></div></section>`;
-homeV=(old=>function(){let h=old.apply(this,arguments);try{if(!platMode())return h;
-  if((st.pubPage||'apropos')==='trouver'){h=h.replace(/(<p class="fc9note">)/,PANEL+'$1')}
-  else{h=h.replace(/(<div class="cta">[\s\S]*?data-v="trouver">[^<]*<\/button>)/,'$1'+GO_BTN)}}catch(e){console.warn('c27 public',e)}return h})(homeV);
-
-/* ---------- 2. espace du client de FidjiCoach ---------- */
-const HIDE_T=['reserver','msg'];
-function c27dom(){if(!directClient())return;const ap=document.getElementById('app')||document.body;
-  ap.querySelectorAll('[data-a="bookNow"]').forEach(e=>e.remove());
-  HIDE_T.forEach(t=>ap.querySelectorAll(`[data-a="tab"][data-t="${t}"]`).forEach(e=>e.remove()));
-  /* cartes de l'accueil qui mènent à la réservation, la location ou aux cours publics */
-  ap.querySelectorAll('[data-t="reserver"],[data-t="__rent"],[data-t="__pub"],[data-a="rentOpen"]').forEach(e=>{const c=e.closest('article,.hubcard,.card')||e;c.remove()});
-  /* abonnement annuel : libellés par année */
-  const P=(db.subPlans||[]).filter(p=>p&&p.per==='an').map(p=>p.id);
-  P.forEach(id=>ap.querySelectorAll(`[data-p="${id}"]`).forEach(b=>{const card=b.closest('article');if(card)txt(card,[[/\/ mois/g,'/ an'],[/par mois/g,'par année']])}));
-  const pk=st.subPick&&P.includes(st.subPick);
-  const sub=(db.subs||[]).find(s=>s.userId===(me()||{}).id&&s.status==='actif');const subAn=sub&&P.includes(sub.planId);
-  if(pk||subAn)ap.querySelectorAll('.panel.fs').forEach(pn=>txt(pn,[[/Paiement mensuel/g,'Paiement annuel'],[/Total par mois/g,'Total par année'],[/par mois/g,'par année'],[/chaque mois/g,'chaque année'],[/fin du mois payé/g,'fin de l\'année payée']]));
-  txt(ap,[[/Un suivi par votre entraîneur, où que vous soyez : plan d'entraînement ajusté chaque semaine, messages et analyses\. Payé chaque mois, annulable en tout temps\./g,'Votre entraînement complet avec FidjiCoach, sans entraîneur : plan personnalisé, test Ruffier, musculation et étirements. Payé chaque mois ou chaque année, annulable en tout temps (aucun remboursement, accès jusqu\'à la fin de la période payée).'],
-          [/Plans mensuels à distance/g,'Forfait tout-en-un']])}
-function txt(root,R2){const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode())){let v=n.nodeValue,o=v;R2.forEach(([a,b])=>{v=v.replace(a,b)});if(v!==o)n.nodeValue=v}}
-render=(old=>function(){if(directClient()&&(st.tab==='reserver'||st.tab==='msg'))st.tab='accueil';const r=old.apply(this,arguments);try{c27dom()}catch(e){console.warn('c27',e)}return r})(render);
 })();
 </script>
 </body></html>
