@@ -23954,7 +23954,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
 const FC_BUILD='2026-11-09-c27b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='15 nov. 2026 · Paiements réels v2 (pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo)';
+const FC_BUILD_LBL='15 nov. 2026 · Paiements réels v2 (pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -24622,7 +24622,7 @@ function inv10Data(b,p){const cl=userById(p.userId);
   return {no:p.invNo,date:p.invAt||p.paidAt||today(),ref:b.ref,coach:inv10Coach(),cl:clInfo14(cl),items,tax,
     sub:r2(items.reduce((n,l)=>n+l[1],0)),total:p.amount,method:p.method,paidAt:p.paidAt,refunded:Number(p.refunded)||0,
     sessions:(b.sessions||[]).map(s=>dlong10(s.date)+(s.start?' à '+hfmt(s.start):'')),lieu:b.lieu||'',sent:p.invSent||null}}
-function inv10Note(o){if(o.note)return o.note;return 'Payé'+(o.method?' par '+(PAY10[o.method]||o.method):'')+' le '+dlong10(o.paidAt||o.date)+'.'}
+function inv10Note(o){const cad=' Montants en dollars canadiens (CAD).';if(o.note)return /\(CAD\)/.test(o.note)?o.note:String(o.note).replace(/\s+$/,'')+cad;return 'Payé'+(o.method?' par '+(PAY10[o.method]||o.method):'')+' le '+dlong10(o.paidAt||o.date)+'.'+cad}
 /* Corrections 15b : date, heure et lieu du cours en 2e ligne, sous la description */
 function inv15Det(o){const S=(o.sessions||[]).filter(Boolean),l=o.lieu||'';if(!S.length&&!l)return [];
   if(S.length<=1)return [[S[0]||'',l].filter(Boolean).join(' · ')];return S.concat(l?['Lieu : '+l]:[])}
