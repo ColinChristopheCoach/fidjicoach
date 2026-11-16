@@ -21428,7 +21428,8 @@ syncAll=(old=>async function(){await old();try{await Promise.all([loadNotifs(),l
 afterLogin=(old=>function(){old();if(R.on){const list=R.role==='admin'?db.notifs:(db.cnotifs||[]);st.pushes=list.filter(n=>!n.read).slice(0,3)}})(afterLogin);
 /* mode Stripe lu au démarrage : « Mode test » disparaît tout seul quand la base dit « live » */
 bootReal=(old=>async function(){await old();try{if(!R.sb)return;const {data}=await R.sb.rpc('platform_info');
-  if(data&&typeof data.stripe_test==='boolean'&&data.stripe_test!==STRIPE_TEST){STRIPE_TEST=data.stripe_test;render()}}catch(e){}})(bootReal);
+  if(data){window.FC_STRIPE_MODE=data.stripe_test===false?'live':'test';const dp=!!data.demo_pay_off,ch=dp!==!!R.demoPayOff;R.demoPayOff=dp;
+  if(typeof data.stripe_test==='boolean'&&data.stripe_test!==STRIPE_TEST){STRIPE_TEST=data.stripe_test;render()}else if(ch)render()}}catch(e){}})(bootReal);
 decorate=(old=>function(){old();if(!R.on||R.role!=='admin'||st.view!=='admin')return;const bar=document.querySelector('.fcreal');if(!bar||bar.dataset.v6)return;bar.dataset.v6='1';
   bar.innerHTML=bar.innerHTML.replace('Les autres sections arrivent aux prochaines étapes : ce que vous y entrez reste sur cet appareil.','Vos alertes, votre comptabilité et vos dépenses sont aussi en ligne. Les autres sections (messages, documents, équipement…) arrivent aux prochaines étapes : ce que vous y entrez reste sur cet appareil.')})(decorate);
 
@@ -23953,7 +23954,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
 const FC_BUILD='2026-11-09-c27b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='9 nov. 2026 · Corrections 27b (menu Mon abonnement, changement de formule) · Corrections 27 (abonnements directs FidjiCoach : 15 $/mois ou 162 $/an, parrainage, adresse Gmail)';
+const FC_BUILD_LBL='15 nov. 2026 · Paiements réels v2 (pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -24545,7 +24546,7 @@ document.head.insertAdjacentHTML('beforeend',`<style id="c9demo">
 .c9demo b{font-weight:800}.c9demo .btn-xs{background:#fff;color:#1b1300;border:0}.c9demo .btn-xs.q{background:transparent;color:#1b1300;text-decoration:underline}
 </style>`);
 function demoBarH(){const D=dGet();if(!D||!R.on)return '';const cl=D.as==='client';
-  return `<div class="c9demo" role="status"><span>Démo FidjiCoach · vous êtes <b>${cl?'le client démo':'l\'entraîneur démo'}</b> (mode test, aucun vrai paiement)</span>
+  return `<div class="c9demo" role="status"><span>Démo FidjiCoach · vous êtes <b>${cl?'le client démo':'l\'entraîneur démo'}</b> ${R.demoPayOff?'(paiements par carte désactivés dans la démo : rien n\'est prélevé)':'(mode test, aucun vrai paiement)'}</span>
     <button class="btn-xs" data-a="fcDemoAs" data-v="${cl?'coach':'client'}">${cl?'Passer à l\'entraîneur démo':'Passer au client démo'}</button><button class="btn-xs q" data-a="fcDemoQuit">Quitter la démo</button></div>`}
 render=(old=>function(){const r=old.apply(this,arguments);try{const app=document.getElementById('app');if(app&&!app.querySelector('.c9demo')){const h=demoBarH();if(h)app.insertAdjacentHTML('afterbegin',h)}}catch(e){}return r})(render);
 
@@ -24557,7 +24558,7 @@ function demoAdminV(){if(!R.on||R.realRole!=='admin')return '<p class="muted">R�
   const I=DM.info||{};const link=st.c9dl||'';const base=location.origin+location.pathname;
   return `<div style="display:grid;gap:16px">
   <section class="panel" style="display:grid;gap:10px"><span class="eyebrow">Présenter FidjiCoach</span><h3>Lien de démonstration</h3>
-    <p class="small">Le lien ouvre la <b>vraie plateforme</b> avec deux comptes de démonstration (mode test, aucun vrai paiement) : l'<b>Entraîneur démo</b> (Tarification, mise en place guidée, vitrine, calendrier, comptabilité…) et le <b>Client démo</b> (réserver, payer avec une carte de test, modifier un cours…). Un bouton en haut de l'écran permet de passer de l'un à l'autre. La page de l'entraîneur démo n'apparaît jamais dans « Trouver un entraîneur ».</p>
+    <p class="small">Le lien ouvre la <b>vraie plateforme</b> avec deux comptes de démonstration (${STRIPE_TEST?'mode test, aucun vrai paiement':'paiements par carte désactivés pour ces deux comptes, aucun vrai paiement'}) : l'<b>Entraîneur démo</b> (Tarification, mise en place guidée, vitrine, calendrier, comptabilité…) et le <b>Client démo</b> (réserver, payer avec une carte de test, modifier un cours…). Un bouton en haut de l'écran permet de passer de l'un à l'autre. La page de l'entraîneur démo n'apparaît jamais dans « Trouver un entraîneur ».</p>
     ${DM.err?`<p class="alert bad small">${esc(DM.err)}</p>`:DM.busy&&!DM.info?'<p class="muted small">Lecture…</p>':''}
     ${DM.info?`<ul class="small" style="margin:0;padding-left:18px;display:grid;gap:4px">
       <li>Comptes de démo : ${I.ready?`<b>créés</b> (${esc(I.coach_email||'')} · ${esc(I.client_email||'')})`:'<b>pas encore créés</b>'}</li>
