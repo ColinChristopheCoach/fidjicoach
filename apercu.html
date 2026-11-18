@@ -23424,9 +23424,9 @@ try{render()}catch(e){console.error(e)}
 const TARIF_VER='Tarification · 6 nov. 2026';
 R.pricing=null;R.bill=null;R.billBusy=false;R.abill=null;R.abillAt=0;R.abillErr='';R.abillBusy=false;
 const PRO_SECS=['abos','inv','scan','loc','prix','codes','video','muscu'];
-const DEFP={commission_pct:1,fee_cap_on:false,fee_cap_cents:200,stripe_pct:2.9,stripe_fixed_cents:30,billing_pct:0.7,solo:2900,pro:4900,pause:900,activation:9900,trial_on:true,trial_days:30,activation_on:true,pause_on:true,founder_pct:30,founder_max:10,solo_max:40};
+const DEFP={commission_pct:1,fee_cap_on:false,fee_cap_cents:200,stripe_pct:3.1,stripe_fixed_cents:30,billing_pct:0.7,solo:2900,pro:4900,pause:900,activation:9900,trial_on:true,trial_days:30,activation_on:true,pause_on:true,founder_pct:30,founder_max:10,solo_max:40};
 const c2=c=>money((Number(c)||0)/100);
-const rulesOf=P=>({commission_pct:Number(P.commission_pct??1),cap_on:!!(P.cap_on??P.fee_cap_on),cap_cents:Number(P.cap_cents??P.fee_cap_cents??200),stripe_pct:Number(P.stripe_pct??2.9),stripe_fixed_cents:Number(P.stripe_fixed_cents??30),billing_pct:Number(P.billing_pct??0.7)});
+const rulesOf=P=>({commission_pct:Number(P.commission_pct??1),cap_on:!!(P.cap_on??P.fee_cap_on),cap_cents:Number(P.cap_cents??P.fee_cap_cents??200),stripe_pct:Number(P.stripe_pct??3.1),stripe_fixed_cents:Number(P.stripe_fixed_cents??30),billing_pct:Number(P.billing_pct??0.7)});
 const feeOf=(cents,F)=>{let com=Math.round(cents*F.commission_pct/100);if(F.cap_on)com=Math.min(com,F.cap_cents);const strp=Math.round(cents*F.stripe_pct/100)+F.stripe_fixed_cents;return {com,strp,fee:Math.max(0,Math.min(cents-1,com+strp))}};
 const subPctOf=(cents,F)=>{let com=Math.round(cents*F.commission_pct/100);if(F.cap_on)com=Math.min(com,F.cap_cents);const strp=Math.round(cents*(F.stripe_pct+F.billing_pct)/100)+F.stripe_fixed_cents;return Math.min(99,Math.ceil((com+strp)*10000/cents)/100)};
 const feeTxt9=F=>`<b>${pct(F.commission_pct)}</b> de commission${F.cap_on?` (au plus ${c2(F.cap_cents)} par paiement)`:''} + les frais de Stripe (<b>${pct(F.stripe_pct)} + ${c2(F.stripe_fixed_cents)}</b>)`;
