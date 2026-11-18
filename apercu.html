@@ -23622,9 +23622,21 @@ function forfaitPage(){if(!R.on)return '<div class="empty">Connectez-vous.</div>
   if(inv.length)h+=`<section class="panel fc8p"><span class="eyebrow">Historique</span><h3>Paiements de votre forfait</h3>${inv.map(x=>`<div class="fctinv"><span>${esc(x.date?day9(x.date):'')}</span><b>${money(Number(x.amount)||0)}</b></div>`).join('')}</section>`;
   return h}
 ASEC.fcforfait={l:'Mon forfait FidjiCoach',i:'repeat',f:()=>forfaitPage()};REL.fcforfait=['fcpay','setup9'];
+const fctQ=document.createElement('div');fctQ.className='fcq';fctQ.hidden=true;
+fctQ.innerHTML=`<form novalidate><div><span class="eyebrow">Forfait FidjiCoach</span><h2 data-t></h2></div><p class="small" data-l1></p><p class="small" data-l2 hidden></p>
+<p class="small muted">Vous serez dirigé vers la page de paiement sécurisée de Stripe.</p><div class="actions"><button type="submit" class="btn btn-accent">Continuer vers Stripe</button><button type="button" class="btn btn-plain" data-x>Annuler</button></div></form>`;
+document.body.appendChild(fctQ);
+const fctAsk=(k,P,B,trial)=>new Promise(res=>{const F=fctQ.querySelector('form');
+  fctQ.querySelector('[data-t]').textContent='Choisir le forfait '+PLANS9[k]+'?';
+  fctQ.querySelector('[data-l1]').textContent=c2(P[k])+' par mois'+(Number(B.total_discount_pct)>0?', avant rabais':'')+'.';
+  const l2=fctQ.querySelector('[data-l2]');l2.hidden=!trial;l2.textContent=trial?'Essai gratuit de '+P.trial_days+' jours : rien n\'est prélevé aujourd\'hui.':'';
+  const end=v=>{fctQ.hidden=true;document.body.style.overflow='';F.onsubmit=null;res(v)};
+  F.onsubmit=e=>{e.preventDefault();end(true)};fctQ.querySelector('[data-x]').onclick=()=>end(false);
+  fctQ.hidden=false;document.body.style.overflow='hidden';setTimeout(()=>F.querySelector('[type=submit]').focus(),50)});
 A.fctChoose=async d=>{const k=d.p;if(!PLANS9[k])return;const B=R.bill||{};const P=Object.assign({},DEFP,B.prices||{});
   const trial=P.trial_on&&!B.trial_used;
-  if(!confirm(`Choisir le forfait ${PLANS9[k]} (${c2(P[k])} par mois${Number(B.total_discount_pct)>0?', avant rabais':''})?${trial?`\n\nEssai gratuit de ${P.trial_days} jours : rien n'est prélevé aujourd'hui.`:''}\n\nVous serez dirigé vers la page de paiement sécurisée de Stripe.`))return;
+  /* v2 : confirmation dans la page (plus de fenêtre du navigateur) */
+  if(!await fctAsk(k,P,B,trial))return;
   busyOn('Ouverture de Stripe…');try{const r=await fcInvoke('coach-billing',{action:'checkout',coach_id:R.coachId,plan:k});if(r&&r.url){location.href=r.url;return}busyOff();flash('Réessayez dans un instant.')}
   catch(e){busyOff();flash(missing(e)?'Le forfait n\'est pas encore offert (fonction « coach-billing » à créer dans Supabase).':'Forfait : '+await errMsg(e))}};
 A.fctPortal=async()=>{busyOn('Ouverture de Stripe…');try{const r=await fcInvoke('coach-billing',{action:'portal',coach_id:R.coachId});if(r&&r.url){location.href=r.url;return}busyOff()}
