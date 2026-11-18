@@ -24554,6 +24554,7 @@ async function demoLogin(code,as){busyOn(as==='client'?'Ouverture du client dém
     const {error:e2}=await R.sb.auth.verifyOtp({token_hash:data.token_hash,type:data.type||'magiclink'});if(e2)throw e2;
     dSet({code,as:data.as||as,slug:data.slug||null,at:Date.now()});
     if(!await loadMe())throw new Error('Compte de démo introuvable');
+    dSet({code,as:data.as||as,slug:data.slug||null,at:Date.now(),uid:R.uid||null});
     busyOff();afterLogin();window.scrollTo(0,0);flash(as==='client'?'Vous voyez maintenant la plateforme comme le client démo':'Bienvenue dans la démo FidjiCoach : vous êtes l\'entraîneur démo');return true}
   catch(e){busyOff();console.error(e);dSet(null);flash('Démo : '+(/Failed to send|fetch|network/i.test(e.message||'')?'la démo ne répond pas pour le moment. Réessayez plus tard.':(e.message||e)));render();return false}}
 bootReal=(old=>async function(){await old();try{if(R.demoCode){const c=R.demoCode;R.demoCode=null;await demoLogin(c,'coach')}}catch(e){console.warn(e)}})(bootReal);
@@ -24564,7 +24565,11 @@ document.head.insertAdjacentHTML('beforeend',`<style id="c9demo">
 .c9demo{position:sticky;top:0;z-index:60;display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;justify-content:center;background:#f08c00;color:#1b1300;padding:8px 14px;font-size:.88rem;font-weight:600}
 .c9demo b{font-weight:800}.c9demo .btn-xs{background:#fff;color:#1b1300;border:0}.c9demo .btn-xs.q{background:transparent;color:#1b1300;text-decoration:underline}
 </style>`);
-function demoBarH(){const D=dGet();if(!D||!R.on)return '';const cl=D.as==='client';
+/* 17 nov. 2026 : le bandeau ne s'affiche que si le compte connecté est bien un compte de démo; sinon le témoin est effacé
+   (il restait affiché par-dessus un vrai compte quand on se connectait juste après avoir ouvert la démo) */
+function demoIsMe(D){try{if(D.uid)return D.uid===R.uid;const em=String((me()||{}).email||'').toLowerCase();
+  return /\+demo-(entraineur|client)@/.test(em)}catch(e){return false}}
+function demoBarH(){const D=dGet();if(!D||!R.on)return '';if(!demoIsMe(D)){if(R.uid&&!R.booting)dSet(null);return ''}const cl=D.as==='client';
   return `<div class="c9demo" role="status"><span>Démo FidjiCoach · vous êtes <b>${cl?'le client démo':'l\'entraîneur démo'}</b> ${R.demoPayOff?'(paiements par carte désactivés dans la démo : rien n\'est prélevé)':'(mode test, aucun vrai paiement)'}</span>
     <button class="btn-xs" data-a="fcDemoAs" data-v="${cl?'coach':'client'}">${cl?'Passer à l\'entraîneur démo':'Passer au client démo'}</button><button class="btn-xs q" data-a="fcDemoQuit">Quitter la démo</button></div>`}
 render=(old=>function(){const r=old.apply(this,arguments);try{const app=document.getElementById('app');if(app&&!app.querySelector('.c9demo')){const h=demoBarH();if(h)app.insertAdjacentHTML('afterbegin',h)}}catch(e){}return r})(render);
@@ -26817,11 +26822,16 @@ CLS.pull=async function(force){const R=FR();if(!real()||CLS.busy)return;if(!forc
 let tP=null;CLS.queue=()=>{if(!real()||CLS.pulled!==FR().uid)return;CLS.dirty=true;clearTimeout(tP);tP=setTimeout(()=>CLS.push(),900)};
 CLS.push=async function(){const R=FR();if(!real()||CLS.pulled!==R.uid)return;if(CLS.busy){CLS.queue();return}CLS.busy=true;
   try{const u=me();const L=CLUBS();const em=myEmail();
-    for(const c of L){if(!iAmStaff(c))continue;
+    let dropped=false;
+    for(const c of L.slice()){if(!iAmStaff(c))continue;
       const d=toServer(c);const j=JSON.stringify(d);
       if(CLS.snap[c.id]!==j){
         const staffEmails=[...new Set((d.staff||[]).map(s=>lc(s.email)).filter(Boolean).concat(em?[em]:[]))];
         const {error}=await R.sb.from('clubs').upsert({id:c.id,name:String(c.name||'').slice(0,200),staff_emails:staffEmails,data:d,mdata:memberCopy(d)},{onConflict:'id'});
+        /* 17 nov. 2026 : club resté sur l'appareil après le passage par un autre compte (le serveur le refuse et il n'a jamais été lu en ligne
+           pour ce compte) : on retire la copie locale au lieu d'afficher « enregistrement en ligne impossible » */
+        if(error&&CLS.snap[c.id]==null&&(error.code==='42501'||/row-level security/i.test(error.message||''))){console.warn('Clubs en ligne : copie locale d\'un club d\'un autre compte retirée',c.id);
+          const ix=L.indexOf(c);if(ix>=0)L.splice(ix,1);delete CLS.snap[c.id];dropped=true;continue}
         if(error)throw error;CLS.snap[c.id]=j;c._own=c._own===0?0:1;
         (c.groups||[]).forEach((g,i)=>{if(!g.tok&&d.groups[i])g.tok=d.groups[i].tok})}
       /* inscriptions connues de l'équipe : comptes membres et membres ajoutés par courriel */
@@ -26838,6 +26848,7 @@ CLS.push=async function(){const R=FR();if(!real()||CLS.pulled!==R.uid)return;if(
         if(CLS.msnap[key]!==j){const {data,error}=await R.sb.from('club_members').update({data:d}).eq('club_id',c.id).eq('email',em).select('data');if(error)throw error;
           if(!data||!data.length){const {error:e2}=await R.sb.rpc('club_join',{p_club:c.id,p_group:u.club.group||null});if(e2)throw e2}
           CLS.msnap[key]=j}}}
+    if(dropped){try{if(u&&u.club&&!L.some(x=>x.id===u.club.id))delete u.club;window.fcPersist&&window.fcPersist();render()}catch(e){}}
     /* départ d'un club */
     for(const key of Object.keys(CLS.msnap)){const [cid,e]=key.split('|');if(e!==em)continue;const c=L.find(x=>x.id===cid);if(c&&iAmStaff(c))continue;
       if(!u.club||u.club.id!==cid){const {error}=await R.sb.from('club_members').delete().eq('club_id',cid).eq('email',em);if(!error)delete CLS.msnap[key]}}
