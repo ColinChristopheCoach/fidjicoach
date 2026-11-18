@@ -27108,6 +27108,10 @@ if(typeof footerMini==='function')footerMini=(old=>function(){let h=old.apply(th
   else h=h.replace(/^(<footer[^>]*>)<span>([\s\S]*?)<\/span>/,(m,a,b)=>a+'<span>'+b.replace(/(?:\s*·\s*){2,}/g,' · ').replace(/^\s*·\s*|\s*·\s*$/g,'')+'</span>');
   if(!h.includes('data-v2cad'))h=h.replace(/<\/footer>\s*$/,'<span data-v2cad style="flex-basis:100%">Tous les prix sont en dollars canadiens (CAD).</span></footer>');
   }catch(e){console.warn('v2 pied de page',e)}return h})(footerMini);
+/* pied de page aussi sur la page publique d'accueil (À propos, Trouver un entraîneur), hors connexion */
+if(typeof homeV==='function')homeV=(old=>function(){let h=old.apply(this,arguments);try{
+  if(typeof h==='string'&&/^<main class="wrap app fc9plat">/.test(h)&&!h.includes('<footer')&&!yes(()=>me())&&typeof footerMini==='function')h+=footerMini();
+  }catch(e){console.warn('v2 pied de page accueil',e)}return h})(homeV);
 /* ---------- 2. fenêtre Rembourser ---------- */
 if(typeof A==='object'&&A&&typeof A.fcRefund==='function')A.fcRefund=(old=>function(d){const r=old.apply(this,arguments);try{
   const amt=[...document.querySelectorAll('form input[name="amt"]')].find(i=>i.form&&i.form.querySelector('[data-full]'));
