@@ -20936,7 +20936,7 @@ function toLocal(row){const d=row.details||{};
   const sessions=ss.filter(s=>!s.cancelled).map(s=>{const o=Object.assign({id:s.id},tzParts(s.starts_at));if(s.pending_to)o.pendingMove=tzParts(s.pending_to);return o});
   const gone=ss.filter(s=>s.cancelled&&s.cancel_kind!=='coach').map(s=>{const k=s.cancel_kind;return Object.assign(tzParts(s.starts_at),{credit:k==='credit',refund:k==='refund',late:k==='late'})});
   const pays=(row.payments||[]).slice().sort((a,b)=>((a.payer_id===row.owner_id?0:1)-(b.payer_id===row.owner_id?0:1))||a.created_at.localeCompare(b.created_at)||String(a.claimed_at||'9').localeCompare(String(b.claimed_at||'9'))||a.id.localeCompare(b.id));
-  const parts=pays.map((p,i)=>({pid:p.id,userId:lid(p.payer_id),amount:p.amount_cents/100,method:p.method,paid:p.status==='payee'||p.status==='remboursee',paidAt:p.paid_at?String(p.paid_at).slice(0,10):null,
+  const parts=pays.map((p,i)=>({pid:p.id,userId:lid(p.payer_id),amount:p.amount_cents/100,method:p.method,paid:p.status==='payee'||p.status==='remboursee',paidAt:p.paid_at?new Date(p.paid_at).toLocaleDateString('en-CA',{timeZone:'America/Toronto'}):null,
     lines:p.lines||[],invited:!p.payer_id,payerOnly:i===0&&d.me===false,split:{},
     status:p.status,refunded:(p.refunded_cents||0)/100,
     invNo:p.inv_no||null,invAt:p.inv_at?new Date(p.inv_at).toLocaleDateString('en-CA',{timeZone:'America/Toronto'}):null,invSent:p.inv_sent_at?new Date(p.inv_sent_at).toLocaleDateString('en-CA',{timeZone:'America/Toronto'}):null,
@@ -22155,7 +22155,7 @@ addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-
 toLocal=(old=>function(row){const pays=row.payments||[];
   const b=old(Object.assign({},row,{payments:pays.filter(p=>(p.kind||'part')==='part')}));
   b.kindSrv=row.type;b.rentSrv=(row.details||{}).rent||null;
-  b.feesSrv=pays.filter(p=>p.kind==='frais').map(p=>({pid:p.id,amount:p.amount_cents/100,refunded:(p.refunded_cents||0)/100,status:p.status,paidAt:p.paid_at?String(p.paid_at).slice(0,10):null,
+  b.feesSrv=pays.filter(p=>p.kind==='frais').map(p=>({pid:p.id,amount:p.amount_cents/100,refunded:(p.refunded_cents||0)/100,status:p.status,paidAt:p.paid_at?new Date(p.paid_at).toLocaleDateString('en-CA',{timeZone:'America/Toronto'}):null,
     reason:p.note||(((p.lines||[])[0]||[])[0]||'').replace(/^Frais de location : /,''),payer:lid(p.payer_id),at:String(p.created_at||'').slice(0,10)}));
   if(row.type==='location')b.type='location';return b})(toLocal);
 R.fees=[];
@@ -24645,7 +24645,7 @@ function inv10HTML(o){const C=o.coach;
 MOD3.fcInv=function(u,m){const c=invCur();
   if(!c)return [`<p>Facture introuvable.</p><div class="actions"><button class="btn btn-accent" data-a="close">Fermer</button></div>`,true];
   const o=c.o;const coach=R.role==='admin';const canMail=coach&&c.real;
-  return [`<span class="eyebrow">Facture</span>${inv10HTML(o)}
+  return [`<span class="eyebrow">${esc(o.title||'Facture')}</span>${inv10HTML(o)}
   ${coach&&o.sent?`<p class="small muted">Envoyée ${esc(o.mailLbl||'au client')} par courriel le ${esc(dlong10(o.sent))}.</p>`:''}
   <div class="actions fcinv-act"><button class="btn btn-accent" data-a="fcInvPdf">Enregistrer le PDF</button><button class="btn btn-plain" data-a="fcInvPrint">Imprimer</button>${canMail?`<button class="btn btn-plain" data-a="fcInvMail">${o.sent?'Renvoyer':'Envoyer'} ${o.mailLbl||'au client'} par courriel</button>`:''}<button class="btn btn-plain" data-a="close">Fermer</button></div>`,true]};
 A.invoice=(old=>function(d){const b=B(d.b);if(!R.on||!b||!b.real)return old(d);const p=b.parts[Number(d.i)];
@@ -27102,7 +27102,7 @@ const direct=()=>{const r=FR();return !!(r.on&&r.direct&&r.role==='client')};
 const yes=f=>{try{return !!f()}catch(e){return false}};
 /* ---------- 1. pied de page ---------- */
 if(typeof footerMini==='function')footerMini=(old=>function(){let h=old.apply(this,arguments);try{
-  const plat=yes(()=>typeof platMode==='function'&&platMode())||yes(()=>typeof authOnly==='function'&&authOnly());
+  const plat=yes(()=>typeof platMode==='function'&&platMode())||yes(()=>typeof authOnly==='function'&&authOnly())||/^<footer[^>]*><span>FidjiCoach · La plateforme des entraîneurs/.test(h);
   if(direct()||plat){
     h=h.replace(/^(<footer[^>]*>)<span>[\s\S]*?<\/span>/,'$1<span>FidjiCoach · La plateforme des entraîneurs · Québec · <a href="mailto:'+MAIL+'" style="color:inherit">'+MAIL+'</a></span>')}
   else h=h.replace(/^(<footer[^>]*>)<span>([\s\S]*?)<\/span>/,(m,a,b)=>a+'<span>'+b.replace(/(?:\s*·\s*){2,}/g,' · ').replace(/^\s*·\s*|\s*·\s*$/g,'')+'</span>');
