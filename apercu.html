@@ -24907,7 +24907,8 @@ adminFactu=(old=>function(){let h=old();try{if(!R.on||R.role!=='admin')return h;
 db.cnotes=db.cnotes||[];
 function inv12Num(no){const m=/^([A-Z]+)-(\d{8})-(\d+)$/.exec(no||'');if(m)return {d:m[2],k:m[1],n:+m[3]};const o=/^F(\d{4})-(\d+)$/.exec(no||'');return o?{d:o[1]+'0000',k:'F',n:+o[2]}:{d:'',k:'',n:0}}
 function inv12Cmp(a,c){const x=inv12Num(a),y=inv12Num(c);return x.d.localeCompare(y.d)||x.k.localeCompare(y.k)||x.n-y.n}
-async function loadCNotes(){if(!R.on||!R.coachId||!R.uid)return;
+/* v2 : sans attendre R.on (mis à vrai après le premier chargement) : sinon les notes de crédit manquaient à l'ouverture de la page */
+async function loadCNotes(){if(!R.coachId||!R.uid)return;
   try{const {data,error}=await R.sb.from('credit_notes').select('*').eq('coach_id',R.coachId).order('cn_at',{ascending:false}).limit(500);if(error)throw error;
     db.cnotes=(data||[]).map(v=>({id:v.id,pid:v.payment_id,bid:v.booking_id,userId:lid(v.client_id),no:v.cn_no,at:day11(v.cn_at),total:(v.amount_cents||0)/100,
       invRef:v.inv_ref||'',reason:v.reason||'',method:v.method||'carte',sent:day11(v.sent_at)}))}
@@ -24949,7 +24950,7 @@ A.fcIxNudge=async d=>{const q=d.k==='rappel'?'Envoyer au client un rappel avec l
 
 /* factures de la plateforme */
 db.platInv=db.platInv||[];
-async function loadPlatInv(){if(!R.on||!R.uid)return;const adm=R.realRole==='admin';if(!adm&&!R.coachId)return;
+async function loadPlatInv(){if(!R.uid)return;const adm=R.realRole==='admin';if(!adm&&!R.coachId)return;
   try{let q=R.sb.from('platform_invoices').select('*').order('inv_at',{ascending:false}).limit(500);if(!adm)q=q.eq('coach_id',R.coachId);
     const {data,error}=await q;if(error)throw error;
     db.platInv=(data||[]).map(v=>({id:v.id,coachId:v.coach_id,k:v.kind,no:v.inv_no,at:day11(v.inv_at),from:v.period_from,to:v.period_to,total:(v.amount_cents||0)/100,
