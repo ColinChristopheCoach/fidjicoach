@@ -1947,7 +1947,7 @@ function adminV(){
 function adminResa(){
   const act=db.bookings.filter(b=>!b.cancelled);
   const upcoming=act.reduce((n,b)=>n+b.sessions.filter(s=>s.date>=today()).length,0);
-  const paid=db.bookings.reduce((n,b)=>n+b.parts.filter(p=>p.paid).reduce((a,p)=>a+p.amount,0),0);
+  const paid=window.fcCashed?window.fcCashed():db.bookings.reduce((n,b)=>n+b.parts.filter(p=>p.paid).reduce((a,p)=>a+p.amount,0),0);
   const pend=act.reduce((n,b)=>n+b.parts.filter(p=>!p.paid&&p.method==='interac').length,0);
   const sorted=db.bookings.slice().sort((a,b)=>((a.sessions[0]||{date:'9999'}).date).localeCompare((b.sessions[0]||{date:'9999'}).date));
   return `<div class="stats"><div class="stat"><b>${upcoming}</b><span>cours à venir</span></div><div class="stat"><b>${pend}</b><span>virements à confirmer</span></div><div class="stat"><b>${money(paid)}</b><span>encaissé</span></div></div>
@@ -2562,7 +2562,7 @@ function todayV(){
   const list=sess.filter(x=>x.s.date===day).sort((a,c)=>a.s.start.localeCompare(c.s.start));
   const todo=todoAdmin();
   const wk=sess.filter(x=>x.s.date<=addDays(td,6)).length;
-  const paid=db.bookings.reduce((n,b)=>n+b.parts.filter(p=>p.paid).reduce((a,p)=>a+p.amount,0),0)+(db.rentals||[]).filter(r=>r.paid).reduce((a,r)=>a+r.amount,0);
+  const paid=window.fcCashed?window.fcCashed():db.bookings.reduce((n,b)=>n+b.parts.filter(p=>p.paid).reduce((a,p)=>a+p.amount,0),0)+(db.rentals||[]).filter(r=>r.paid).reduce((a,r)=>a+r.amount,0);
   const card=({b,s})=>{const c=db.centres.find(x=>x.name===b.lieu);const w=c?wxFor(c):null;const f=w?fart(w.t):null;const names=b.parts.filter(p=>p.userId).map(p=>name(userById(p.userId)));
     const eq=Object.entries(b.rental||{}).map(([k,v])=>{const i=db.inventory.find(x=>x.id===k);return i?v+' × '+itemLabel(i):''}).filter(Boolean);
     return `<article class="card daycard"><div class="row"><h3>${hfmt(s.start)} à ${hfmt(fromMin(toMin(s.start)+b.dur))}</h3><span class="pill ${b.parts.every(p=>p.paid)?'ok':'warn'}">${b.parts.every(p=>p.paid)?'Payé':'Paiement en attente'}</span></div>
@@ -4840,7 +4840,7 @@ function finish(amount,pay){/* applique le rabais Interac puis les taxes à un m
 /* ---------- Prix : accès de l'entraîneur seulement, partagé dans un groupe ---------- */
 quote=(old=>function(R,u){const q=old(R,u);const oldAcc=q.access;const tot=r2((q.af||0)*q.qty);let mine=r2(q.mine-oldAcc);
   if(q.on>0&&!q.payAll){const share=r2(tot/q.nb);q.access=share;q.accessShare=share;mine=r2(mine+share);q.otherPart=r2(q.otherPart-(q.af||0)*q.qty+share)}else{q.access=tot;q.accessShare=0;mine=r2(mine+tot)}
-  q.accessTotal=tot;q.accPeople=1;q.preFin=mine;const f=finish(mine,R.pay);q.idisc=f.disc;q.taxes=f.tx;q.mine=f.total;
+  q.accessTotal=tot;q.accPeople=1;q.preFin=mine;/* v2 : comme le serveur, les taxes du cours et de la location sont arrondies séparément (plus d'écart de 1 ¢) */const rn=r2(Number(q.rent)||0);let f;if(rn>0&&rn<mine){f=finish(r2(mine-rn),R.pay);const fl=finish(rn,'carte');f={disc:f.disc,base:r2(f.base+fl.base),tx:f.tx.map((t,i)=>Object.assign({},t,{amt:r2(t.amt+((fl.tx[i]||{}).amt||0))})),total:r2(f.total+fl.total)}}else f=finish(mine,R.pay);q.idisc=f.disc;q.taxes=f.tx;q.mine=f.total;
   if(q.on>0&&!q.payAll){q.otherPre=q.otherPart;q.otherPart=finish(q.otherPart,'carte').total}return q})(quote);
 summaryV=(old=>function(R,u,q){let h=old(R,u,q);if(!q||R.what==='location')return h;const c=ctrByName(R.lieu);
   h=h.replace(/<div class="line"><span>Frais d'accès au centre[^<]*<\/span><span>[^<]*<\/span><\/div>/,R.lieu?`<div class="line"><span>Frais d'accès de l'entraîneur${q.accessShare?` (${money(q.accessTotal)} partagés entre ${q.nb})`:q.qty>1&&q.af?' × '+q.qty:''}</span><span>${c&&!accessKnown(c)?'À confirmer':q.access?money(q.access):'Gratuit'}</span></div>`:'');
@@ -11344,7 +11344,7 @@ document.addEventListener('change',e=>{const t=e.target;if(!t.dataset)return;con
 const WIN=[['past','Passées'],['jour','Prochain jour'],['sem','Prochaine semaine'],['mois','Prochain mois'],['plus','Plus tard']];
 const fSt=k=>st[k]||(st[k]={w:{jour:1,sem:1,mois:1,plus:1},q:'',d:'',club:k==='v5ra'?0:1});
 const inWin=(date,W)=>{const t=today();if(date<t)return !!W.past;if(W.jour&&date<=plusD(t,1))return true;if(W.sem&&date<=plusD(t,7))return true;if(W.mois&&date<=plusD(t,30))return true;return !!W.plus&&date>plusD(t,30)};
-const bucket=date=>{const t=today();if(date<t)return 'Passées';if(date===t)return 'Aujourd\'hui';if(date===plusD(t,1))return 'Demain';if(date<=plusD(t,7))return 'Cette semaine';if(date<=plusD(t,30))return 'D\'ici un mois';return 'Plus tard'};
+const bucket=date=>{const t=today();if(date<t)return 'Passées';if(date===t)return 'Aujourd\'hui';if(date===plusD(t,1))return 'Demain';if(date<plusD(t,7))return 'Cette semaine';if(date<=plusD(t,30))return 'D\'ici un mois';return 'Plus tard'};
 const BORD=['Aujourd\'hui','Demain','Cette semaine','D\'ici un mois','Plus tard','Passées'];
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 function clubSessV5(u,from,to){const out=[];if(!u.club||u.club.status==='retire')return out;const c=(db.clubs||[]).find(x=>x.id===u.club.id);if(!c)return out;const G=(c.groups||[]).find(g=>g.id===u.club.group);if(!G)return out;
@@ -22155,7 +22155,7 @@ addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-
 toLocal=(old=>function(row){const pays=row.payments||[];
   const b=old(Object.assign({},row,{payments:pays.filter(p=>(p.kind||'part')==='part')}));
   b.kindSrv=row.type;b.rentSrv=(row.details||{}).rent||null;
-  b.feesSrv=pays.filter(p=>p.kind==='frais').map(p=>({pid:p.id,amount:p.amount_cents/100,status:p.status,paidAt:p.paid_at?String(p.paid_at).slice(0,10):null,
+  b.feesSrv=pays.filter(p=>p.kind==='frais').map(p=>({pid:p.id,amount:p.amount_cents/100,refunded:(p.refunded_cents||0)/100,status:p.status,paidAt:p.paid_at?String(p.paid_at).slice(0,10):null,
     reason:p.note||(((p.lines||[])[0]||[])[0]||'').replace(/^Frais de location : /,''),payer:lid(p.payer_id),at:String(p.created_at||'').slice(0,10)}));
   if(row.type==='location')b.type='location';return b})(toLocal);
 R.fees=[];
@@ -22184,23 +22184,26 @@ loadBookings=(old=>async function(){await old();try{buildRentals()}catch(e){cons
 const fz=document.createElement('div');fz.className='fcq';fz.hidden=true;
 fz.innerHTML=`<form novalidate><div><span class="eyebrow">Location d'équipement</span><h2>Facturer des frais</h2></div><p class="small" data-who></p>
 <label class="field"><span>Montant ($, taxes comprises)</span><input name="amt" type="number" min="1" step="0.01" inputmode="decimal" required></label>
-<label class="field"><span>Raison (le client la verra sur sa facture)</span><input name="why" maxlength="200" placeholder="Ex. : bâton cassé, bottes non remises"></label>
+<label class="field"><span>Raison (le client la verra sur sa facture)</span><input name="why" type="text" maxlength="200" autocomplete="off" placeholder="Ex. : bâton cassé, bottes non remises"></label>
 <p class="small muted">La carte utilisée pour payer la location est prélevée tout de suite, selon le contrat de location signé. Si la banque refuse, le client reçoit un avis pour payer lui-même dans FidjiCoach.</p>
-<p class="small" data-err style="color:var(--bad)" hidden></p><div class="actions"><button type="submit" class="btn btn-accent">Facturer</button><button type="button" class="btn btn-plain" data-x>Annuler</button></div></form>`;
+<p class="small" data-err style="color:var(--bad)" hidden></p><p class="small" data-cf hidden style="margin:0;padding:10px 12px;border-radius:8px;background:rgba(200,16,46,.08)"></p><div class="actions"><button type="submit" class="btn btn-accent">Facturer</button><button type="button" class="btn btn-plain" data-x>Annuler</button></div></form>`;
 document.body.appendChild(fz);
+/* v2 : confirmation dans la fenêtre (plus de fenêtre du navigateur) */
+const fzStep=on=>{const F=fz.querySelector('form'),c=F.querySelector('[data-cf]');fz.dataset.cf=on?'1':'';c.hidden=!on;F.amt.readOnly=!!on;F.why.readOnly=!!on;F.querySelector('[type=submit]').textContent=on?'Confirmer et prélever':'Facturer';F.querySelector('[data-x]').textContent=on?'Modifier':'Annuler'};
 const fzClose=()=>{fz.hidden=true;document.body.style.overflow=''};
-fz.querySelector('[data-x]').onclick=fzClose;
+fz.querySelector('[data-x]').onclick=()=>{if(fz.dataset.cf)fzStep(false);else fzClose()};
 A.fcFee=function(d){const r=(db.rentals||[]).find(x=>x.id===d.r);if(!r)return;const u=userById(r.userId);
   fz.dataset.b=r.sid;fz.querySelector('[data-who]').textContent=(u?name(u):'Client')+' · location '+r.ref+' ('+(r.from===r.to?r.from:r.from+' au '+r.to)+')';
-  const F=fz.querySelector('form');F.amt.value='';F.why.value='';fz.querySelector('[data-err]').hidden=true;fz.hidden=false;document.body.style.overflow='hidden';setTimeout(()=>F.amt.focus(),50)};
+  const F=fz.querySelector('form');F.amt.value='';F.why.value='';fzStep(false);fz.querySelector('[data-err]').hidden=true;fz.hidden=false;document.body.style.overflow='hidden';setTimeout(()=>F.amt.focus(),50)};
 fz.querySelector('form').addEventListener('submit',async e=>{e.preventDefault();const F=e.target,er=F.querySelector('[data-err]');
   const amt=Number(String(F.amt.value).replace(',','.')),why=F.why.value.trim();
   if(!(amt>=1)||why.length<3){er.textContent='Indiquez le montant (1 $ ou plus) et la raison.';er.hidden=false;return}
-  if(!confirm('Facturer '+money(amt)+' au client pour : '+why+'?'))return;
+  er.hidden=true;
+  if(!fz.dataset.cf){F.querySelector('[data-cf]').textContent='Confirmez : '+money(amt)+' (taxes comprises) seront prélevés tout de suite sur la carte du client pour « '+why+' ».';fzStep(true);return}
   const btn=F.querySelector('[type=submit]');btn.disabled=true;
   try{const r=await fcInvoke('charge-fee',{booking_id:fz.dataset.b,amount:amt,reason:why});fzClose();await syncAll();render();
     flash(r.charged?'Frais de '+money(amt)+' prélevés sur la carte du client. Il reçoit son reçu par courriel.':(r.message||'Le client paiera les frais dans FidjiCoach.'))}
-  catch(err){er.textContent=await errMsg(err);er.hidden=false}finally{btn.disabled=false}});
+  catch(err){fzStep(false);er.textContent=await errMsg(err);er.hidden=false}finally{btn.disabled=false}});
 function rentPanel(){const rs=(db.rentals||[]).filter(r=>r.real&&!r.cancelled).sort((a,b)=>String(b.from).localeCompare(String(a.from)));if(!R.on||!rs.length)return '';
   const st_=f=>f.status==='payee'?'<span class="fc8tag ok">payés</span>':f.status==='remboursee'?'<span class="fc8tag">remboursés</span>':'<span class="fc8tag warn">à payer par le client</span>';
   return `<section class="panel fc8p"><span class="eyebrow">Payées en ligne par carte</span><h3>Locations des clients</h3>
@@ -27119,7 +27122,18 @@ if(typeof A==='object'&&A&&typeof A.fcRefund==='function')A.fcRefund=(old=>funct
         p.hidden=!(F.kind.value==='full'||(l>0&&v>=l))};
       F.addEventListener('change',upd);F.addEventListener('input',upd);upd()}}
   }catch(e){console.warn('v2 remboursement',e)}return r})(A.fcRefund);
-window.fcV2='apercu-v2-2026-11-15';
+/* ---------- 4. tuile « encaissé » (Aujourd'hui et Réservations) : une seule règle ----------
+   parts payées moins les remboursements + frais de location payés + locations seules;
+   une location réservée avec un cours est déjà dans la part du cours (elle n'est plus comptée deux fois). */
+window.fcCashed=function(){try{
+  const c=x=>Math.round((Number(x)||0)*100);let n=0;
+  const net=p=>p&&p.paid?Math.max(0,c(p.amount)-c(p.refunded)):0;
+  const all=(db.bookings||[]).concat(window.fcLocB||[]);
+  all.forEach(b=>{(b.parts||[]).forEach(p=>{n+=net(p)});
+    (b.feesSrv||[]).forEach(f=>{if(f.status==='payee'||f.status==='remboursee')n+=Math.max(0,c(f.amount)-(f.status==='remboursee'&&!f.refunded?c(f.amount):c(f.refunded)))})});
+  (db.rentals||[]).forEach(r=>{if(r&&r.paid&&!r.real)n+=c(r.amount)});
+  return n/100}catch(e){console.warn('v2 encaissé',e);return 0}};
+window.fcV2='apercu-v2-2026-11-17';
 })();
 </script>
 
