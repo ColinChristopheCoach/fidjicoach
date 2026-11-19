@@ -11213,6 +11213,11 @@ AGROUPS=(old=>function(){const G=old();const have=[];G.forEach(([,ks])=>ks.forEa
   const rest=have.filter(k=>!used.has(k));if(rest.length)out.push(['Autres',rest]);return out})(AGROUPS);
 
 function sideHTML(who,groups,closeAct){
+  /* 18 nov. 2026 : depuis les Corrections 21, les boutons Météo, Centres et À propos du haut sont cachés une fois connecté;
+     l'administrateur ne les avait plus nulle part. Ils sont ajoutés au bas de son menu, dans un groupe « Infos ». */
+  try{if(who==='a'&&!groups.some(([g])=>g==='Infos')&&!(typeof platMode==='function'&&platMode())){const it=[];
+    [['meteo','Météo','snow'],['centres','Centres','map'],['apropos','À propos','user']].forEach(([v,l,i])=>{if(shown('nav.'+v))it.push({l,i,on:st.view===v,attrs:`data-a="go" data-v="${v}"`,n:0})});
+    if(it.length)groups=groups.concat([['Infos',it]])}}catch(e){}
   const allColl=groups.filter(([g])=>g).every(([g])=>isColl(who,g));
   return `<aside class="side v5side ${st.v5open?'open':''}" aria-label="${who==='a'?'Menu de gestion':'Menu principal'}">
    <div class="v5sidetop"><b>Menu</b><button class="v5mini" data-a="v5all" data-w="${who}" data-v="${allColl?0:1}" title="${allColl?'Afficher tous les sous-menus':'Garder seulement les titres'}">${allColl?'Tout afficher':'Titres seulement'}</button><button class="v5x" data-a="v5menu" aria-label="Fermer le menu">×</button></div>
