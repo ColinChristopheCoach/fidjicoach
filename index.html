@@ -1947,7 +1947,7 @@ function adminV(){
 function adminResa(){
   const act=db.bookings.filter(b=>!b.cancelled);
   const upcoming=act.reduce((n,b)=>n+b.sessions.filter(s=>s.date>=today()).length,0);
-  const paid=db.bookings.reduce((n,b)=>n+b.parts.filter(p=>p.paid).reduce((a,p)=>a+p.amount,0),0);
+  const paid=window.fcCashed?window.fcCashed():db.bookings.reduce((n,b)=>n+b.parts.filter(p=>p.paid).reduce((a,p)=>a+p.amount,0),0);
   const pend=act.reduce((n,b)=>n+b.parts.filter(p=>!p.paid&&p.method==='interac').length,0);
   const sorted=db.bookings.slice().sort((a,b)=>((a.sessions[0]||{date:'9999'}).date).localeCompare((b.sessions[0]||{date:'9999'}).date));
   return `<div class="stats"><div class="stat"><b>${upcoming}</b><span>cours à venir</span></div><div class="stat"><b>${pend}</b><span>virements à confirmer</span></div><div class="stat"><b>${money(paid)}</b><span>encaissé</span></div></div>
@@ -2562,7 +2562,7 @@ function todayV(){
   const list=sess.filter(x=>x.s.date===day).sort((a,c)=>a.s.start.localeCompare(c.s.start));
   const todo=todoAdmin();
   const wk=sess.filter(x=>x.s.date<=addDays(td,6)).length;
-  const paid=db.bookings.reduce((n,b)=>n+b.parts.filter(p=>p.paid).reduce((a,p)=>a+p.amount,0),0)+(db.rentals||[]).filter(r=>r.paid).reduce((a,r)=>a+r.amount,0);
+  const paid=window.fcCashed?window.fcCashed():db.bookings.reduce((n,b)=>n+b.parts.filter(p=>p.paid).reduce((a,p)=>a+p.amount,0),0)+(db.rentals||[]).filter(r=>r.paid).reduce((a,r)=>a+r.amount,0);
   const card=({b,s})=>{const c=db.centres.find(x=>x.name===b.lieu);const w=c?wxFor(c):null;const f=w?fart(w.t):null;const names=b.parts.filter(p=>p.userId).map(p=>name(userById(p.userId)));
     const eq=Object.entries(b.rental||{}).map(([k,v])=>{const i=db.inventory.find(x=>x.id===k);return i?v+' × '+itemLabel(i):''}).filter(Boolean);
     return `<article class="card daycard"><div class="row"><h3>${hfmt(s.start)} à ${hfmt(fromMin(toMin(s.start)+b.dur))}</h3><span class="pill ${b.parts.every(p=>p.paid)?'ok':'warn'}">${b.parts.every(p=>p.paid)?'Payé':'Paiement en attente'}</span></div>
@@ -4840,7 +4840,7 @@ function finish(amount,pay){/* applique le rabais Interac puis les taxes à un m
 /* ---------- Prix : accès de l'entraîneur seulement, partagé dans un groupe ---------- */
 quote=(old=>function(R,u){const q=old(R,u);const oldAcc=q.access;const tot=r2((q.af||0)*q.qty);let mine=r2(q.mine-oldAcc);
   if(q.on>0&&!q.payAll){const share=r2(tot/q.nb);q.access=share;q.accessShare=share;mine=r2(mine+share);q.otherPart=r2(q.otherPart-(q.af||0)*q.qty+share)}else{q.access=tot;q.accessShare=0;mine=r2(mine+tot)}
-  q.accessTotal=tot;q.accPeople=1;q.preFin=mine;const f=finish(mine,R.pay);q.idisc=f.disc;q.taxes=f.tx;q.mine=f.total;
+  q.accessTotal=tot;q.accPeople=1;q.preFin=mine;/* v2 : comme le serveur, les taxes du cours et de la location sont arrondies séparément (plus d'écart de 1 ¢) */const rn=r2(Number(q.rent)||0);let f;if(rn>0&&rn<mine){f=finish(r2(mine-rn),R.pay);const fl=finish(rn,'carte');f={disc:f.disc,base:r2(f.base+fl.base),tx:f.tx.map((t,i)=>Object.assign({},t,{amt:r2(t.amt+((fl.tx[i]||{}).amt||0))})),total:r2(f.total+fl.total)}}else f=finish(mine,R.pay);q.idisc=f.disc;q.taxes=f.tx;q.mine=f.total;
   if(q.on>0&&!q.payAll){q.otherPre=q.otherPart;q.otherPart=finish(q.otherPart,'carte').total}return q})(quote);
 summaryV=(old=>function(R,u,q){let h=old(R,u,q);if(!q||R.what==='location')return h;const c=ctrByName(R.lieu);
   h=h.replace(/<div class="line"><span>Frais d'accès au centre[^<]*<\/span><span>[^<]*<\/span><\/div>/,R.lieu?`<div class="line"><span>Frais d'accès de l'entraîneur${q.accessShare?` (${money(q.accessTotal)} partagés entre ${q.nb})`:q.qty>1&&q.af?' × '+q.qty:''}</span><span>${c&&!accessKnown(c)?'À confirmer':q.access?money(q.access):'Gratuit'}</span></div>`:'');
@@ -4892,7 +4892,7 @@ Object.assign(A,{taxAdd(){fin().taxes.push({name:'Taxe',rate:0,no:''});save();re
   bufSet(d){bufCfg().mode=d.v;save();render();flash(d.v==='fixe'?'Temps fixe entre deux cours':'Temps selon la route entre les centres')}});
 /* ---------- Réglages : Facturation (rabais Interac et taxes) ---------- */
 adminFactu=(old=>function(){const F=fin();return `  <div class="panel fs" style="margin:0 0 22px;border-top-color:var(--line)"><span class="eyebrow">Paiement</span><h3>Rabais Interac et taxes</h3>
-    <span class="muted small" style="display:block;margin-bottom:6px"><b>Rabais pour paiement par virement Interac</b> · ex. 2,9 % + 0,30 $, l'équivalent des frais de carte que vous évitez</span><div class="grid2" style="grid-template-columns:1fr 1fr"><label class="field"><span>Pourcentage de la transaction (%)</span><input type="number" min="0" max="20" step="0.1" data-fin="interacPct" value="${esc(F.interacPct)}" placeholder="0"></label><label class="field"><span>Montant fixe par transaction ($)</span><input type="number" min="0" max="50" step="0.05" data-fin="interacFix" value="${esc(F.interacFix||0)}" placeholder="0"></label></div>${iOn()?`<p class="small">Exemple : sur un cours de 100,00 $, rabais de <b>${money(Math.min(100,r2(100*(Number(F.interacPct)||0)/100+(Number(F.interacFix)||0))))}</b>.</p>`:''}
+    <span class="muted small" style="display:block;margin-bottom:6px"><b>Rabais pour paiement par virement Interac</b> · ex. 3,1 % + 0,30 $, l'équivalent des frais de carte que vous évitez</span><div class="grid2" style="grid-template-columns:1fr 1fr"><label class="field"><span>Pourcentage de la transaction (%)</span><input type="number" min="0" max="20" step="0.1" data-fin="interacPct" value="${esc(F.interacPct)}" placeholder="0"></label><label class="field"><span>Montant fixe par transaction ($)</span><input type="number" min="0" max="50" step="0.05" data-fin="interacFix" value="${esc(F.interacFix||0)}" placeholder="0"></label></div>${iOn()?`<p class="small">Exemple : sur un cours de 100,00 $, rabais de <b>${money(Math.min(100,r2(100*(Number(F.interacPct)||0)/100+(Number(F.interacFix)||0))))}</b>.</p>`:''}
     <p class="muted small">Affiché au moment de payer. Au Québec, on ne peut pas ajouter de frais pour la carte de crédit, mais on peut offrir un rabais pour un autre mode de paiement.</p>
     <label class="toggle"><span>Ajouter les taxes aux prix<br><span class="muted small">Obligatoire dès que vos revenus taxables dépassent 30 000 $ sur 4 trimestres (petit fournisseur).</span></span><input type="checkbox" data-fin="taxOn" ${F.taxOn?'checked':''}></label>
     ${F.taxOn?F.taxes.map((t,i)=>`<div class="taxrow"><input type="text" data-tax="${i}:name" value="${esc(t.name)}" aria-label="Nom de la taxe"><input type="number" step="0.001" min="0" data-tax="${i}:rate" value="${esc(t.rate)}" aria-label="Taux (%)"><span>%</span><input type="text" data-tax="${i}:no" value="${esc(t.no)}" placeholder="N° d'inscription" aria-label="Numéro"><button class="btn-xs" data-a="taxDel" data-i="${i}" aria-label="Retirer">×</button></div>`).join('')+'<button class="btn btn-sm btn-plain" data-a="taxAdd">Ajouter une taxe</button><p class="muted small">Les taxes s\'ajoutent après les rabais, sur les cours, les frais de l\'entraîneur et la location. Les numéros apparaissent sur les factures.</p>':''}</div><span class="eyebrow" style="display:block;margin-bottom:8px">Factures</span>`+old()})(adminFactu);
@@ -7098,7 +7098,7 @@ const LEADST={nouvelle:['Nouvelle','info'],invite:['Lien envoyé','warn'],signe:
 ASEC.coachs={l:'Entraîneurs FidjiCoach',i:'users',f:()=>coachsAdmin()};REL.coachs=['legal','backup'];
 AGROUPS=(old=>function(){return old().map(([g,ks])=>g==='Plateforme'?[g,[...ks,'coachs']]:[g,ks])})(AGROUPS);
 function priceCards(sel,annual,act){const P=platCfg();const f=P.founder;return `<div class="pricing">${P.plans.map(p=>{const pr=annual?p.y/12:p.m;return `<button type="button" class="pcard ${sel===p.id?'on':''} ${p.best?'best':''}" ${act?`data-a="${act}" data-p="${p.id}"`:''}>${p.best?'<span class="pbest">Le plus choisi</span>':''}<b>${esc(p.name)}</b><span class="pprice"><em>${money0(pr)}</em> / mois</span><small>${annual?'Facturé '+money0(p.y)+' par année (2 mois gratuits)':'Facturé chaque mois, sans engagement'}</small><span class="pcap">${esc(p.cap)}</span><ul class="check" style="grid-template-columns:1fr">${p.feats.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></button>`}).join('')}</div>
-  <p class="small muted">Taxes en sus. Frais d'activation : ${money0(P.activation)} (configuration de la page et importation des clients). ${P.trial} jours d'essai. Hors saison : pause à ${money0(P.pause)} par mois, les données sont gardées. Frais Stripe sur les paiements des clients (environ 2,9 % + 0,30 $) payés directement à Stripe. Entraîneurs fondateurs : ${f.pct} % de rabais à vie pour les ${f.places} premiers.</p>`}
+  <p class="small muted">Frais d'activation : ${money0(P.activation)} (configuration de la page et importation des clients). ${P.trial} jours d'essai. Hors saison : pause à ${money0(P.pause)} par mois, les données sont gardées. Frais Stripe sur les paiements des clients (environ 3,1 % + 0,30 $, estimation avec marge) payés directement à Stripe. Entraîneurs fondateurs : ${f.pct} % de rabais à vie pour les ${f.places} premiers.</p>`}
 function coachsAdmin(){const P=platCfg();const L=db.coachLeads||[];const t=st.coTab||'dem';const n=s=>L.filter(x=>x.status===s).length;
   const tabs=`<div class="seg mini" style="margin-bottom:14px">${[['dem','Demandes ('+L.filter(x=>x.status==='nouvelle'||x.status==='invite').length+')'],['ent','Entraîneurs ('+(n('signe')+n('actif'))+')'],['tarifs','Tarifs de la plateforme']].map(([k,l])=>`<button class="${t===k?'on':''}" data-a="coTab" data-v="${k}">${l}</button>`).join('')}</div>`;
   if(t==='tarifs')return tabs+`<p class="muted" style="max-width:44rem;margin-bottom:12px">Ce que paient les autres entraîneurs pour utiliser ${esc(legalCfg().plateforme)}. Ces prix s'affichent dans leur page d'inscription.</p>
@@ -7198,7 +7198,7 @@ priceCards=(old=>function(sel,annual,act){platCfg2();let h=old(sel,annual,act);r
 coachsAdmin=(old=>function(){const P=platCfg2();let h=old();if((st.coTab||'dem')!=='tarifs')return h.replace(/> Fondateur<\/label>/g,'> Fondateur <span class="tip" title="Prix fondateur : rabais à vie réservé aux premiers entraîneurs. Il récompense ceux qui font confiance à la plateforme au début et vous aide à obtenir vos premiers témoignages.">?</span></label>');
   const box=`<div class="panel" style="display:grid;gap:10px;margin-bottom:14px"><span class="eyebrow">Modèle de prix</span><div class="seg">${[['fixe','Abonnement seul','Aucune commission'],['hybride','Abonnement réduit + %','Petit pourcentage par paiement']].map(([k,l,s])=>`<button class="${P.model===k?'on':''}" data-a="platModel" data-v="${k}">${l}<small>${s}</small></button>`).join('')}</div>
    ${P.model==='hybride'?`<div class="grid2"><label class="field"><span>Commission par paiement reçu (%)</span><input type="number" step="0.1" min="0" max="5" data-plat2="fee" value="${P.fee}"></label><label class="field"><span>Maximum par paiement ($, 0 = aucun)</span><input type="number" step="0.5" min="0" data-plat2="feeCap" value="${P.feeCap}"></label></div>`:''}
-   <p class="small muted">Exemple : un entraîneur qui encaisse 15 000 $ dans une saison paie ${P.model==='hybride'?money(Math.min(15000*P.fee/100,P.feeCap?167*P.feeCap:1e9))+' de commission (167 paiements de 90 $), en plus de l\'abonnement':'seulement son abonnement'}. Les frais Stripe (environ 2,9 % + 0,30 $) s'ajoutent dans les deux cas.</p></div>`;
+   <p class="small muted">Exemple : un entraîneur qui encaisse 15 000 $ dans une saison paie ${P.model==='hybride'?money(Math.min(15000*P.fee/100,P.feeCap?167*P.feeCap:1e9))+' de commission (167 paiements de 90 $), en plus de l\'abonnement':'seulement son abonnement'}. Les frais Stripe (environ 3,1 % + 0,30 $, estimation avec marge) s'ajoutent dans les deux cas.</p></div>`;
   return h.replace('<div class="list">',box+'<div class="list">')})(coachsAdmin);
 Object.assign(A,{platModel(d){const P=platCfg2();P.model=d.v;P.plans.forEach((p,i)=>{const s=P.sets[d.v][i];if(s){p.m=s[0];p.y=s[1]}});save();render()}});
 document.addEventListener('change',e=>{const t=e.target;if(t.dataset&&t.dataset.plat2){platCfg2()[t.dataset.plat2]=Number(t.value)||0;save();render()}if(t.dataset&&(t.dataset.plat==='m'||t.dataset.plat==='y')){const P=platCfg2();P.plans.forEach((p,i)=>{P.sets[P.model][i]=[p.m,p.y]})}});
@@ -11344,7 +11344,7 @@ document.addEventListener('change',e=>{const t=e.target;if(!t.dataset)return;con
 const WIN=[['past','Passées'],['jour','Prochain jour'],['sem','Prochaine semaine'],['mois','Prochain mois'],['plus','Plus tard']];
 const fSt=k=>st[k]||(st[k]={w:{jour:1,sem:1,mois:1,plus:1},q:'',d:'',club:k==='v5ra'?0:1});
 const inWin=(date,W)=>{const t=today();if(date<t)return !!W.past;if(W.jour&&date<=plusD(t,1))return true;if(W.sem&&date<=plusD(t,7))return true;if(W.mois&&date<=plusD(t,30))return true;return !!W.plus&&date>plusD(t,30)};
-const bucket=date=>{const t=today();if(date<t)return 'Passées';if(date===t)return 'Aujourd\'hui';if(date===plusD(t,1))return 'Demain';if(date<=plusD(t,7))return 'Cette semaine';if(date<=plusD(t,30))return 'D\'ici un mois';return 'Plus tard'};
+const bucket=date=>{const t=today();if(date<t)return 'Passées';if(date===t)return 'Aujourd\'hui';if(date===plusD(t,1))return 'Demain';if(date<plusD(t,7))return 'Cette semaine';if(date<=plusD(t,30))return 'D\'ici un mois';return 'Plus tard'};
 const BORD=['Aujourd\'hui','Demain','Cette semaine','D\'ici un mois','Plus tard','Passées'];
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 function clubSessV5(u,from,to){const out=[];if(!u.club||u.club.status==='retire')return out;const c=(db.clubs||[]).find(x=>x.id===u.club.id);if(!c)return out;const G=(c.groups||[]).find(g=>g.id===u.club.group);if(!G)return out;
@@ -19571,7 +19571,7 @@ VIEWS.of_lic=(c,u)=>{const P=window.fc7();const n=licMembers(c);const T=window.f
   const tbl=`<div class="p3rep"><table><thead><tr><th>Formule</th><th>Membres inscrits</th><th class="n">Prix par saison</th></tr></thead><tbody>${P.clubs.tiers.map((t,i)=>{const prev=i?P.clubs.tiers[i-1].max:0;const rng=t.max?(prev+1)+' à '+t.max:(prev+1)+' et plus';
     return `<tr ${t===T?'style="background:var(--ok-soft);font-weight:700"':''}><td>${esc(t.n)}${t===T?' <span class="pill ok">Votre club</span>':''}</td><td>${rng}</td><td class="n">${money0(t.price)}${t.max?'':' + '+money0(t.per)+' par membre au-delà de '+prev}</td></tr>`}).join('')}</tbody></table></div>`;
   return (typeof of7Tabs==='function'?of7Tabs(c,u,'of_lic'):'')+`<p class="p3note" style="margin-bottom:12px">Ce que le club paie à ${esc(legalCfg().plateforme)} pour utiliser la plateforme : <b>un prix fixe par saison, selon le nombre de membres</b>, tout inclus. Les athlètes qui veulent les outils d'entraînement avancés s'abonnent eux-mêmes à <b>Athlète Plus</b>; le club n'a rien à payer pour cette option.</p>
-  <div class="stats"><div class="stat"><b>${n}</b><span>membres inscrits ou en attente</span></div><div class="stat"><b>${esc(T.n)}</b><span>votre formule</span></div><div class="stat"><b>${money0(price)}</b><span>par saison, taxes en sus</span></div></div>
+  <div class="stats"><div class="stat"><b>${n}</b><span>membres inscrits ou en attente</span></div><div class="stat"><b>${esc(T.n)}</b><span>votre formule</span></div><div class="stat"><b>${money0(price)}</b><span>par saison</span></div></div>
   ${sec('Licence du club')}${tbl}
   <p class="small muted" style="margin-top:8px">La formule est calculée automatiquement d'après les membres inscrits à la fin de la période d'inscription. ${next?'Prochaine formule à partir de '+(T.max+1)+' membres : '+esc(next.n)+', '+money0(next.price)+'.':''} Frais de paiement (carte, Interac) au coût réel, à part.</p>
   <ul class="check" style="margin-top:10px">${P.clubs.feats.map(f=>`<li>${esc(f)}</li>`).join('')}</ul>
@@ -19592,7 +19592,7 @@ VIEWS.a_plus=(c,u)=>{const P=window.fc7();const R=myRs(c,u);const n=Math.max(1,R
   const famTbl=`<div class="p3rep"><table><thead><tr><th>Athlètes de la famille</th><th class="n">Par mois</th></tr></thead><tbody>${[1,2,3,4,5].map(k=>`<tr ${k===Math.min(n,5)?'style="background:var(--ok-soft);font-weight:700"':''}><td>${k===5?'5 et plus':k}${k===Math.min(n,5)?' <span class="pill ok">Vous</span>':''}</td><td class="n">${money(window.fc7aplus(k))}</td></tr>`).join('')}</tbody></table></div>`;
   return `<p class="p3note" style="margin-bottom:12px"><b>Athlète Plus</b> débloque les outils d'entraînement avancés de ${esc(legalCfg().plateforme)} pour ${n>1?'les '+n+' athlètes de votre famille':'vous'} : plan adaptatif, test Ruffier, sorties GPS, nutrition, analyse vidéo. C'est une option personnelle, payée par ${n>1?'la famille':'l\'athlète'}; votre club n'a rien à payer.${rec.length?` <b>Recommandé par le club pour ${rec.map(r=>esc((gOf(c,r.g)||{}).name||'')).filter(Boolean).join(', ')}.</b>`:''}</p>
   ${A.note?`<div class="info" style="margin-bottom:12px"><b>Mot du club</b><br>${esc(A.note)}</div>`:''}
-  <div class="two"><div class="panel ${on?'':'on'}"><span class="eyebrow">${on?'Votre abonnement':'Votre prix'}</span><h3>${money(price)} par mois</h3><p class="small muted">${n>1?n+' athlètes · un seul abonnement pour la famille':'1 athlète'} · ${P.aplus.trial} jours d'essai gratuit · sans engagement, taxes en sus.</p>
+  <div class="two"><div class="panel ${on?'':'on'}"><span class="eyebrow">${on?'Votre abonnement':'Votre prix'}</span><h3>${money(price)} par mois</h3><p class="small muted">${n>1?n+' athlètes · un seul abonnement pour la famille':'1 athlète'} · ${P.aplus.trial} jours d'essai gratuit · sans engagement.</p>
     ${on?`<p class="small" style="margin-top:8px">Abonné depuis le ${esc(u.aplus.at||'')}. ${u.aplus.n!==n?'Le prix suivra le nombre d\'athlètes inscrits ('+n+').':''}</p><div class="actions" style="margin-top:10px"><button class="btn btn-plain" data-a="ap7off">Arrêter l'abonnement</button></div>`:`<div class="actions" style="margin-top:10px"><button class="btn btn-accent" data-a="ap7on">Essayer ${P.aplus.trial} jours gratuitement</button></div><p class="small muted" style="margin-top:6px">Démo : paiement simulé. Dans la vraie plateforme, la carte est demandée à la fin de l'essai.</p>`}
     <ul class="check" style="grid-template-columns:1fr;margin-top:12px">${P.aplus.feats.map(f=>`<li>${esc(f)}</li>`).join('')}</ul></div>
    <div class="panel"><span class="eyebrow">Prix famille</span><h3>Un abonnement, toute la famille</h3><p class="small muted" style="margin-bottom:8px">Le prix dépend du nombre d'athlètes inscrits au club dans votre famille.</p>${famTbl}</div></div>`};
@@ -20500,7 +20500,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 function clubTable(cnt){const P=fc7();const T=P.clubs.tiers;
   return `<div class="v7tbl"><table><thead><tr><th>Formule</th><th>Membres</th><th class="n">Par saison</th></tr></thead><tbody>${T.map((t,i)=>{const prev=i?T[i-1].max:0;const cur=cnt!=null&&fc7tier(cnt)===t;
     return `<tr${cur?' style="background:var(--ok-soft)"':''}><td><b>${esc(t.n)}</b>${cur?' <span class="pill ok">Votre club</span>':''}</td><td>${t.max?(prev+1)+' à '+t.max:'Plus de '+prev}</td><td class="n"><b>${money0(t.price)}</b>${t.max?'':'<br><small class="muted">+ '+money0(t.per)+' par membre au-delà de '+prev+'</small>'}</td></tr>`}).join('')}</tbody></table></div>
-  <p class="small muted" style="margin-top:8px">Taxes en sus. Tout inclus, sans module à payer en plus. Frais de paiement (carte, Interac) au coût réel, payés directement au fournisseur.</p>`}
+  <p class="small muted" style="margin-top:8px">Tout inclus, sans module à payer en plus. Frais de paiement (carte, Interac) au coût réel, payés directement au fournisseur.</p>`}
 function clubFeats(){return `<ul class="check">${fc7().clubs.feats.map(f=>`<li>${esc(f)}</li>`).join('')}</ul>`}
 function aplusBox(){const A=fc7().aplus;return `<div class="v7plus"><span class="eyebrow" style="color:#ffd1c4">Athlète Plus · option payée par l'athlète</span><span class="v7big">${money(A.m)} <small>par mois, par athlète</small></span>
   <div class="v7fam">${A.fam.map((p,i)=>`<span>Famille de ${i+2}${i===A.fam.length-1?' et plus':''} : ${money(p)}</span>`).join('')}</div>
@@ -20936,7 +20936,7 @@ function toLocal(row){const d=row.details||{};
   const sessions=ss.filter(s=>!s.cancelled).map(s=>{const o=Object.assign({id:s.id},tzParts(s.starts_at));if(s.pending_to)o.pendingMove=tzParts(s.pending_to);return o});
   const gone=ss.filter(s=>s.cancelled&&s.cancel_kind!=='coach').map(s=>{const k=s.cancel_kind;return Object.assign(tzParts(s.starts_at),{credit:k==='credit',refund:k==='refund',late:k==='late'})});
   const pays=(row.payments||[]).slice().sort((a,b)=>((a.payer_id===row.owner_id?0:1)-(b.payer_id===row.owner_id?0:1))||a.created_at.localeCompare(b.created_at)||String(a.claimed_at||'9').localeCompare(String(b.claimed_at||'9'))||a.id.localeCompare(b.id));
-  const parts=pays.map((p,i)=>({pid:p.id,userId:lid(p.payer_id),amount:p.amount_cents/100,method:p.method,paid:p.status==='payee'||p.status==='remboursee',paidAt:p.paid_at?String(p.paid_at).slice(0,10):null,
+  const parts=pays.map((p,i)=>({pid:p.id,userId:lid(p.payer_id),amount:p.amount_cents/100,method:p.method,paid:p.status==='payee'||p.status==='remboursee',paidAt:p.paid_at?new Date(p.paid_at).toLocaleDateString('en-CA',{timeZone:'America/Toronto'}):null,
     lines:p.lines||[],invited:!p.payer_id,payerOnly:i===0&&d.me===false,split:{},
     status:p.status,refunded:(p.refunded_cents||0)/100,
     invNo:p.inv_no||null,invAt:p.inv_at?new Date(p.inv_at).toLocaleDateString('en-CA',{timeZone:'America/Toronto'}):null,invSent:p.inv_sent_at?new Date(p.inv_sent_at).toLocaleDateString('en-CA',{timeZone:'America/Toronto'}):null,
@@ -21428,7 +21428,8 @@ syncAll=(old=>async function(){await old();try{await Promise.all([loadNotifs(),l
 afterLogin=(old=>function(){old();if(R.on){const list=R.role==='admin'?db.notifs:(db.cnotifs||[]);st.pushes=list.filter(n=>!n.read).slice(0,3)}})(afterLogin);
 /* mode Stripe lu au démarrage : « Mode test » disparaît tout seul quand la base dit « live » */
 bootReal=(old=>async function(){await old();try{if(!R.sb)return;const {data}=await R.sb.rpc('platform_info');
-  if(data&&typeof data.stripe_test==='boolean'&&data.stripe_test!==STRIPE_TEST){STRIPE_TEST=data.stripe_test;render()}}catch(e){}})(bootReal);
+  if(data){window.FC_STRIPE_MODE=data.stripe_test===false?'live':'test';const dp=!!data.demo_pay_off,ch=dp!==!!R.demoPayOff;R.demoPayOff=dp;
+  if(typeof data.stripe_test==='boolean'&&data.stripe_test!==STRIPE_TEST){STRIPE_TEST=data.stripe_test;render()}else if(ch)render()}}catch(e){}})(bootReal);
 decorate=(old=>function(){old();if(!R.on||R.role!=='admin'||st.view!=='admin')return;const bar=document.querySelector('.fcreal');if(!bar||bar.dataset.v6)return;bar.dataset.v6='1';
   bar.innerHTML=bar.innerHTML.replace('Les autres sections arrivent aux prochaines étapes : ce que vous y entrez reste sur cet appareil.','Vos alertes, votre comptabilité et vos dépenses sont aussi en ligne. Les autres sections (messages, documents, équipement…) arrivent aux prochaines étapes : ce que vous y entrez reste sur cet appareil.')})(decorate);
 
@@ -22154,7 +22155,7 @@ addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-
 toLocal=(old=>function(row){const pays=row.payments||[];
   const b=old(Object.assign({},row,{payments:pays.filter(p=>(p.kind||'part')==='part')}));
   b.kindSrv=row.type;b.rentSrv=(row.details||{}).rent||null;
-  b.feesSrv=pays.filter(p=>p.kind==='frais').map(p=>({pid:p.id,amount:p.amount_cents/100,status:p.status,paidAt:p.paid_at?String(p.paid_at).slice(0,10):null,
+  b.feesSrv=pays.filter(p=>p.kind==='frais').map(p=>({pid:p.id,amount:p.amount_cents/100,refunded:(p.refunded_cents||0)/100,status:p.status,paidAt:p.paid_at?new Date(p.paid_at).toLocaleDateString('en-CA',{timeZone:'America/Toronto'}):null,
     reason:p.note||(((p.lines||[])[0]||[])[0]||'').replace(/^Frais de location : /,''),payer:lid(p.payer_id),at:String(p.created_at||'').slice(0,10)}));
   if(row.type==='location')b.type='location';return b})(toLocal);
 R.fees=[];
@@ -22183,23 +22184,26 @@ loadBookings=(old=>async function(){await old();try{buildRentals()}catch(e){cons
 const fz=document.createElement('div');fz.className='fcq';fz.hidden=true;
 fz.innerHTML=`<form novalidate><div><span class="eyebrow">Location d'équipement</span><h2>Facturer des frais</h2></div><p class="small" data-who></p>
 <label class="field"><span>Montant ($, taxes comprises)</span><input name="amt" type="number" min="1" step="0.01" inputmode="decimal" required></label>
-<label class="field"><span>Raison (le client la verra sur sa facture)</span><input name="why" maxlength="200" placeholder="Ex. : bâton cassé, bottes non remises"></label>
+<label class="field"><span>Raison (le client la verra sur sa facture)</span><input name="why" type="text" maxlength="200" autocomplete="off" placeholder="Ex. : bâton cassé, bottes non remises"></label>
 <p class="small muted">La carte utilisée pour payer la location est prélevée tout de suite, selon le contrat de location signé. Si la banque refuse, le client reçoit un avis pour payer lui-même dans FidjiCoach.</p>
-<p class="small" data-err style="color:var(--bad)" hidden></p><div class="actions"><button type="submit" class="btn btn-accent">Facturer</button><button type="button" class="btn btn-plain" data-x>Annuler</button></div></form>`;
+<p class="small" data-err style="color:var(--bad)" hidden></p><p class="small" data-cf hidden style="margin:0;padding:10px 12px;border-radius:8px;background:rgba(200,16,46,.08)"></p><div class="actions"><button type="submit" class="btn btn-accent">Facturer</button><button type="button" class="btn btn-plain" data-x>Annuler</button></div></form>`;
 document.body.appendChild(fz);
+/* v2 : confirmation dans la fenêtre (plus de fenêtre du navigateur) */
+const fzStep=on=>{const F=fz.querySelector('form'),c=F.querySelector('[data-cf]');fz.dataset.cf=on?'1':'';c.hidden=!on;F.amt.readOnly=!!on;F.why.readOnly=!!on;F.querySelector('[type=submit]').textContent=on?'Confirmer et prélever':'Facturer';F.querySelector('[data-x]').textContent=on?'Modifier':'Annuler'};
 const fzClose=()=>{fz.hidden=true;document.body.style.overflow=''};
-fz.querySelector('[data-x]').onclick=fzClose;
+fz.querySelector('[data-x]').onclick=()=>{if(fz.dataset.cf)fzStep(false);else fzClose()};
 A.fcFee=function(d){const r=(db.rentals||[]).find(x=>x.id===d.r);if(!r)return;const u=userById(r.userId);
   fz.dataset.b=r.sid;fz.querySelector('[data-who]').textContent=(u?name(u):'Client')+' · location '+r.ref+' ('+(r.from===r.to?r.from:r.from+' au '+r.to)+')';
-  const F=fz.querySelector('form');F.amt.value='';F.why.value='';fz.querySelector('[data-err]').hidden=true;fz.hidden=false;document.body.style.overflow='hidden';setTimeout(()=>F.amt.focus(),50)};
+  const F=fz.querySelector('form');F.amt.value='';F.why.value='';fzStep(false);fz.querySelector('[data-err]').hidden=true;fz.hidden=false;document.body.style.overflow='hidden';setTimeout(()=>F.amt.focus(),50)};
 fz.querySelector('form').addEventListener('submit',async e=>{e.preventDefault();const F=e.target,er=F.querySelector('[data-err]');
   const amt=Number(String(F.amt.value).replace(',','.')),why=F.why.value.trim();
   if(!(amt>=1)||why.length<3){er.textContent='Indiquez le montant (1 $ ou plus) et la raison.';er.hidden=false;return}
-  if(!confirm('Facturer '+money(amt)+' au client pour : '+why+'?'))return;
+  er.hidden=true;
+  if(!fz.dataset.cf){F.querySelector('[data-cf]').textContent='Confirmez : '+money(amt)+' (taxes comprises) seront prélevés tout de suite sur la carte du client pour « '+why+' ».';fzStep(true);return}
   const btn=F.querySelector('[type=submit]');btn.disabled=true;
   try{const r=await fcInvoke('charge-fee',{booking_id:fz.dataset.b,amount:amt,reason:why});fzClose();await syncAll();render();
     flash(r.charged?'Frais de '+money(amt)+' prélevés sur la carte du client. Il reçoit son reçu par courriel.':(r.message||'Le client paiera les frais dans FidjiCoach.'))}
-  catch(err){er.textContent=await errMsg(err);er.hidden=false}finally{btn.disabled=false}});
+  catch(err){fzStep(false);er.textContent=await errMsg(err);er.hidden=false}finally{btn.disabled=false}});
 function rentPanel(){const rs=(db.rentals||[]).filter(r=>r.real&&!r.cancelled).sort((a,b)=>String(b.from).localeCompare(String(a.from)));if(!R.on||!rs.length)return '';
   const st_=f=>f.status==='payee'?'<span class="fc8tag ok">payés</span>':f.status==='remboursee'?'<span class="fc8tag">remboursés</span>':'<span class="fc8tag warn">à payer par le client</span>';
   return `<section class="panel fc8p"><span class="eyebrow">Payées en ligne par carte</span><h3>Locations des clients</h3>
@@ -22272,7 +22276,7 @@ function fcPayPage(){if(!R.on)return '<div class="empty">Connectez-vous.</div>';
         <label class="field"><span>Sur chaque mois d'abonnement (%)</span><input name="sub_fee_pct" type="number" min="0" max="50" step="0.1" value="${esc(S.sub_fee_pct??10)}"></label>
         <label class="field"><span>Frais de location : maximum par facture ($)</span><input name="rent_fee_max" type="number" min="10" max="5000" step="1" value="${esc((S.rent_fee_max_cents||150000)/100)}"></label>
         <div class="actions" style="grid-column:1/-1"><button class="btn btn-accent" type="submit">Enregistrer les frais</button></div></form>
-      <p class="fc8note">Les frais de Stripe (environ 2,9 % + 0,30 $ au Canada) sont payés par le compte qui reçoit l'argent. Les autres entraîneurs et clubs n'ont pas accès à Interac : leurs clients paient par carte seulement, ce qui garantit les frais de FidjiCoach. Interac reste offert à vos propres clients.</p></section>
+      <p class="fc8note">Les frais de Stripe (environ 3,1 % + 0,30 $, estimation avec marge) sont payés par le compte qui reçoit l'argent. Les autres entraîneurs et clubs n'ont pas accès à Interac : leurs clients paient par carte seulement, ce qui garantit les frais de FidjiCoach. Interac reste offert à vos propres clients.</p></section>
     <section class="panel fc8p"><span class="eyebrow">Sur invitation seulement</span><h3>Inviter un entraîneur</h3>
       <form id="fc8inv" class="grid" novalidate><label class="field"><span>Courriel de l'entraîneur</span><input name="email" type="email" required></label>
         <label class="field"><span>Nom (facultatif)</span><input name="nom" maxlength="80"></label>
@@ -23092,6 +23096,10 @@ coachify=(old=>function(h){const u=me();if(!u||!R.on)return old(h);const d=UI0.c
   if(!prot.length)return old(h);
   let o=h;const M='\u0002P\u0002';prot.forEach((v,i)=>{const re=new RegExp('(value="|>|Courriel : |Texto : )'+v.replace(/[.+?()[\]]/g,'\\$&'),'gi');o=o.replace(re,(m,a)=>a+M+i+M)});
   o=old(o);prot.forEach((v,i)=>{o=o.split(M+i+M).join(esc(v))});return o})(coachify);
+/* v2 : pages publiques de la plateforme (À propos, Trouver un entraîneur) : le nom du fondateur n'est jamais remplacé par celui
+   du dernier entraîneur vu sur l'appareil (après une déconnexion, la fiche de Colin affichait le nom de cet entraîneur). */
+coachify=(old=>function(h){let plat=false;try{plat=platMode()}catch(e){}if(!plat)return old(h);const K1='\u0003A\u0003',K2='\u0003B\u0003';
+  let o=String(h).split('COLIN CHRISTOPHE').join(K2).replace(/\bColin\b/g,K1);o=old(o);return o.split(K2).join('COLIN CHRISTOPHE').split(K1).join('Colin')})(coachify);
 /* lien d'activation expiré ou déjà utilisé (ex. : courriel « visité » par Outlook avant le clic) : on le dit clairement */
 {try{const m=(location.hash||'').match(/error_code=([^&]+)/);if(m){const code=decodeURIComponent(m[1]);history.replaceState(null,'',location.pathname+location.search);
   setTimeout(()=>{R.info=code==='otp_expired'?'Ce lien d\'activation a expiré ou a déjà été utilisé. Si vous venez de créer votre compte, il est probablement déjà activé : connectez-vous avec votre courriel et votre mot de passe. Sinon, utilisez « Mot de passe oublié? » pour recevoir un nouveau lien.':'Ce lien n\'est plus valide ('+code+'). Connectez-vous ou demandez un nouveau lien.';
@@ -23412,7 +23420,7 @@ if(msg)setTimeout(()=>flash(msg),300);
 try{render()}catch(e){console.error(e)}
 /* ================= Tarification des entraîneurs (6 nov. 2026) =================
    Modèle hybride : forfait mensuel Solo ou Pro + 1 % de commission par paiement reçu, plus les frais de Stripe
-   (2,9 % + 0,30 $) à la charge de l'entraîneur, même lors d'un remboursement. Plafond de 2 $ sur le 1 % : activable.
+   (3,1 % + 0,30 $, estimation avec marge) à la charge de l'entraîneur, même lors d'un remboursement. Plafond de 2 $ sur le 1 % : activable.
    - Administrateur : Finances › Tarification des entraîneurs (réglages, forfait de chaque entraîneur).
    - Entraîneur     : Finances › Mon forfait FidjiCoach, et nouvelle étape « Forfait FidjiCoach » de la mise en place.
    - Solo           : jusqu'à 40 clients actifs; location, abonnements, vidéo et musculation réservés au forfait Pro.
@@ -23420,9 +23428,9 @@ try{render()}catch(e){console.error(e)}
 const TARIF_VER='Tarification · 6 nov. 2026';
 R.pricing=null;R.bill=null;R.billBusy=false;R.abill=null;R.abillAt=0;R.abillErr='';R.abillBusy=false;
 const PRO_SECS=['abos','inv','scan','loc','prix','codes','video','muscu'];
-const DEFP={commission_pct:1,fee_cap_on:false,fee_cap_cents:200,stripe_pct:2.9,stripe_fixed_cents:30,billing_pct:0.7,solo:2900,pro:4900,pause:900,activation:9900,trial_on:true,trial_days:30,activation_on:true,pause_on:true,founder_pct:30,founder_max:10,solo_max:40};
+const DEFP={commission_pct:1,fee_cap_on:false,fee_cap_cents:200,stripe_pct:3.1,stripe_fixed_cents:30,billing_pct:0.7,solo:2900,pro:4900,pause:900,activation:9900,trial_on:true,trial_days:30,activation_on:true,pause_on:true,founder_pct:30,founder_max:10,solo_max:40};
 const c2=c=>money((Number(c)||0)/100);
-const rulesOf=P=>({commission_pct:Number(P.commission_pct??1),cap_on:!!(P.cap_on??P.fee_cap_on),cap_cents:Number(P.cap_cents??P.fee_cap_cents??200),stripe_pct:Number(P.stripe_pct??2.9),stripe_fixed_cents:Number(P.stripe_fixed_cents??30),billing_pct:Number(P.billing_pct??0.7)});
+const rulesOf=P=>({commission_pct:Number(P.commission_pct??1),cap_on:!!(P.cap_on??P.fee_cap_on),cap_cents:Number(P.cap_cents??P.fee_cap_cents??200),stripe_pct:Number(P.stripe_pct??3.1),stripe_fixed_cents:Number(P.stripe_fixed_cents??30),billing_pct:Number(P.billing_pct??0.7)});
 const feeOf=(cents,F)=>{let com=Math.round(cents*F.commission_pct/100);if(F.cap_on)com=Math.min(com,F.cap_cents);const strp=Math.round(cents*F.stripe_pct/100)+F.stripe_fixed_cents;return {com,strp,fee:Math.max(0,Math.min(cents-1,com+strp))}};
 const subPctOf=(cents,F)=>{let com=Math.round(cents*F.commission_pct/100);if(F.cap_on)com=Math.min(com,F.cap_cents);const strp=Math.round(cents*(F.stripe_pct+F.billing_pct)/100)+F.stripe_fixed_cents;return Math.min(99,Math.ceil((com+strp)*10000/cents)/100)};
 const feeTxt9=F=>`<b>${pct(F.commission_pct)}</b> de commission${F.cap_on?` (au plus ${c2(F.cap_cents)} par paiement)`:''} + les frais de Stripe (<b>${pct(F.stripe_pct)} + ${c2(F.stripe_fixed_cents)}</b>)`;
@@ -23618,9 +23626,21 @@ function forfaitPage(){if(!R.on)return '<div class="empty">Connectez-vous.</div>
   if(inv.length)h+=`<section class="panel fc8p"><span class="eyebrow">Historique</span><h3>Paiements de votre forfait</h3>${inv.map(x=>`<div class="fctinv"><span>${esc(x.date?day9(x.date):'')}</span><b>${money(Number(x.amount)||0)}</b></div>`).join('')}</section>`;
   return h}
 ASEC.fcforfait={l:'Mon forfait FidjiCoach',i:'repeat',f:()=>forfaitPage()};REL.fcforfait=['fcpay','setup9'];
+const fctQ=document.createElement('div');fctQ.className='fcq';fctQ.hidden=true;
+fctQ.innerHTML=`<form novalidate><div><span class="eyebrow">Forfait FidjiCoach</span><h2 data-t></h2></div><p class="small" data-l1></p><p class="small" data-l2 hidden></p>
+<p class="small muted">Vous serez dirigé vers la page de paiement sécurisée de Stripe.</p><div class="actions"><button type="submit" class="btn btn-accent">Continuer vers Stripe</button><button type="button" class="btn btn-plain" data-x>Annuler</button></div></form>`;
+document.body.appendChild(fctQ);
+const fctAsk=(k,P,B,trial)=>new Promise(res=>{const F=fctQ.querySelector('form');
+  fctQ.querySelector('[data-t]').textContent='Choisir le forfait '+PLANS9[k]+'?';
+  fctQ.querySelector('[data-l1]').textContent=c2(P[k])+' par mois'+(Number(B.total_discount_pct)>0?', avant rabais':'')+'.';
+  const l2=fctQ.querySelector('[data-l2]');l2.hidden=!trial;l2.textContent=trial?'Essai gratuit de '+P.trial_days+' jours : rien n\'est prélevé aujourd\'hui.':'';
+  const end=v=>{fctQ.hidden=true;document.body.style.overflow='';F.onsubmit=null;res(v)};
+  F.onsubmit=e=>{e.preventDefault();end(true)};fctQ.querySelector('[data-x]').onclick=()=>end(false);
+  fctQ.hidden=false;document.body.style.overflow='hidden';setTimeout(()=>F.querySelector('[type=submit]').focus(),50)});
 A.fctChoose=async d=>{const k=d.p;if(!PLANS9[k])return;const B=R.bill||{};const P=Object.assign({},DEFP,B.prices||{});
   const trial=P.trial_on&&!B.trial_used;
-  if(!confirm(`Choisir le forfait ${PLANS9[k]} (${c2(P[k])} par mois${Number(B.total_discount_pct)>0?', avant rabais':''})?${trial?`\n\nEssai gratuit de ${P.trial_days} jours : rien n'est prélevé aujourd'hui.`:''}\n\nVous serez dirigé vers la page de paiement sécurisée de Stripe.`))return;
+  /* v2 : confirmation dans la page (plus de fenêtre du navigateur) */
+  if(!await fctAsk(k,P,B,trial))return;
   busyOn('Ouverture de Stripe…');try{const r=await fcInvoke('coach-billing',{action:'checkout',coach_id:R.coachId,plan:k});if(r&&r.url){location.href=r.url;return}busyOff();flash('Réessayez dans un instant.')}
   catch(e){busyOff();flash(missing(e)?'Le forfait n\'est pas encore offert (fonction « coach-billing » à créer dans Supabase).':'Forfait : '+await errMsg(e))}};
 A.fctPortal=async()=>{busyOn('Ouverture de Stripe…');try{const r=await fcInvoke('coach-billing',{action:'portal',coach_id:R.coachId});if(r&&r.url){location.href=r.url;return}busyOff()}
@@ -23705,7 +23725,7 @@ comptaV=(old=>function(){let h=withAuto(()=>old());if(!R.on||R.role!=='admin')re
   const fees=r2(A_.filter(x=>/^Frais de paiement/.test(x.cat)).reduce((n,x)=>n+x.amount,0));const plan=r2(A_.filter(x=>x.cat==='Forfait FidjiCoach').reduce((n,x)=>n+x.amount,0));
   const gross=r2(moneyIn().filter(x=>inP(x.date)).reduce((n,x)=>n+(Number(x.total)||0),0));
   if(fees||plan){const box=`<div class="cline fc7c"><span>Frais retenus par FidjiCoach et Stripe</span><b>−${money(fees)}</b></div><div class="cline fc7c tot"><span>Net reçu dans votre compte Stripe</span><b>${money(r2(gross-fees))}</b></div>`
-      +`<p class="muted small">Frais de paiement et forfait FidjiCoach${plan?' ('+money(plan)+')':''} : inscrits automatiquement dans vos dépenses ci-dessous (lecture seule).${R.realRole==='admin'?' Pour vous, les frais de Stripe sont estimés (2,9 % + 0,30 $).':''}</p>`;
+      +`<p class="muted small">Frais de paiement et forfait FidjiCoach${plan?' ('+money(plan)+')':''} : inscrits automatiquement dans vos dépenses ci-dessous (lecture seule).${R.realRole==='admin'?' Pour vous, les frais de Stripe sont estimés (3,1 % + 0,30 $, estimation avec marge).':''}</p>`;
     h=h.replace(/(<span class="eyebrow">Revenus<\/span>[\s\S]*?<div class="cline tot"><span>Total<\/span><b>[^<]*<\/b><\/div>)/,'$1'+box)}
   return h})(comptaV);
 cpXls=(old=>async function(){return await withAuto(()=>old())})(cpXls);
@@ -23731,7 +23751,7 @@ function revPage(){if(!R.on||R.realRole!=='admin')return '<div class="empty">Ré
   <div class="stats"><div class="stat"><b>${money(S('commissions'))}</b><span>commissions nettes</span></div><div class="stat"><b>${money(r2(S('forfaits')-S('forfaits_stripe')))}</b><span>forfaits nets</span></div><div class="stat"><b>${money(S('total'))}</b><span>total net</span></div></div>
   ${rows.length?`<div class="tablewrap fc7rev"><table class="rtab"><thead><tr><th>Mois</th><th>Entraîneur</th>${REVK.map(([,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.mois)}</td><td>${esc(r.nom)}</td>${REVK.map(([k])=>`<td class="num">${k==='nb'?Number(r[k])||0:money(Number(r[k])||0)}</td>`).join('')}</tr>`).join('')}
     <tr class="tot"><td colspan="2"><b>Total</b></td>${REVK.map(([k])=>`<td class="num"><b>${k==='nb'?S(k):money(S(k))}</b></td>`).join('')}</tr></tbody></table></div>`:'<p class="muted small">Aucun revenu pour cette période.</p>'}
-  <p class="muted small" style="margin-top:10px">Frais de Stripe estimés (${'2,9 % + 0,30 $'} par paiement, plus Stripe Billing pour les abonnements et les forfaits). Les montants exacts sont chez Stripe :
+  <p class="muted small" style="margin-top:10px">Frais de Stripe estimés (${'3,1 % + 0,30 $'} par paiement, estimation avec marge, plus Stripe Billing pour les abonnements et les forfaits). Les montants exacts sont chez Stripe :
     <a href="${base}connect/application_fees" target="_blank" rel="noopener">Connect › Frais d'application</a> · <a href="${base}subscriptions" target="_blank" rel="noopener">Facturation › Abonnements</a> · <a href="${base}balance" target="_blank" rel="noopener">Solde</a>.</p>`}
 ASEC.fcrev={l:'Revenus de la plateforme',i:'money',f:()=>revPage()};REL.fcrev=['fctarif','fcpay','compta'];
 document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.c7rf)return;const F=st.c7rf||(st.c7rf={y:'',m:'',c:''});F[t.dataset.c7rf]=t.value;if(t.dataset.c7rf==='y')F.m='';render()});
@@ -23952,8 +23972,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-09-c27b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='9 nov. 2026 · Corrections 27b (menu Mon abonnement, changement de formule) · Corrections 27 (abonnements directs FidjiCoach : 15 $/mois ou 162 $/an, parrainage, adresse Gmail)';
+const FC_BUILD='2026-11-15-v2';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='15 nov. 2026 · Paiements réels v2 (pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -24505,7 +24525,7 @@ A.c9xGo=async function(){if(XP.busy)return;if(!window.XLSX){flash('Le module Exc
     const sum=[['Entraîneur',(R.coachRow&&R.coachRow.nom_affiche)||ui().coach.name||''],['Période',rg[0]==='2000-01-01'?'Tout':rg[0]+' au '+rg[1]],['Fichier créé le',today()],['',''],
       ['Réservations',RB.length],['Paiements',RP.length],['Revenus encaissés ($)',rev],['Remboursements faits ($)',rem],
       ...TX.map(t=>[t+' perçue ($)',S(RV,t+' ($)')]),['Dépenses ($)',dep],['TPS payée ($)',S(DX,'TPS ($)')],['TVQ payée ($)',S(DX,'TVQ ($)')],['Net estimé ($)',x2(rev-rem-dep)],['Clients',RC.length],['',''],
-      ['Données de santé','Aucune (fiche santé, blessures, Tests Ruffier et notes privées exclus)'],['Source','Données en ligne de FidjiCoach (mode test tant que les paiements réels ne sont pas activés)'],
+      ['Données de santé','Aucune (fiche santé, blessures, Tests Ruffier et notes privées exclus)'],['Source','Données en ligne de FidjiCoach'+(STRIPE_TEST?' (mode test)':'')],
       ...(errs.length?[['',''],['Parties manquantes',errs.join(' | ')]]:[])].map(([a,b])=>({'Rubrique':a,'Valeur':b}));
     const ws=XLSX.utils.json_to_sheet(sum);ws['!cols']=[{wch:28},{wch:60}];XLSX.utils.book_append_sheet(wb,ws,'Résumé');
     wb.SheetNames.unshift(wb.SheetNames.pop());
@@ -24534,6 +24554,7 @@ async function demoLogin(code,as){busyOn(as==='client'?'Ouverture du client dém
     const {error:e2}=await R.sb.auth.verifyOtp({token_hash:data.token_hash,type:data.type||'magiclink'});if(e2)throw e2;
     dSet({code,as:data.as||as,slug:data.slug||null,at:Date.now()});
     if(!await loadMe())throw new Error('Compte de démo introuvable');
+    dSet({code,as:data.as||as,slug:data.slug||null,at:Date.now(),uid:R.uid||null});
     busyOff();afterLogin();window.scrollTo(0,0);flash(as==='client'?'Vous voyez maintenant la plateforme comme le client démo':'Bienvenue dans la démo FidjiCoach : vous êtes l\'entraîneur démo');return true}
   catch(e){busyOff();console.error(e);dSet(null);flash('Démo : '+(/Failed to send|fetch|network/i.test(e.message||'')?'la démo ne répond pas pour le moment. Réessayez plus tard.':(e.message||e)));render();return false}}
 bootReal=(old=>async function(){await old();try{if(R.demoCode){const c=R.demoCode;R.demoCode=null;await demoLogin(c,'coach')}}catch(e){console.warn(e)}})(bootReal);
@@ -24544,8 +24565,12 @@ document.head.insertAdjacentHTML('beforeend',`<style id="c9demo">
 .c9demo{position:sticky;top:0;z-index:60;display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;justify-content:center;background:#f08c00;color:#1b1300;padding:8px 14px;font-size:.88rem;font-weight:600}
 .c9demo b{font-weight:800}.c9demo .btn-xs{background:#fff;color:#1b1300;border:0}.c9demo .btn-xs.q{background:transparent;color:#1b1300;text-decoration:underline}
 </style>`);
-function demoBarH(){const D=dGet();if(!D||!R.on)return '';const cl=D.as==='client';
-  return `<div class="c9demo" role="status"><span>Démo FidjiCoach · vous êtes <b>${cl?'le client démo':'l\'entraîneur démo'}</b> (mode test, aucun vrai paiement)</span>
+/* 17 nov. 2026 : le bandeau ne s'affiche que si le compte connecté est bien un compte de démo; sinon le témoin est effacé
+   (il restait affiché par-dessus un vrai compte quand on se connectait juste après avoir ouvert la démo) */
+function demoIsMe(D){try{if(D.uid)return D.uid===R.uid;const em=String((me()||{}).email||'').toLowerCase();
+  return /\+demo-(entraineur|client)@/.test(em)}catch(e){return false}}
+function demoBarH(){const D=dGet();if(!D||!R.on)return '';if(!demoIsMe(D)){if(R.uid&&!R.booting)dSet(null);return ''}const cl=D.as==='client';
+  return `<div class="c9demo" role="status"><span>Démo FidjiCoach · vous êtes <b>${cl?'le client démo':'l\'entraîneur démo'}</b> ${R.demoPayOff?'(paiements par carte désactivés dans la démo : rien n\'est prélevé)':'(mode test, aucun vrai paiement)'}</span>
     <button class="btn-xs" data-a="fcDemoAs" data-v="${cl?'coach':'client'}">${cl?'Passer à l\'entraîneur démo':'Passer au client démo'}</button><button class="btn-xs q" data-a="fcDemoQuit">Quitter la démo</button></div>`}
 render=(old=>function(){const r=old.apply(this,arguments);try{const app=document.getElementById('app');if(app&&!app.querySelector('.c9demo')){const h=demoBarH();if(h)app.insertAdjacentHTML('afterbegin',h)}}catch(e){}return r})(render);
 
@@ -24557,7 +24582,7 @@ function demoAdminV(){if(!R.on||R.realRole!=='admin')return '<p class="muted">R�
   const I=DM.info||{};const link=st.c9dl||'';const base=location.origin+location.pathname;
   return `<div style="display:grid;gap:16px">
   <section class="panel" style="display:grid;gap:10px"><span class="eyebrow">Présenter FidjiCoach</span><h3>Lien de démonstration</h3>
-    <p class="small">Le lien ouvre la <b>vraie plateforme</b> avec deux comptes de démonstration (mode test, aucun vrai paiement) : l'<b>Entraîneur démo</b> (Tarification, mise en place guidée, vitrine, calendrier, comptabilité…) et le <b>Client démo</b> (réserver, payer avec une carte de test, modifier un cours…). Un bouton en haut de l'écran permet de passer de l'un à l'autre. La page de l'entraîneur démo n'apparaît jamais dans « Trouver un entraîneur ».</p>
+    <p class="small">Le lien ouvre la <b>vraie plateforme</b> avec deux comptes de démonstration (${STRIPE_TEST?'mode test, aucun vrai paiement':'paiements par carte désactivés pour ces deux comptes, aucun vrai paiement'}) : l'<b>Entraîneur démo</b> (Tarification, mise en place guidée, vitrine, calendrier, comptabilité…) et le <b>Client démo</b> (réserver, payer avec une carte de test, modifier un cours…). Un bouton en haut de l'écran permet de passer de l'un à l'autre. La page de l'entraîneur démo n'apparaît jamais dans « Trouver un entraîneur ».</p>
     ${DM.err?`<p class="alert bad small">${esc(DM.err)}</p>`:DM.busy&&!DM.info?'<p class="muted small">Lecture…</p>':''}
     ${DM.info?`<ul class="small" style="margin:0;padding-left:18px;display:grid;gap:4px">
       <li>Comptes de démo : ${I.ready?`<b>créés</b> (${esc(I.coach_email||'')} · ${esc(I.client_email||'')})`:'<b>pas encore créés</b>'}</li>
@@ -24621,7 +24646,7 @@ function inv10Data(b,p){const cl=userById(p.userId);
   return {no:p.invNo,date:p.invAt||p.paidAt||today(),ref:b.ref,coach:inv10Coach(),cl:clInfo14(cl),items,tax,
     sub:r2(items.reduce((n,l)=>n+l[1],0)),total:p.amount,method:p.method,paidAt:p.paidAt,refunded:Number(p.refunded)||0,
     sessions:(b.sessions||[]).map(s=>dlong10(s.date)+(s.start?' à '+hfmt(s.start):'')),lieu:b.lieu||'',sent:p.invSent||null}}
-function inv10Note(o){if(o.note)return o.note;return 'Payé'+(o.method?' par '+(PAY10[o.method]||o.method):'')+' le '+dlong10(o.paidAt||o.date)+'.'}
+function inv10Note(o){const cad=' Montants en dollars canadiens (CAD).';if(o.note)return /\(CAD\)/.test(o.note)?o.note:String(o.note).replace(/\s+$/,'')+cad;return 'Payé'+(o.method?' par '+(PAY10[o.method]||o.method):'')+' le '+dlong10(o.paidAt||o.date)+'.'+cad}
 /* Corrections 15b : date, heure et lieu du cours en 2e ligne, sous la description */
 function inv15Det(o){const S=(o.sessions||[]).filter(Boolean),l=o.lieu||'';if(!S.length&&!l)return [];
   if(S.length<=1)return [[S[0]||'',l].filter(Boolean).join(' · ')];return S.concat(l?['Lieu : '+l]:[])}
@@ -24641,7 +24666,7 @@ function inv10HTML(o){const C=o.coach;
 MOD3.fcInv=function(u,m){const c=invCur();
   if(!c)return [`<p>Facture introuvable.</p><div class="actions"><button class="btn btn-accent" data-a="close">Fermer</button></div>`,true];
   const o=c.o;const coach=R.role==='admin';const canMail=coach&&c.real;
-  return [`<span class="eyebrow">Facture</span>${inv10HTML(o)}
+  return [`<span class="eyebrow">${esc(o.title||'Facture')}</span>${inv10HTML(o)}
   ${coach&&o.sent?`<p class="small muted">Envoyée ${esc(o.mailLbl||'au client')} par courriel le ${esc(dlong10(o.sent))}.</p>`:''}
   <div class="actions fcinv-act"><button class="btn btn-accent" data-a="fcInvPdf">Enregistrer le PDF</button><button class="btn btn-plain" data-a="fcInvPrint">Imprimer</button>${canMail?`<button class="btn btn-plain" data-a="fcInvMail">${o.sent?'Renvoyer':'Envoyer'} ${o.mailLbl||'au client'} par courriel</button>`:''}<button class="btn btn-plain" data-a="close">Fermer</button></div>`,true]};
 A.invoice=(old=>function(d){const b=B(d.b);if(!R.on||!b||!b.real)return old(d);const p=b.parts[Number(d.i)];
@@ -24887,7 +24912,8 @@ adminFactu=(old=>function(){let h=old();try{if(!R.on||R.role!=='admin')return h;
 db.cnotes=db.cnotes||[];
 function inv12Num(no){const m=/^([A-Z]+)-(\d{8})-(\d+)$/.exec(no||'');if(m)return {d:m[2],k:m[1],n:+m[3]};const o=/^F(\d{4})-(\d+)$/.exec(no||'');return o?{d:o[1]+'0000',k:'F',n:+o[2]}:{d:'',k:'',n:0}}
 function inv12Cmp(a,c){const x=inv12Num(a),y=inv12Num(c);return x.d.localeCompare(y.d)||x.k.localeCompare(y.k)||x.n-y.n}
-async function loadCNotes(){if(!R.on||!R.coachId||!R.uid)return;
+/* v2 : sans attendre R.on (mis à vrai après le premier chargement) : sinon les notes de crédit manquaient à l'ouverture de la page */
+async function loadCNotes(){if(!R.coachId||!R.uid)return;
   try{const {data,error}=await R.sb.from('credit_notes').select('*').eq('coach_id',R.coachId).order('cn_at',{ascending:false}).limit(500);if(error)throw error;
     db.cnotes=(data||[]).map(v=>({id:v.id,pid:v.payment_id,bid:v.booking_id,userId:lid(v.client_id),no:v.cn_no,at:day11(v.cn_at),total:(v.amount_cents||0)/100,
       invRef:v.inv_ref||'',reason:v.reason||'',method:v.method||'carte',sent:day11(v.sent_at)}))}
@@ -24929,7 +24955,7 @@ A.fcIxNudge=async d=>{const q=d.k==='rappel'?'Envoyer au client un rappel avec l
 
 /* factures de la plateforme */
 db.platInv=db.platInv||[];
-async function loadPlatInv(){if(!R.on||!R.uid)return;const adm=R.realRole==='admin';if(!adm&&!R.coachId)return;
+async function loadPlatInv(){if(!R.uid)return;const adm=R.realRole==='admin';if(!adm&&!R.coachId)return;
   try{let q=R.sb.from('platform_invoices').select('*').order('inv_at',{ascending:false}).limit(500);if(!adm)q=q.eq('coach_id',R.coachId);
     const {data,error}=await q;if(error)throw error;
     db.platInv=(data||[]).map(v=>({id:v.id,coachId:v.coach_id,k:v.kind,no:v.inv_no,at:day11(v.inv_at),from:v.period_from,to:v.period_to,total:(v.amount_cents||0)/100,
@@ -26609,7 +26635,7 @@ A.licPay=async function(d){const R=FR();const c=(db.clubs||[]).find(x=>String(x.
 const ADM={rows:null,busy:false};
 async function admLoad(){const R=FR();if(ADM.busy||!R.sb)return;ADM.busy=true;try{const {data,error}=await R.sb.from('club_licenses').select('*').order('created_at',{ascending:false}).limit(200);if(error)throw error;ADM.rows=data||[]}catch(e){ADM.rows=[];ADM.err=e.message}finally{ADM.busy=false;render()}}
 if(typeof coachsAdmin==='function')coachsAdmin=(old=>function(){let h=old();try{const R=FR();if((st.coTab||'dem')==='clubs'&&R.on&&R.role==='admin'){if(ADM.rows==null)setTimeout(admLoad,0);const P=(ADM.rows||[]).filter(x=>x.status==='paid');const tot=P.filter(x=>x.season===seasonNow()).reduce((s,x)=>s+x.amount_cents,0);
-  h+=`<h3 class="sech" style="margin-top:22px">Licences payées par carte</h3><p class="muted small" style="margin-bottom:8px">Saison ${seasonNow()} : <b>${m$(tot)}</b> reçus de ${P.filter(x=>x.season===seasonNow()).length} club(s). Montants versés à votre compte Stripe (mode test pour l'instant).</p>`+
+  h+=`<h3 class="sech" style="margin-top:22px">Licences payées par carte</h3><p class="muted small" style="margin-bottom:8px">Saison ${seasonNow()} : <b>${m$(tot)}</b> reçus de ${P.filter(x=>x.season===seasonNow()).length} club(s). Montants versés à votre compte Stripe${STRIPE_TEST?' (mode test)':''}.</p>`+
    (ADM.rows==null?'<p class="small muted">Chargement…</p>':P.length?`<div class="list" style="gap:4px">${P.map(x=>`<div class="invrow small"><span><b>${esc(x.club_name)}</b> · ${esc(x.season)} · ${esc(x.tier)} · ${x.members} membres · ${m$(x.amount_cents)} · ${new Date(x.paid_at).toLocaleDateString('fr-CA')}</span>${x.receipt_url?`<a class="btn-xs" href="${esc(x.receipt_url)}" target="_blank" rel="noopener">Reçu ↗</a>`:''}</div>`).join('')}</div>`:'<div class="empty">Aucune licence payée pour l\'instant.</div>')}}catch(e){console.error(e)}return h})(coachsAdmin);
 /* les formules modifiées par l'administrateur deviennent le prix exigé par le serveur */
 let tT=null;document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!/^clubs\.tiers\./.test(t.dataset.plat7||''))return;const R=FR();if(!R.on||R.role!=='admin'||!R.sb)return;clearTimeout(tT);
@@ -26796,11 +26822,16 @@ CLS.pull=async function(force){const R=FR();if(!real()||CLS.busy)return;if(!forc
 let tP=null;CLS.queue=()=>{if(!real()||CLS.pulled!==FR().uid)return;CLS.dirty=true;clearTimeout(tP);tP=setTimeout(()=>CLS.push(),900)};
 CLS.push=async function(){const R=FR();if(!real()||CLS.pulled!==R.uid)return;if(CLS.busy){CLS.queue();return}CLS.busy=true;
   try{const u=me();const L=CLUBS();const em=myEmail();
-    for(const c of L){if(!iAmStaff(c))continue;
+    let dropped=false;
+    for(const c of L.slice()){if(!iAmStaff(c))continue;
       const d=toServer(c);const j=JSON.stringify(d);
       if(CLS.snap[c.id]!==j){
         const staffEmails=[...new Set((d.staff||[]).map(s=>lc(s.email)).filter(Boolean).concat(em?[em]:[]))];
         const {error}=await R.sb.from('clubs').upsert({id:c.id,name:String(c.name||'').slice(0,200),staff_emails:staffEmails,data:d,mdata:memberCopy(d)},{onConflict:'id'});
+        /* 17 nov. 2026 : club resté sur l'appareil après le passage par un autre compte (le serveur le refuse et il n'a jamais été lu en ligne
+           pour ce compte) : on retire la copie locale au lieu d'afficher « enregistrement en ligne impossible » */
+        if(error&&CLS.snap[c.id]==null&&(error.code==='42501'||/row-level security/i.test(error.message||''))){console.warn('Clubs en ligne : copie locale d\'un club d\'un autre compte retirée',c.id);
+          const ix=L.indexOf(c);if(ix>=0)L.splice(ix,1);delete CLS.snap[c.id];dropped=true;continue}
         if(error)throw error;CLS.snap[c.id]=j;c._own=c._own===0?0:1;
         (c.groups||[]).forEach((g,i)=>{if(!g.tok&&d.groups[i])g.tok=d.groups[i].tok})}
       /* inscriptions connues de l'équipe : comptes membres et membres ajoutés par courriel */
@@ -26817,6 +26848,7 @@ CLS.push=async function(){const R=FR();if(!real()||CLS.pulled!==R.uid)return;if(
         if(CLS.msnap[key]!==j){const {data,error}=await R.sb.from('club_members').update({data:d}).eq('club_id',c.id).eq('email',em).select('data');if(error)throw error;
           if(!data||!data.length){const {error:e2}=await R.sb.rpc('club_join',{p_club:c.id,p_group:u.club.group||null});if(e2)throw e2}
           CLS.msnap[key]=j}}}
+    if(dropped){try{if(u&&u.club&&!L.some(x=>x.id===u.club.id))delete u.club;window.fcPersist&&window.fcPersist();render()}catch(e){}}
     /* départ d'un club */
     for(const key of Object.keys(CLS.msnap)){const [cid,e]=key.split('|');if(e!==em)continue;const c=L.find(x=>x.id===cid);if(c&&iAmStaff(c))continue;
       if(!u.club||u.club.id!==cid){const {error}=await R.sb.from('club_members').delete().eq('club_id',cid).eq('email',em);if(!error)delete CLS.msnap[key]}}
@@ -27085,4 +27117,56 @@ function elevFix(){try{const u=me();if(!u||!Array.isArray(db.acts)||typeof elevG
 if(typeof render==='function')render=(old=>function(){const r=old.apply(this,arguments);if(me()&&Date.now()-(window.__fc26e||0)>10000){window.__fc26e=Date.now();setTimeout(()=>{elevFix();lic26();invLogo26()},800)}return r})(render);
 })();
 </script>
+<script>
+/* ================= Paiements réels v2 (15 nov. 2026) — APERÇU =================
+   1. Pied de page : abonné direct, page publique et page de connexion = « FidjiCoach · La plateforme des entraîneurs »
+      avec admin@fidjicoach.ca (plus de « Entraîneur de ski de fond » ni de séparateur en double); mention CAD partout.
+   2. Fenêtre Rembourser : la virgule est acceptée dans le montant partiel; rappel « un remboursement complet annule le cours ».
+   3. Frais de Stripe : 3,1 % + 0,30 $, « estimation avec marge » (7 textes, modifiés dans le texte de la page). */
+(function(){
+const FR=()=>window.fcReal||{};
+const MAIL='admin@fidjicoach.ca';
+const direct=()=>{const r=FR();return !!(r.on&&r.direct&&r.role==='client')};
+const yes=f=>{try{return !!f()}catch(e){return false}};
+/* ---------- 1. pied de page ---------- */
+if(typeof footerMini==='function')footerMini=(old=>function(){let h=old.apply(this,arguments);try{
+  const plat=yes(()=>typeof platMode==='function'&&platMode())||yes(()=>typeof authOnly==='function'&&authOnly())||/^<footer[^>]*><span>FidjiCoach · La plateforme des entraîneurs/.test(h);
+  if(direct()||plat){
+    h=h.replace(/^(<footer[^>]*>)<span>[\s\S]*?<\/span>/,'$1<span>FidjiCoach · La plateforme des entraîneurs · Québec · <a href="mailto:'+MAIL+'" style="color:inherit">'+MAIL+'</a></span>')}
+  else h=h.replace(/^(<footer[^>]*>)<span>([\s\S]*?)<\/span>/,(m,a,b)=>a+'<span>'+b.replace(/(?:\s*·\s*){2,}/g,' · ').replace(/^\s*·\s*|\s*·\s*$/g,'')+'</span>');
+  if(!h.includes('data-v2cad'))h=h.replace(/<\/footer>\s*$/,'<span data-v2cad style="flex-basis:100%">Tous les prix sont en dollars canadiens (CAD).</span></footer>');
+  }catch(e){console.warn('v2 pied de page',e)}return h})(footerMini);
+/* pied de page aussi sur la page publique d'accueil (À propos, Trouver un entraîneur), hors connexion */
+if(typeof homeV==='function')homeV=(old=>function(){let h=old.apply(this,arguments);try{
+  if(typeof h==='string'&&/^<main class="wrap app fc9plat">/.test(h)&&!h.includes('<footer')&&!yes(()=>me())&&typeof footerMini==='function')h+=footerMini();
+  }catch(e){console.warn('v2 pied de page accueil',e)}return h})(homeV);
+/* ---------- 2. fenêtre Rembourser ---------- */
+if(typeof A==='object'&&A&&typeof A.fcRefund==='function')A.fcRefund=(old=>function(d){const r=old.apply(this,arguments);try{
+  const amt=[...document.querySelectorAll('form input[name="amt"]')].find(i=>i.form&&i.form.querySelector('[data-full]'));
+  if(amt){const F=amt.form;
+    amt.type='text';amt.setAttribute('inputmode','decimal');amt.setAttribute('autocomplete','off');amt.placeholder='0,00';
+    if(!F.querySelector('[data-v2full]')){const p=document.createElement('p');p.className='small';p.setAttribute('data-v2full','');
+      p.style.cssText='margin:0;padding:8px 10px;border-radius:8px;background:rgba(200,16,46,.08)';
+      p.textContent='Attention : un remboursement complet annule le cours.';
+      const note=F.querySelector('[data-note]');note.parentNode.insertBefore(p,note);
+      const upd=()=>{const o=F.pid.selectedOptions[0];const l=Number(o&&o.dataset.left)||0;
+        const v=Math.round(Number(String(amt.value).replace(/\s/g,'').replace(',','.'))*100);
+        p.hidden=!(F.kind.value==='full'||(l>0&&v>=l))};
+      F.addEventListener('change',upd);F.addEventListener('input',upd);upd()}}
+  }catch(e){console.warn('v2 remboursement',e)}return r})(A.fcRefund);
+/* ---------- 4. tuile « encaissé » (Aujourd'hui et Réservations) : une seule règle ----------
+   parts payées moins les remboursements + frais de location payés + locations seules;
+   une location réservée avec un cours est déjà dans la part du cours (elle n'est plus comptée deux fois). */
+window.fcCashed=function(){try{
+  const c=x=>Math.round((Number(x)||0)*100);let n=0;
+  const net=p=>p&&p.paid?Math.max(0,c(p.amount)-c(p.refunded)):0;
+  const all=(db.bookings||[]).concat(window.fcLocB||[]);
+  all.forEach(b=>{(b.parts||[]).forEach(p=>{n+=net(p)});
+    (b.feesSrv||[]).forEach(f=>{if(f.status==='payee'||f.status==='remboursee')n+=Math.max(0,c(f.amount)-(f.status==='remboursee'&&!f.refunded?c(f.amount):c(f.refunded)))})});
+  (db.rentals||[]).forEach(r=>{if(r&&r.paid&&!r.real)n+=c(r.amount)});
+  return n/100}catch(e){console.warn('v2 encaissé',e);return 0}};
+window.fcV2='apercu-v2-2026-11-17';
+})();
+</script>
+
 </body></html>
