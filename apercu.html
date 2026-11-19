@@ -24356,58 +24356,49 @@ document.head.insertAdjacentHTML('beforeend',`<style id="fc8dcss">
 }
 
 /* ================= Corrections 7, point 11 (7 nov. 2026) : météo réelle =================
-   Prévisions Open-Meteo (modèles d'Environnement Canada et d'autres services) pour chaque centre, d'après ses coordonnées :
-   température actuelle, min/max, conditions, neige d'hier et d'aujourd'hui, vent, 5 jours. Un seul appel pour 40 centres;
-   gardé 30 min dans le navigateur. Repli propre : sans réseau ou en cas de panne, les anciennes prévisions (moins de 6 h)
-   ou, à défaut, les données d'exemple d'avant. Toutes les pages qui montrent la météo ou le fart en profitent (wxFor). */
+   18 nov. 2026 : les prévisions viennent maintenant des données ouvertes d'Environnement et Changement climatique Canada
+   (modèles HRDPS 2,5 km et GDPS 15 km du Service météorologique du Canada), par l'Edge Function « meteo » qui les garde
+   en cache pour tout le monde (table fc_meteo). L'ancien service de prévisions (offre gratuite non commerciale) n'est plus appelé.
+   Pour chaque centre, d'après ses coordonnées : température actuelle, min/max, conditions, neige d'hier et d'aujourd'hui,
+   vent, 5 jours. Rafraîchies aux 30 minutes (et au retour sur l'app), gardées sur l'appareil pour dépanner hors ligne
+   (6 h au plus); à défaut, les données d'exemple d'avant. Toutes les pages qui montrent la météo ou le fart en profitent (wxFor). */
 {
-const WXK='fc-wx-1',TTL=30*60*1000,KEEP=6*3600*1000,REF=[46.81,-71.21];
-const W={map:{},at:0,busy:false,err:null};
+const WXK='fc-wx-2',TTL=30*60*1000,KEEP=6*3600*1000,REF=[46.81,-71.21];
+const W={map:{},at:0,busy:false,err:null,wait:0,nosb:0};
 const wkey=(la,lo)=>Number(la).toFixed(2)+','+Number(lo).toFixed(2);
+try{localStorage.removeItem('fc-wx-1')}catch(e){}
 try{const c=JSON.parse(localStorage.getItem(WXK)||'null');if(c&&c.at&&Date.now()-c.at<KEEP&&c.map){W.map=c.map;W.at=c.at}}catch(e){}
-const WMO=c=>{c=Number(c);return c===0?'Ensoleillé':c===1?'Plutôt ensoleillé':c===2?'Partiellement nuageux':c===3?'Nuageux':c===45?'Brouillard':c===48?'Brouillard givrant'
-  :c>=51&&c<=55?'Bruine':c===56||c===57?'Bruine verglaçante':c===61?'Pluie faible':c===63?'Pluie':c===65?'Pluie forte':c===66||c===67?'Pluie verglaçante'
-  :c===71?'Neige légère':c===73?'Neige':c===75?'Neige forte':c===77?'Grains de neige':c>=80&&c<=82?'Averses de pluie':c===85?'Averses de neige':c===86?'Fortes averses de neige'
-  :c===95?'Orage':c===96||c===99?'Orage et grêle':'Variable'};
-const DIRS=['N','NE','E','SE','S','SO','O','NO'];const wdir=d=>DIRS[Math.round(((Number(d)||0)%360+360)%360/45)%8];
-const JR=['Dim.','Lun.','Mar.','Mer.','Jeu.','Ven.','Sam.'];
-const cm=n=>(Math.round(n*10)/10).toString().replace('.',',');
-function wxPack(o){const cur=o.current||{},D=o.daily||{},T=D.time||[];if(!T.length||cur.temperature_2m==null)return null;
-  let i0=T.indexOf(today());if(i0<0)i0=Math.min(1,T.length-1);
-  const mx=D.temperature_2m_max||[],mn=D.temperature_2m_min||[],wc=D.weather_code||[],sn=D.snowfall_sum||[];
-  const t=Math.round(cur.temperature_2m);
-  const days=[];for(let i=i0;i<Math.min(T.length,i0+5);i++)days.push([i===i0?'Auj.':JR[new Date(T[i]+'T12:00:00').getDay()],i===i0?t:Math.round(mx[i]),WMO(wc[i])]);
-  const y=i0>0?Number(sn[i0-1])||0:0,s0=Number(sn[i0])||0;const nb=[];
-  if(y>=0.5)nb.push(cm(y)+' cm de neige hier');if(s0>=0.5)nb.push(cm(s0)+' cm prévus aujourd\'hui');
-  return {t,min:Math.round(mn[i0]),max:Math.round(mx[i0]),cond:WMO(cur.weather_code!=null?cur.weather_code:wc[i0]),
-    neige:nb.length?nb.join(' · '):'Pas de neige fraîche',vent:'Vent '+wdir(cur.wind_direction_10m)+' '+Math.round(Number(cur.wind_speed_10m)||0)+' km/h',days,real:true}}
 function wxApplyRef(){const r=W.map[wkey(REF[0],REF[1])];if(!r)return;
   WX.today={t:r.t,min:r.min,max:r.max,cond:r.cond,neige:r.neige,vent:r.vent};WX.days=r.days.map(x=>x.slice())}
 async function wxLoad(force){if(W.busy)return;if(!force&&W.at&&Date.now()-W.at<TTL)return;if(navigator.onLine===false)return;
-  if(!force&&W.tried&&Date.now()-W.tried<120000)return;W.tried=Date.now();
+  if(!force&&W.tried&&Date.now()-W.tried<120000)return;
+  const sb=(window.fcReal||{}).sb;
+  if(!sb||!sb.functions){if(W.nosb<20){W.nosb++;setTimeout(()=>wxLoad(force),1500)}return}   /* service pas encore prêt au démarrage */
+  W.tried=Date.now();
   const list=[],seen=new Set();const add=(la,lo)=>{la=Number(la);lo=Number(lo);if(!la||!lo||!isFinite(la)||!isFinite(lo))return;const k=wkey(la,lo);if(!seen.has(k)){seen.add(k);list.push([la,lo,k])}};
   add(REF[0],REF[1]);try{(db.centres||[]).forEach(c=>add(c.lat,c.lon))}catch(e){}
-  W.busy=true;const map={};let got=0;
+  W.busy=true;const map={};let got=0,pending=0;
   try{for(let i=0;i<list.length;i+=40){const ch=list.slice(i,i+40);
-      const url='https://api.open-meteo.com/v1/forecast?latitude='+ch.map(x=>x[0].toFixed(3)).join(',')+'&longitude='+ch.map(x=>x[1].toFixed(3)).join(',')
-        +'&current=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,snowfall_sum'
-        +'&past_days=1&forecast_days=6&timezone=America%2FToronto';
-      const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);let j=await r.json();if(!Array.isArray(j))j=[j];
-      j.forEach((o,k)=>{try{const p=ch[k]&&wxPack(o);if(p){map[ch[k][2]]=p;got++}}catch(e){}})}
+      const {data,error}=await sb.functions.invoke('meteo',{body:{pts:ch.map(x=>[x[0],x[1]])}});
+      if(error)throw error;if(!data||data.error)throw new Error((data&&data.error)||'réponse vide');
+      pending+=Number(data.pending)||0;
+      ch.forEach(x=>{try{const p=data.map&&data.map[x[2]];if(p&&p.t!=null&&Array.isArray(p.days)&&p.days.length){map[x[2]]=p;got++}}catch(e){}})}
     W.err=null}
   catch(e){W.err=e&&e.message||'indisponible';console.warn('Météo réelle indisponible',W.err)}
   finally{W.busy=false}
   if(got){W.map=Object.assign({},W.map,map);W.at=Date.now();try{localStorage.setItem(WXK,JSON.stringify({at:W.at,map:W.map}))}catch(e){}}
+  /* premier passage ou nouveau centre : le serveur prépare les prévisions en arrière-plan; on les redemande un peu plus tard */
+  if(pending&&!W.err&&W.wait<8){W.wait++;setTimeout(()=>wxLoad(true),25000)}else if(!pending)W.wait=0;
   wxApplyRef();try{const a=document.activeElement;const typing=a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);if(got&&!st.modal&&!typing)render()}catch(e){}}
 wxApplyRef();
 wxFor=(old=>function(c){try{if(c&&Number(c.lat)&&Number(c.lon)){const w=W.map[wkey(c.lat,c.lon)];if(w&&W.at&&Date.now()-W.at<KEEP)return w}}catch(e){}return old(c)})(wxFor);
 const wxWhen=()=>{try{return new Date(W.at).toLocaleTimeString('fr-CA',{hour:'2-digit',minute:'2-digit'}).replace(':',' h ')}catch(e){return ''}};
 meteoV=(old=>function(){let h=old();try{
-  const pill=W.at&&Date.now()-W.at<KEEP?`<span class="pill ok" title="Prévisions Open-Meteo">Prévisions réelles · ${esc(wxWhen())}</span>`
-    :W.busy?'<span class="pill neutral">Chargement de la météo…</span>':`<span class="pill neutral">Données d'exemple${W.err?' (météo indisponible)':''}</span>`;
+  const pill=W.at&&Date.now()-W.at<KEEP?`<span class="pill ok" title="Prévisions d'Environnement et Changement climatique Canada">Prévisions réelles · ${esc(wxWhen())}</span>`
+    :W.busy||W.wait?'<span class="pill neutral">Chargement de la météo…</span>':`<span class="pill neutral">Données d'exemple${W.err?' (météo indisponible)':''}</span>`;
   h=h.replace('<span class="pill neutral">Données d\'exemple</span>',pill);
   h=h.replace('Dans la vraie version, la météo de chaque centre vient automatiquement de ses coordonnées (Environnement Canada) chaque matin.',
-    'La météo de chaque centre vient de ses coordonnées : prévisions <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (modèles d\'Environnement Canada et d\'autres services), mises à jour aux 30 minutes.')}catch(e){console.warn(e)}
+    'La météo de chaque centre vient de ses coordonnées : prévisions des modèles du Service météorologique du Canada, rafraîchies aux heures. Source des données : <a href="https://eccc-msc.github.io/open-data/licence/readme_fr/" target="_blank" rel="noopener">Environnement et Changement climatique Canada</a>.')}catch(e){console.warn(e)}
   if(!W.busy&&(!W.at||Date.now()-W.at>TTL))setTimeout(()=>wxLoad(),0);return h})(meteoV);
 setTimeout(()=>wxLoad(),1200);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')wxLoad()});
@@ -26898,6 +26889,16 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 setInterval(()=>{if(real()&&document.visibilityState==='visible'&&Date.now()-CLS.last>120000)CLS.pull(false)},30000);
 /* changement de compte sur le même appareil : on repart de zéro */
 setInterval(()=>{const R=FR();if(CLS.pulled&&CLS.pulled!==R.uid){CLS.snap={};CLS.msnap={};CLS.pulled=null}},1000);
+/* 18 nov. 2026 : à la déconnexion, la copie locale des clubs déjà enregistrés en ligne est retirée de l'appareil (appareil partagé);
+   elle revient du serveur à la prochaine connexion. Un changement pas encore envoyé part d'abord (3 s au plus).
+   Les clubs d'exemple jamais enregistrés en ligne (ancienne démo locale) ne sont pas touchés. */
+A.logout=(old=>async function(){
+  try{if(real()){
+      if(CLS.dirty&&CLS.pulled===FR().uid){try{await Promise.race([CLS.push(),new Promise(r=>setTimeout(r,3000))])}catch(e){}}
+      const L=CLUBS();for(const c of L.slice()){if(c&&(typeof CLS.snap[c.id]==='string'||c._own===0||c._own===1)){const ix=L.indexOf(c);if(ix>=0)L.splice(ix,1)}}
+      CLS.snap={};CLS.msnap={};CLS.pulled=null;CLS.dirty=false}}
+  catch(e){console.warn('Clubs : ménage à la déconnexion',e)}
+  return old.apply(this,arguments)})(A.logout);
 /* --- Comptes client et entraîneur : plus de boutons À propos, Centres et Météo en haut (ils restent dans le menu de gauche) --- */
 header=(old=>function(u){let h=old.apply(this,arguments);try{if(u&&me())h=h.replace(/<span class="navlinks">(?:(?!<\/span>)[\s\S])*?data-v="apropos"[\s\S]*?<\/span>/,'')}catch(e){}return h})(header);
 document.head.insertAdjacentHTML('beforeend','<style>body.fc21in header.top .navlinks [data-v="apropos"],body.fc21in header.top .navlinks [data-v="centres"],body.fc21in header.top .navlinks [data-v="meteo"]{display:none!important}</style>');
@@ -27165,7 +27166,7 @@ window.fcCashed=function(){try{
     (b.feesSrv||[]).forEach(f=>{if(f.status==='payee'||f.status==='remboursee')n+=Math.max(0,c(f.amount)-(f.status==='remboursee'&&!f.refunded?c(f.amount):c(f.refunded)))})});
   (db.rentals||[]).forEach(r=>{if(r&&r.paid&&!r.real)n+=c(r.amount)});
   return n/100}catch(e){console.warn('v2 encaissé',e);return 0}};
-window.fcV2='apercu-v2-2026-11-17';
+window.fcV2='apercu-v2-2026-11-18';
 })();
 </script>
 
