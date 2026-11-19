@@ -26901,7 +26901,9 @@ A.logout=(old=>async function(){
   try{if(real()){
       if(CLS.dirty&&CLS.pulled===FR().uid){try{await Promise.race([CLS.push(),new Promise(r=>setTimeout(r,3000))])}catch(e){}}
       const L=CLUBS();for(const c of L.slice()){if(c&&(typeof CLS.snap[c.id]==='string'||c._own===0||c._own===1)){const ix=L.indexOf(c);if(ix>=0)L.splice(ix,1)}}
-      CLS.snap={};CLS.msnap={};CLS.pulled=null;CLS.dirty=false}}
+      CLS.snap={};CLS.msnap={};CLS.pulled=null;CLS.dirty=false;
+      /* les sauvegardes locales (« fc6-cbk-<club> », copies complètes) des clubs retirés ou disparus partent aussi; celles des clubs d'exemple restent */
+      try{const keep=new Set(L.map(c=>'fc6-cbk-'+c.id));for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&/^fc6-cbk-/.test(k)&&!keep.has(k))localStorage.removeItem(k)}}catch(e){}}}
   catch(e){console.warn('Clubs : ménage à la déconnexion',e)}
   return old.apply(this,arguments)})(A.logout);
 /* --- Comptes client et entraîneur : plus de boutons À propos, Centres et Météo en haut (ils restent dans le menu de gauche) --- */
