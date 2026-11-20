@@ -2448,10 +2448,16 @@ function nextSessions(u){const o=[];db.bookings.filter(b=>!b.cancelled&&b.parts.
 function clientHomeV(u){
   const nx=nextSessions(u)[0];
   let next='';
-  if(nx){const c=db.centres.find(x=>x.name===nx.b.lieu);const w=c?wxFor(c):null;const f=w?fart(w.t):null;
+  if(nx){const c=db.centres.find(x=>x.name===nx.b.lieu);
+    /* 19 nov. 2026 : météo prévue le jour du cours (maximum du jour), plus celle du moment. Cours dans plus de 4 jours,
+       ou prévisions réelles indisponibles en mode réel : aucune météo sur la carte. */
+    const w=(()=>{try{if(!c)return null;const w0=wxFor(c);if(!w0)return null;if(!w0.real&&window.fcReal&&window.fcReal.on)return null;
+      const n=Math.round((new Date(nx.s.date+'T12:00:00')-new Date(today()+'T12:00:00'))/864e5);if(!(n>=0&&n<=4))return null;
+      if(n===0)return {t:w0.t,cond:w0.cond,lbl:''};const x=(w0.days||[])[n];return x?{t:x[1],cond:x[2],lbl:'Prévision pour le jour du cours'}:null}catch(e){return null}})();
+    const f=w?fart(w.t):null;
     next=`<article class="nextc"><div><span class="eyebrow" style="color:var(--navy-soft)">Votre prochain cours</span><h3>${dlong(nx.s.date)} · ${hfmt(nx.s.start)}</h3><p>${bDesc(nx.b)}</p><p>${esc(nx.b.lieu)}</p>
       ${rentCount(nx.b.rental)?`<p class="small" style="color:var(--navy-soft)">Équipement réservé : ${rentCount(nx.b.rental)} article${rentCount(nx.b.rental)>1?'s':''}</p>`:''}</div>
-      ${w?`<div class="nextwx"><b class="num">${w.t}°</b><span>${w.cond}</span><span class="waxdot" style="background:${f.c}">Fart ${f.n}</span>${c&&autoCond(c)&&c.etat?`<span class="small">Pistes : ${esc(c.etat)}</span>`:''}</div>`:''}</article>`}
+      ${w?`<div class="nextwx">${w.lbl?`<span class="small">${w.lbl}</span>`:''}<b class="num">${w.t}°</b><span>${w.cond}</span><span class="waxdot" style="background:${f.c}">Fart ${f.n}</span>${c&&autoCond(c)&&c.etat?`<span class="small">Pistes : ${esc(c.etat)}</span>`:''}</div>`:''}</article>`}
   else next=`<article class="nextc"><div><span class="eyebrow" style="color:var(--navy-soft)">Aucun cours à venir</span><h3>Prêt pour une sortie?</h3><p>Choisissez votre cours en 4 étapes.</p></div><div><button class="btn btn-accent" data-a="tab" data-t="reserver">Réserver un cours</button></div></article>`;
   const todo=[];
   if(!ficheOk(u))todo.push(['warn','Complétez votre fiche avant votre premier cours','Taille, poids, pointure et santé : pour un cours et un équipement adaptés.','ptab','fiche','Compléter']);
