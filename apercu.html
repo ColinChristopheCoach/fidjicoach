@@ -27206,4 +27206,142 @@ window.fcV2='apercu-v2-2026-11-19';
 })();
 </script>
 
+<script>
+/* ================= Refonte « web et app », lot 2 (19 nov. 2026) : interrupteur du direct =================
+   Décision de Colin : l'enregistrement en direct (GPS), la passation guidée du test Ruffier, la musique (Spotify et autres),
+   les imports (Strava, montres, fichiers) et « Trouver mon entraîneur / mon client » sont réservés à l'application native.
+   Sur le web : consultation (sorties, résultats, graphiques) et saisie à la main.
+   Interrupteur : ces fonctions sont actives dans l'app native (Capacitor), ou sur le web tant que le réglage de la plateforme
+   « web_live » est ouvert (fonction platform_info; réglage par l'administrateur : fonction admin_web_live).
+   Par défaut le réglage est ouvert : rien ne change tant que l'administrateur ne le ferme pas.
+   Quand le direct est fermé : les boutons sont cachés (classe « fc-direct-off » sur <html>), les actions sont refusées avec un
+   message, et les onglets Enregistrer, Partage et Appareils de l'entraînement renvoient à l'Historique.
+   Ajout permanent : « Ajouter une sortie à la main » dans Mes sorties (aucune saisie manuelle de sortie n'existait). */
+(function(){
+const FR=()=>window.fcReal||{};
+const KEY='fc-web-live';
+const S={web:true,loaded:false,busy:false};
+try{if(localStorage.getItem(KEY)==='0')S.web=false}catch(e){}
+const native=()=>{try{return !!(window.Capacitor&&typeof window.Capacitor.isNativePlatform==='function'&&window.Capacitor.isNativePlatform())}catch(e){return false}};
+const liveOn=()=>native()||S.web;
+const MSG='Offert dans l\'application FidjiCoach (App Store et Google Play).';
+const apply=()=>{try{document.documentElement.classList.toggle('fc-direct-off',!liveOn())}catch(e){}};
+async function load(){try{const sb=FR().sb;if(!sb)return false;const {data,error}=await sb.rpc('platform_info');if(error)return false;
+    if(data&&typeof data.web_live==='boolean'){const ch=S.web!==data.web_live;S.web=data.web_live;S.loaded=true;try{localStorage.setItem(KEY,S.web?'1':'0')}catch(e){}apply();if(ch){try{render()}catch(e){}}}
+    return true}catch(e){return false}}
+window.fcLive={on:liveOn,native,state:S,load};
+apply();
+let tries=0;const boot=()=>{load().then(ok=>{if(!ok&&tries++<20)setTimeout(boot,1500)})};setTimeout(boot,1400);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load()});
+setInterval(()=>{if(document.visibilityState==='visible')load()},10*60*1000);
+
+/* ---------- ce qui est caché quand le direct est fermé ---------- */
+{const H='html.fc-direct-off ';const sel=[
+  '.mainnav.tr [data-t="rec"]','.mainnav.tr [data-t="share"]','.mainnav.tr [data-t="dev"]','[data-a="trTab"][data-t="rec"]',
+  '[data-a="recStart"]','[data-a="recResume"]','[data-a="trGoRec"]','[data-a="trBt"]',
+  '.findpanel','.navfind','[data-a="v5go"][data-x="find"]','[data-a="nav"][data-s="trouver"]','[data-a^="find"]',
+  '#mplayer','.musbtn','[data-a="mpOpen"]','[data-a][data-p="music"]','[data-a="selfTab"][data-t="music"]','[data-a="spGo"]','[data-a="spWeb"]','[data-a="spPlay"]',
+  '[data-a][data-p="appareils"]','[data-a="connectApp"]','[data-a="devOn"]','[data-a="devSync"]','[data-a="fcImpGo"]',
+  '[data-a="slLink"]','[data-a="slImport"]','[data-a="slDemo"]','[data-a="hrlGo"]','[data-a="hrlPair"]','[data-a="hrlDemoGo"]','[data-a="hrlDemoPair"]',
+  '[data-a="rdStart"]','.hv7tabs','.rdcta','label.fc-imp-off'];
+ const css=document.createElement('style');css.textContent=sel.map(x=>H+x).join(',')+'{display:none!important}'+
+  '.fc-apponly{border:1px dashed var(--line);border-radius:var(--r);background:var(--surface);padding:12px 14px;margin:0 0 14px;font-size:.9rem;color:var(--navy-soft)}.fc-apponly b{color:var(--ink,inherit)}';
+ document.head.appendChild(css)}
+
+/* ---------- les actions du direct sont refusées (même si un bouton restait visible) ---------- */
+['recStart','recResume','trGoRec','trBt','rdStart','hvStart','connectApp','devOn','devOk','devSync','fcImpGo','slLink','slImport','slDemo',
+ 'hrlGo','hrlPair','hrlDemoGo','hrlDemoPair','hrlTake','spGo','spWeb','spPlay','spDevs','mpOpen','mpPlay','mpNext','mpPrev','musOn','musOk',
+ 'findOpen','findNav','findSimT','findFriend','findCompass','findPing','findMsg','ctrSki'].forEach(k=>{
+  if(typeof A[k]!=='function')return;
+  A[k]=(old=>function(){if(!liveOn()){try{flash(MSG)}catch(e){}return}return old.apply(this,arguments)})(A[k])});
+window.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||liveOn())return;
+  if(t.type==='file'&&(t.dataset.trfile||t.dataset.fcimp)){e.preventDefault();e.stopImmediatePropagation();try{t.value=''}catch(x){}try{flash(MSG)}catch(x){}}},true);
+
+/* ---------- état et retouches autour de chaque affichage ---------- */
+const BAN_TR='<div class="fc-apponly" id="fcAppOnlyTr"><b>📱 Dans l\'application FidjiCoach.</b> L\'enregistrement en direct avec le GPS, la musique et la connexion des montres et des applications se font dans l\'application (App Store et Google Play). Ici, vous consultez vos sorties et les sentiers, et vous pouvez ajouter une sortie à la main.</div>';
+const BAN_RD='<div class="fc-apponly" id="fcAppOnlyRd"><b>📱 Le test guidé se fait dans l\'application FidjiCoach.</b> Le chronomètre, le comptage et la ceinture cardio sont dans l\'application (App Store et Google Play). Ici, vous consultez vos résultats et vos graphiques, et vous pouvez entrer vos valeurs avec la saisie rapide.</div>';
+const swap=(root,from,to)=>{try{const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode())){if(n.nodeValue&&n.nodeValue.includes(from))n.nodeValue=n.nodeValue.split(from).join(to)}}catch(e){}};
+function pre(){if(liveOn())return;try{
+    const act=st.rec&&st.rec.status&&st.rec.status!=='ready';const t=st.trTab||'rec';
+    if((t==='rec'&&!act)||t==='share'||t==='dev')st.trTab='hist';      /* une sortie déjà commencée peut être terminée */
+    if(st.rdM5==='hrv')st.rdM5='full';
+    if(st.selfTab==='music')st.selfTab=null;
+    if(st.tab==='profil'&&(st.ptab==='music'||st.ptab==='appareils')){st.tab='accueil';st.ptab=null}
+    if(st.gtab==='trouver'){st.gtab=null;if(st.tab==='gestion')st.tab='today'}
+    if(st.modal&&st.modal.kind==='find')st.modal=null;
+  }catch(e){}}
+function post(){apply();if(liveOn())return;try{
+    document.querySelectorAll('input[type="file"][data-trfile],input[type="file"][data-fcimp]').forEach(i=>{const l=i.closest('label');if(l)l.classList.add('fc-imp-off')});
+    const nav=document.querySelector('main.tr .mainnav.tr');if(nav&&!document.getElementById('fcAppOnlyTr'))nav.insertAdjacentHTML('afterend',BAN_TR);
+    const q=document.querySelector('.rdquick');if(q&&!document.querySelector('.rdflow')&&!document.getElementById('fcAppOnlyRd')){q.insertAdjacentHTML('beforebegin',BAN_RD)}
+    document.querySelectorAll('[data-a="v5go"][data-x="train"]').forEach(el=>{swap(el,'Enregistrer un entraînement','Mes entraînements');swap(el,'Record a workout','My workouts')});
+    document.querySelectorAll('[data-a="volGo"][data-v="train"]').forEach(el=>{swap(el,'Enregistrer une sortie','Mes sorties');swap(el,'GPS, sentiers, cardio, partage','Sentiers, sorties, cardio');swap(el,'GPS, sentiers, cardio','Sentiers, sorties, cardio')});
+    document.querySelectorAll('main.tr .empty').forEach(el=>swap(el,'Démarrez un enregistrement ou importez un fichier de votre montre.','Ajoutez une sortie à la main, ou enregistrez-la dans l\'application FidjiCoach.'));
+  }catch(e){}}
+render=(old=>function(){pre();const r=old.apply(this,arguments);post();return r})(render);
+
+/* ---------- Mes sorties : ajouter une sortie à la main (toujours offert) ---------- */
+const numFr=v=>{const n=parseFloat(String(v==null?'':v).replace(/\s/g,'').replace(',','.'));return isFinite(n)?n:NaN};
+if(typeof histV==='function')histV=(old=>function(u){let h=old.apply(this,arguments);try{
+    const btn='<button class="btn btn-plain btn-sm" data-a="actManNew">+ Ajouter une sortie à la main</button>';const k='<div class="actions" style="margin:16px 0 10px">';
+    h=h.includes(k)?h.replace(k,k+btn):`<div class="actions" style="margin:16px 0 10px">${btn}</div>`+h}catch(e){}return h})(histV);
+MOD3.actMan=function(u){const T=TRTYPES();const C=typeof trCentres==='function'?trCentres():[];const cl=u&&u.role==='client';
+  return [`<span class="eyebrow">Mes sorties</span><h3>Ajouter une sortie à la main</h3>
+  <p class="muted small" style="margin:4px 0 12px">Pour une sortie faite sans l'application : elle compte dans votre historique et votre charge, sans tracé sur la carte.</p>
+  <div class="grid2"><label class="field"><span>Date</span><input type="date" id="amD" value="${today()}" max="${today()}"></label><label class="field"><span>Heure de départ</span><input type="time" id="amH" value="09:00"></label></div>
+  <label class="field"><span>Sport</span><select id="amT">${T.map(t=>`<option value="${esc(t[0])}">${esc(t[1])}</option>`).join('')}</select></label>
+  <div class="grid2"><label class="field"><span>Durée : heures</span><input type="number" id="amDh" min="0" max="23" step="1" inputmode="numeric" placeholder="0"></label><label class="field"><span>Durée : minutes</span><input type="number" id="amDm" min="0" max="59" step="1" inputmode="numeric" placeholder="45"></label></div>
+  <div class="grid2"><label class="field"><span>Distance (km)</span><input type="text" id="amKm" inputmode="decimal" placeholder="ex. 8,5"></label><label class="field"><span>Dénivelé positif (m, facultatif)</span><input type="text" id="amG" inputmode="numeric"></label></div>
+  <div class="grid2"><label class="field"><span>Fréquence cardiaque moyenne (facultatif)</span><input type="text" id="amHr" inputmode="numeric"></label><label class="field"><span>Effort ressenti, de 1 à 10 (facultatif)</span><input type="number" id="amR" min="1" max="10" step="1" inputmode="numeric"></label></div>
+  <label class="field"><span>Lieu</span><select id="amC"><option value="">Sans lieu précis</option>${C.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></label>
+  <label class="field"><span>Titre (facultatif)</span><input type="text" id="amTi" maxlength="80"></label>
+  <label class="field"><span>Note (facultatif)</span><textarea id="amN" rows="2" maxlength="500"></textarea></label>
+  ${cl?'<label class="check2"><input type="checkbox" id="amS" checked><span>Partager avec mon entraîneur</span></label>':''}
+  <div class="actions" style="margin-top:12px"><button class="btn btn-accent" data-a="actManSave">Enregistrer la sortie</button><button class="btn btn-plain" data-a="close">Annuler</button></div>`,false]};
+Object.assign(A,{
+  actManNew(){st.modal={kind:'actMan'};render()},
+  actManSave(){const u=me();if(!u)return;const g=id=>String((document.getElementById(id)||{}).value||'').trim();
+    const d=g('amD'),h=g('amH')||'09:00';if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||d>today()){flash('Indiquez la date de la sortie (aujourd\'hui ou avant)');return}
+    const dh=g('amDh')?numFr(g('amDh')):0,dm=g('amDm')?numFr(g('amDm')):0;
+    if(!(dh>=0)||!(dm>=0)||dh>23||dm>59){flash('Durée invalide');return}
+    const dur=Math.round(dh)*3600+Math.round(dm)*60;if(dur<60){flash('Indiquez la durée de la sortie');return}
+    const kmS=g('amKm');const km=kmS?numFr(kmS):0;if(!(km>=0)||km>500){flash('Distance invalide (en kilomètres, ex. 8,5)');return}
+    const gS=g('amG');const gain=gS?numFr(gS):0;if(!(gain>=0)||gain>10000){flash('Dénivelé invalide (en mètres)');return}
+    const hS=g('amHr');const hr=hS?numFr(hS):0;if(hS&&!(hr>=30&&hr<=230)){flash('Fréquence cardiaque moyenne invalide');return}
+    const rS=g('amR');const rpe=rS?numFr(rS):0;if(rS&&!(rpe>=1&&rpe<=10)){flash('Effort ressenti : de 1 à 10');return}
+    const start=new Date(d+'T'+(/^\d{2}:\d{2}/.test(h)?h.slice(0,5):'09:00')+':00').getTime();if(!isFinite(start)){flash('Date ou heure invalide');return}
+    if(start>Date.now()+60000){flash('L\'heure de départ est dans le futur');return}
+    if((db.acts||[]).some(x=>x.userId===u.id&&Math.abs((x.start||0)-start)<120000)){flash('Vous avez déjà une sortie à cette date et à cette heure');return}
+    const type=g('amT')||TRTYPES()[0][0];const t=trType(type);const cid=g('amC');const c=cid&&(typeof trCentres==='function'?trCentres():[]).find(x=>x.id===cid);
+    const a={id:'a'+uid(),userId:u.id,type,start,cid:'nogps',cname:c?c.name:'Sans lieu précis',nogps:true,manual:true,pts:[],hrs:[],
+      dist:Math.round(km*1000),dur,elapsed:dur,gain:Math.round(gain),loss:0,maxSpd:0,hrAvg:hr?Math.round(hr):null,hrMax:null,splits:[],
+      src:'Saisie manuelle',title:g('amTi')||((t&&t[1]||'Sortie')+' (saisie manuelle)'),note:g('amN'),
+      shared:u.role==='client'&&!!(document.getElementById('amS')||{}).checked,rpe:rpe?Math.round(rpe):null,comments:[],sv:3};
+    db.acts=db.acts||[];db.acts.push(a);st.modal=null;st.trTab='hist';st.trAct=a.id;save();render();window.scrollTo(0,0);flash('Sortie ajoutée')}});
+
+/* ---------- réglage de l'administrateur de la plateforme ---------- */
+const owner=()=>{try{return typeof isOwner==='function'?!!isOwner():FR().role==='admin'}catch(e){return false}};
+function webAppV(){const on=S.web;const ask=st.wlAsk;
+  return `<h3>Web et application</h3>
+  <p class="muted" style="margin:6px 0 14px">Certaines fonctions sont pensées pour l'application FidjiCoach de l'App Store et de Google Play : l'enregistrement en direct avec le GPS, le test Ruffier guidé, la musique, la connexion des montres et des applications (Strava, fichiers), « Trouver mon entraîneur » et « Trouver mon client ».</p>
+  <div class="panel" style="display:grid;gap:10px"><div><span class="pill ${on?'ok':'neutral'}">${on?'Offertes aussi sur le web':'Réservées à l\'application'}</span>${S.loaded?'':' <span class="muted small">(lecture du réglage…)</span>'}</div>
+   <p class="small" style="margin:0">${on?'En ce moment, ces fonctions restent offertes sur le site web et dans l\'app installée sur l\'écran d\'accueil. Fermez-les sur le web le jour où l\'application est publiée.':'En ce moment, ces fonctions sont cachées sur le site web et dans l\'app installée sur l\'écran d\'accueil. Les utilisateurs y consultent leurs sorties et leurs résultats, et peuvent les entrer à la main. Dans l\'application de l\'App Store et de Google Play, tout reste offert.'}</p>
+   ${ask?`<p class="small" style="margin:0"><b>${on?'Confirmez : ces fonctions disparaîtront du site web pour tous les comptes (clients, athlètes, entraîneurs). Rien n\'est effacé.':'Confirmez : ces fonctions reviendront sur le site web pour tous les comptes.'}</b></p>
+     <div class="actions"><button class="btn btn-accent" data-a="fcWebLiveGo" data-v="${on?'0':'1'}" ${S.busy?'disabled':''}>${on?'Confirmer et réserver à l\'application':'Confirmer et rouvrir sur le web'}</button><button class="btn btn-plain" data-a="fcWebLiveNo">Annuler</button></div>`
+    :`<div class="actions"><button class="btn btn-plain" data-a="fcWebLiveAsk">${on?'Réserver ces fonctions à l\'application…':'Rouvrir ces fonctions sur le web…'}</button></div>`}
+  </div>
+  <p class="muted small" style="margin-top:12px">Le changement s'applique à tous les comptes en quelques minutes, ou dès qu'ils rouvrent la page. Une sortie déjà commencée peut être terminée. Les sorties, les tests et les réglages de chacun sont gardés.</p>`}
+try{if(typeof ASEC==='object'&&ASEC&&typeof AGROUPS==='function'){
+  ASEC.webapp={l:'Web et application',i:'run',f:()=>webAppV()};
+  AGROUPS=(old=>function(){return old().map(([g,ks])=>g==='Plateforme'?[g,owner()?[...ks.filter(s=>s!=='webapp'),'webapp']:ks.filter(s=>s!=='webapp')]:[g,ks])})(AGROUPS)}}catch(e){console.warn('Web et application : menu',e)}
+Object.assign(A,{
+  fcWebLiveAsk(){st.wlAsk=true;render()},fcWebLiveNo(){st.wlAsk=false;render()},
+  async fcWebLiveGo(d){if(S.busy)return;const want=d&&d.v==='1';S.busy=true;render();
+    try{const {data,error}=await FR().sb.rpc('admin_web_live',{p_on:want});if(error)throw error;S.web=data!==false;S.loaded=true;try{localStorage.setItem(KEY,S.web?'1':'0')}catch(e){}
+      flash(S.web?'Ces fonctions sont de nouveau offertes sur le web.':'Ces fonctions sont maintenant réservées à l\'application.')}
+    catch(e){flash('Réglage non enregistré : '+(e&&e.message||e))}
+    finally{S.busy=false;st.wlAsk=false;apply();render()}}});
+})();
+</script>
+
 </body></html>
