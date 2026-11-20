@@ -24006,8 +24006,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-19-v2d';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='19 nov. 2026 · Paiements réels v2 (réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
+const FC_BUILD='2026-11-19-v3a';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='19 nov. 2026 · Paiements réels v2 (aperçu : rabais personnels, partie 1; réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -27340,6 +27340,144 @@ Object.assign(A,{
       flash(S.web?'Ces fonctions sont de nouveau offertes sur le web.':'Ces fonctions sont maintenant réservées à l\'application.')}
     catch(e){flash('Réglage non enregistré : '+(e&&e.message||e))}
     finally{S.busy=false;st.wlAsk=false;apply();render()}}});
+})();
+</script>
+
+<script>
+/* ================= Refonte « web et app », lot 3 (19 nov. 2026) : rabais personnels, partie 1 =================
+   Décisions de Colin : l'administrateur de FidjiCoach crée un rabais de 1 à 100 % pour une personne précise (compte existant
+   ou courriel invité), pour toujours ou pour un seul achat. Lié à la personne (jamais un code à transmettre). Non cumulable :
+   le serveur garde le plus avantageux entre ce rabais et les autres (forfait de 3 ou 5 cours, promotion, parrainage).
+   S'applique aux cours, aux forfaits, aux frais d'accès et de déplacement et aux locations de l'entraîneur propriétaire de
+   la plateforme. À 100 % : aucune page de paiement, facture à 0 $.
+   Tout est calculé par le serveur (fonctions fc_quote, fc_rent_quote, create_booking). Cette partie de la page ajoute :
+   1. Admin › Plateforme › « Rabais personnels » (fonctions admin_discounts, admin_discount_save, admin_discount_action,
+      admin_discount_people);
+   2. côté client : le rabais affiché dans le résumé de la réservation (fonctions my_discounts et quote_booking) et la
+      confirmation sans paiement quand le cours est gratuit.
+   À venir (partie 2) : ventes de FidjiCoach (abonnement direct, Athlète Plus, forfaits Solo / Pro), location gratuite avec
+   carte enregistrée sans frais, part d'un partenaire de groupe. */
+(function(){
+const FR=()=>window.fcReal||{};
+const owner=()=>{try{return typeof isOwner==='function'?!!isOwner():FR().role==='admin'}catch(e){return false}};
+const E=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cash=n=>(Math.round((Number(n)||0)*100)/100).toLocaleString('fr-CA',{minimumFractionDigits:2,maximumFractionDigits:2})+' $';
+const pctTxt=n=>String(Math.round((Number(n)||0)*100)/100).replace('.',',');
+const dayFr=t=>{try{return new Date(t).toLocaleDateString('fr-CA',{timeZone:'America/Toronto',day:'numeric',month:'short',year:'numeric'})}catch(e){return ''}};
+const errTxt=e=>String(e&&e.message||e||'').replace(/^Erreur : /,'');
+const SCOPE={both:'Mes cours et les ventes de FidjiCoach',coach:'Mes cours, forfaits et locations',platform:'Ventes de FidjiCoach seulement'};
+const DUR={forever:'Pour toujours',once:'Un seul achat'};
+
+/* ---------- 1. Administrateur : Plateforme › Rabais personnels ---------- */
+const S={list:null,loading:false,err:'',busy:false,form:{email:'',pct:'100',scope:'both',duration:'forever',note:'',id:''},sugT:null};
+async function loadList(){if(S.loading)return;S.loading=true;S.err='';
+  try{const {data,error}=await FR().sb.rpc('admin_discounts');if(error)throw error;S.list=Array.isArray(data)?data:[]}
+  catch(e){S.err=errTxt(e);S.list=S.list||[]}
+  finally{S.loading=false;try{render()}catch(e){}}}
+function stateOf(d){
+  if(!d.active)return '<span class="pill neutral">Désactivé</span>';
+  if(d.duration==='once'&&d.used_at)return `<span class="pill warn">Utilisé le ${E(dayFr(d.used_at))}</span>${d.used_ref?`<br><small class="muted">${E(d.used_ref)}</small>`:''}`;
+  return '<span class="pill ok">Actif</span>'+(d.uses?`<br><small class="muted">${d.uses} achat${d.uses>1?'s':''}, dernier le ${E(dayFr(d.last_used_at))}</small>`:'')}
+function rabaisV(){
+  if(!owner())return '<p class="empty">Réservé au propriétaire de FidjiCoach.</p>';
+  if(S.list===null&&!S.loading)setTimeout(loadList,0);
+  const F=S.form;const ed=!!F.id;const L=S.list||[];
+  const rows=L.map(d=>`<tr><td><b>${E(d.name||d.email)}</b>${d.name?`<br><small class="muted">${E(d.email)}</small>`:''}${d.has_account?'':'<br><small class="muted">Pas encore de compte : le rabais s\'appliquera quand la personne créera son compte avec ce courriel.</small>'}${d.note?`<br><small class="muted">Note : ${E(d.note)}</small>`:''}</td>
+    <td class="num"><b>${pctTxt(d.pct)} %</b></td><td>${E(SCOPE[d.scope]||d.scope)}</td><td>${E(DUR[d.duration]||d.duration)}</td><td>${stateOf(d)}</td>
+    <td class="actions" style="flex-wrap:wrap"><button class="btn-xs" data-a="rpEdit" data-i="${E(d.id)}">Modifier</button>${d.active?`<button class="btn-xs" data-a="rpAct" data-i="${E(d.id)}" data-k="off">Désactiver</button>`:`<button class="btn-xs" data-a="rpAct" data-i="${E(d.id)}" data-k="on">Réactiver</button>`}${d.duration==='once'&&d.used_at?`<button class="btn-xs" data-a="rpAct" data-i="${E(d.id)}" data-k="reset">Redonner un achat</button>`:''}${d.uses?'':`<button class="btn-xs" data-a="rpAct" data-i="${E(d.id)}" data-k="delete">Supprimer</button>`}</td></tr>`).join('');
+  return `<div class="head"><span class="eyebrow">Propriétaire de FidjiCoach seulement</span><p class="muted">Offrez un rabais à une personne précise (famille, amis) : de 1 à 100 %, pour toujours ou pour un seul achat. Le rabais est <b>lié à son compte</b> : il n'y a aucun code à transmettre, et personne d'autre ne peut s'en servir. Il s'applique tout seul quand elle réserve.</p></div>
+  <div class="panel" style="display:grid;gap:12px;margin-bottom:16px"><h3 style="margin:0">${ed?'Modifier le rabais':'Nouveau rabais'}</h3>
+   ${ed?`<p class="small" style="margin:0">Personne : <b>${E(F.email)}</b> (la personne ne se change pas : créez un autre rabais au besoin).</p>`:`<label class="field"><span>Personne : cherchez un compte par nom ou courriel, ou écrivez le courriel d'une personne qui n'a pas encore de compte <i>*</i></span><input type="text" id="rpEmail" data-rp="email" autocomplete="off" placeholder="nom ou courriel" value="${E(F.email)}"></label><div id="rpSug" class="actions" style="flex-wrap:wrap;margin-top:-6px"></div>`}
+   <div class="grid2"><label class="field"><span>Rabais (%) <i>*</i></span><input type="number" min="1" max="100" step="1" data-rp="pct" value="${E(F.pct)}"></label>
+    <label class="field"><span>Durée</span><select data-rp="duration"><option value="forever" ${F.duration==='forever'?'selected':''}>Pour toujours</option><option value="once" ${F.duration==='once'?'selected':''}>Un seul achat (un cours, un forfait de 3 ou 5 cours, ou le premier paiement d'un abonnement)</option></select></label>
+    <label class="field"><span>S'applique à</span><select data-rp="scope"><option value="both" ${F.scope==='both'?'selected':''}>Mes cours et les ventes de FidjiCoach</option><option value="coach" ${F.scope==='coach'?'selected':''}>Mes cours, forfaits et locations seulement</option><option value="platform" ${F.scope==='platform'?'selected':''}>Ventes de FidjiCoach seulement</option></select></label>
+    <label class="field"><span>Note interne (la personne ne la voit pas)</span><input type="text" maxlength="300" data-rp="note" value="${E(F.note)}" placeholder="ex. : frère de Lysa"></label></div>
+   <div class="actions"><button class="btn btn-accent" data-a="rpSave" ${S.busy?'disabled':''}>${ed?'Enregistrer':'Créer le rabais'}</button>${ed?'<button class="btn btn-plain" data-a="rpNew">Annuler</button>':''}</div>
+   <p class="muted small" style="margin:0">Mes cours : cours, forfaits, frais d'accès et de déplacement, location d'équipement. Non cumulable : à chaque achat, la personne paie le plus bas des deux prix (ce rabais, ou le forfait, la promotion ou le parrainage). Dans un duo ou un groupe, seule sa part est réduite. À 100 %, la réservation est confirmée sans paiement, avec une facture à 0 $.</p>
+   <p class="small" style="margin:0"><b>En construction :</b> les ventes de FidjiCoach (abonnement direct, Athlète Plus, forfaits Solo et Pro) et la location gratuite à 100 % (carte enregistrée sans frais) ne sont pas encore branchées. Un rabais « ventes de FidjiCoach » peut être créé, mais il n'a pas d'effet pour l'instant.</p></div>
+  ${S.err?`<p class="small" style="color:var(--warn)">Lecture impossible : ${E(S.err)}</p>`:''}
+  ${S.list===null?'<p class="muted small">Lecture des rabais…</p>':L.length?`<div class="tablewrap"><table class="rtab"><thead><tr><th>Personne</th><th class="num">Rabais</th><th>S'applique à</th><th>Durée</th><th>État</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Aucun rabais personnel pour l\'instant.</div>'}
+  <p class="muted small" style="margin-top:12px">Un rabais qui a déjà servi ne se supprime pas (il figure sur des factures) : désactivez-le. Les « Codes testeurs » restent à part : ils ouvrent les modules de l'application, pas les prix.</p>`}
+try{if(typeof ASEC==='object'&&ASEC&&typeof AGROUPS==='function'){
+  ASEC.rabais={l:'Rabais personnels',i:'tag',f:()=>rabaisV()};
+  AGROUPS=(old=>function(){return old().map(([g,ks])=>g==='Plateforme'?[g,owner()?[...ks.filter(s=>s!=='rabais'),'rabais']:ks.filter(s=>s!=='rabais')]:[g,ks])})(AGROUPS)}}catch(e){console.warn('Rabais personnels : menu',e)}
+/* les champs gardent leur valeur d'un affichage à l'autre */
+const keep=e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.rp)return;S.form[t.dataset.rp]=t.value;
+  if(t.dataset.rp==='email'){clearTimeout(S.sugT);const v=t.value.trim();const box=document.getElementById('rpSug');
+    if(v.length<2||v.includes('@')&&/\.[a-z]{2,}$/i.test(v)){if(box)box.innerHTML='';return}
+    S.sugT=setTimeout(async()=>{try{const {data,error}=await FR().sb.rpc('admin_discount_people',{p_q:v});if(error)return;
+        const b=document.getElementById('rpSug');if(!b||S.form.email.trim()!==v)return;
+        b.innerHTML=(data||[]).map(p=>`<button type="button" class="btn-xs" data-a="rpPick" data-e="${E(p.email)}">${E(p.name||p.email)}${p.name?' · '+E(p.email):''}</button>`).join('')||'<small class="muted">Aucun compte trouvé : écrivez le courriel complet de la personne.</small>'}catch(x){}},350)}};
+document.addEventListener('input',keep);document.addEventListener('change',keep);
+Object.assign(A,{
+  rpPick(d){S.form.email=d.e||'';const i=document.getElementById('rpEmail');if(i)i.value=S.form.email;const b=document.getElementById('rpSug');if(b)b.innerHTML=''},
+  rpNew(){S.form={email:'',pct:'100',scope:'both',duration:'forever',note:'',id:''};render()},
+  rpEdit(d){const x=(S.list||[]).find(r=>r.id===d.i);if(!x)return;S.form={email:x.email,pct:pctTxt(x.pct).replace(',','.'),scope:x.scope,duration:x.duration,note:x.note||'',id:x.id};render();window.scrollTo(0,0)},
+  async rpSave(){if(S.busy)return;const F=S.form;const pct=parseFloat(String(F.pct).replace(',','.'));
+    if(!F.id&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(F.email.trim())){flash('Choisissez une personne, ou écrivez son courriel complet.');return}
+    if(!(pct>=1&&pct<=100)){flash('Le rabais va de 1 à 100 %.');return}
+    S.busy=true;render();
+    try{const {data,error}=await FR().sb.rpc('admin_discount_save',{p:{id:F.id||'',email:F.email.trim(),pct:String(pct),scope:F.scope,duration:F.duration,note:F.note}});if(error)throw error;
+      S.list=Array.isArray(data)?data:S.list;S.form={email:'',pct:'100',scope:'both',duration:'forever',note:'',id:''};flash(F.id?'Rabais modifié.':'Rabais créé : il s\'applique dès maintenant.')}
+    catch(e){flash('Rabais non enregistré : '+errTxt(e))}
+    finally{S.busy=false;render()}},
+  async rpAct(d){if(S.busy)return;const k=d.k;
+    if(k==='delete'&&!confirm('Supprimer ce rabais? Il n\'a jamais servi.'))return;
+    if(k==='off'&&!confirm('Désactiver ce rabais? Les achats déjà faits ne changent pas.'))return;
+    S.busy=true;
+    try{const {data,error}=await FR().sb.rpc('admin_discount_action',{p_id:d.i,p_action:k});if(error)throw error;S.list=Array.isArray(data)?data:S.list;
+      flash(k==='delete'?'Rabais supprimé.':k==='off'?'Rabais désactivé.':k==='on'?'Rabais réactivé.':'La personne peut de nouveau s\'en servir pour un achat.')}
+    catch(e){flash(errTxt(e))}
+    finally{S.busy=false;render()}}});
+
+/* ---------- 2. Client : son rabais dans le résumé de la réservation ---------- */
+const M={list:null,at:0,uid:null,q:{},pend:{}};
+async function loadMine(force){const r=FR();if(!r.on||!r.sb||r.role!=='client')return;
+  if(!force&&M.list&&M.uid===r.uid&&Date.now()-M.at<5*60*1000)return;
+  try{const {data,error}=await r.sb.rpc('my_discounts');if(error)return;M.list=Array.isArray(data)?data:[];M.at=Date.now();M.uid=r.uid;M.q={};decorate()}catch(e){}}
+const mine=()=>{const r=FR();if(!M.list||M.uid!==r.uid)return null;return M.list.find(x=>x.scope==='both'||x.scope==='coach')||null};
+function payloadOf(Rq){const r=FR();if(!r.coachId||!Rq||!Rq.lieu||!Rq.type||!Rq.dur)return null;
+  return {coach_id:r.coachId,type:Rq.type,formule:Rq.formule,dur:Rq.dur,qty:Rq.qty,nb:Rq.nb,niveau:Rq.niveau||'',tech:Rq.tech||'',lieu:Rq.lieu,
+    me:Rq.me!==false,payAll:!!Rq.payAll,pay:Rq.pay==='interac'?'interac':'carte',ref:Rq.refOk?Rq.ref:'',others:(Rq.others||[]).map(o=>({prenom:o.prenom||'',nom:o.nom||''}))}}
+function decorate(){try{
+    const old=document.getElementById('fcPerso');const box=document.querySelector('aside.summary');const d=mine();
+    const btn=box&&box.querySelector('[data-a="book"]');
+    if(!box||!btn||!d||FR().role!=='client'){if(old)old.remove();return}
+    const Rq=st.R;const rent=!!(Rq&&(Rq.wantRent||Rq.what==='location'));
+    const head=`<b>🎁 Vous avez un rabais personnel de ${pctTxt(d.pct)} %</b>${d.duration==='once'?' (valable pour un achat)':''}.`;
+    const note='<small class="muted" style="display:block;margin-top:4px">Non cumulable avec le rabais de forfait, les promotions et le parrainage : vous payez le plus bas des deux prix. Le montant est calculé par le serveur.</small>';
+    let html=head+' Il est appliqué à la confirmation'+(rent?', sur le cours comme sur la location.':'.')+note;let free=false;
+    const p=(!rent&&Rq&&(!Rq.what||Rq.what==='cours'))?payloadOf(Rq):null;
+    if(p){const key=JSON.stringify(p);const q=M.q[key];
+      if(q&&q.ok){const ps=q.data&&q.data.perso;const tot=Number(q.data.total)||0;
+        if(ps&&typeof ps==='object'){free=tot===0;
+          html=head+`<div class="line" style="margin-top:6px"><span>Rabais personnel (${pctTxt(ps.pct)} %)</span><span>−${cash(ps.amount)}</span></div><div class="line total"><span>${Rq.formule==='ind'?'Total avec votre rabais':'Votre part avec votre rabais'}</span><span>${free?'Gratuit':cash(tot)}</span></div>`+
+            (free?'<small class="muted" style="display:block;margin-top:4px">Aucun paiement à faire : la réservation est confirmée tout de suite, avec une facture à 0 $.</small>':note)}
+        else html=head+' Pour cet achat, votre rabais personnel n\'est pas utilisé'+(d.duration==='once'?' et reste disponible':'')+' : il ne s\'applique pas ici, ou le prix affiché plus haut est déjà plus avantageux.'}
+      else if(!q&&!M.pend[key]){M.pend[key]=1;FR().sb.rpc('quote_booking',{p}).then(({data,error})=>{delete M.pend[key];M.q[key]=error?{ok:false}:{ok:true,data};decorate()}).catch(()=>{delete M.pend[key];M.q[key]={ok:false}})}}
+    const sig=html+(free?'1':'0');if(old&&old.dataset.sig===sig&&old.nextElementSibling===btn)return;if(old)old.remove();
+    const el=document.createElement('div');el.id='fcPerso';el.className='fc-perso';el.dataset.sig=sig;el.innerHTML=html;btn.parentNode.insertBefore(el,btn);
+    if(free&&!btn.dataset.fcFree){btn.dataset.fcFree='1';btn.textContent='Réserver gratuitement'}
+  }catch(e){}}
+{const css=document.createElement('style');css.textContent='.fc-perso{border:1px solid var(--ok);background:var(--ok-soft);border-radius:var(--r);padding:10px 12px;margin:10px 0;font-size:.92rem}.fc-perso .line{display:flex;justify-content:space-between;gap:10px}.fc-perso .line.total{font-weight:700;margin-top:4px}';document.head.appendChild(css)}
+render=(old=>function(){const r=old.apply(this,arguments);decorate();return r})(render);
+let tries=0;const boot=()=>{const r=FR();if(r.on&&r.sb){loadMine(true)}else if(tries++<25)setTimeout(boot,1500)};setTimeout(boot,1800);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')loadMine(false)});
+setInterval(()=>{if(document.visibilityState==='visible')loadMine(false)},5*60*1000);
+window.fcPerso={mine,load:loadMine,state:M,admin:S};
+
+/* réservation gratuite : pas de page de paiement, on confirme et on montre Mes réservations */
+if(typeof A.book==='function')A.book=(old=>async function(){
+  const r=FR();if(!r.on||r.role!=='client'||!mine())return old.apply(this,arguments);
+  const before=new Set((db.bookings||[]).filter(b=>b.real).map(b=>b.id));
+  const out=await old.apply(this,arguments);
+  try{const u=me();const nb=u&&(db.bookings||[]).find(b=>b.real&&!before.has(b.id)&&b.owner===u.id);
+    if(nb){const p=(nb.parts||[]).find(x=>x.userId===u.id);
+      if(p&&!(p.amount>0)){st.modal=null;st.view='client';st.tab='resa';st.ptab=null;render();window.scrollTo(0,0);
+        flash(p.paid?'Réservation '+nb.ref+' confirmée : gratuite avec votre rabais personnel. Aucun paiement à faire.'
+                    :'Réservation '+nb.ref+' enregistrée : gratuite avec votre rabais personnel. Elle sera confirmée dès que votre entraîneur l\'approuve.')}
+      loadMine(true)}}catch(e){console.warn('Rabais personnel : confirmation',e)}
+  return out})(A.book);
 })();
 </script>
 
