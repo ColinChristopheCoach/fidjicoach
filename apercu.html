@@ -24006,7 +24006,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-20-v3d';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-20-v3e';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='20 nov. 2026 · Paiements réels v2 (aperçu : rabais personnels, parties 1 à 3 (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
@@ -27524,6 +27524,10 @@ function saleBox(id,anchor,html){const old=document.getElementById(id);
   if(!anchor||!html){if(old)old.remove();return}
   if(old&&old.dataset.sig===html&&old.nextElementSibling===anchor)return;if(old)old.remove();
   const el=document.createElement('div');el.id=id;el.className='fc-perso';el.dataset.sig=html;el.innerHTML=html;anchor.insertAdjacentElement('beforebegin',el)}
+const DIR={};  /* l'entraîneur affiché est-il « FidjiCoach » (abonnement direct)? réponse du serveur, gardée par entraîneur */
+function isDir(r){const c=r.coachId;if(!c||!r.sb)return false;if(DIR[c]===undefined){DIR[c]=null;
+    r.sb.rpc('fc_is_direct',{p_coach:c}).then(({data,error})=>{DIR[c]=error?false:!!data;if(DIR[c])decoSale()}).catch(()=>{DIR[c]=false})}
+  return DIR[c]===true}
 function decoSale(){try{
     const r=FR();const d=sale();const ids=['fcPersoAbo','fcPersoAp','fcPersoFt'];
     if(!d||!r.on){ids.forEach(i=>{const o=document.getElementById(i);if(o)o.remove()});return}
@@ -27532,7 +27536,7 @@ function decoSale(){try{
     const sm=s=>`<small class="muted" style="display:block;margin-top:4px">${s}</small>`;
     /* a) abonnement direct à FidjiCoach : panier, sinon page des forfaits */
     let a=null,h='';
-    if(r.direct&&r.role==='client'){
+    if(r.role==='client'&&isDir(r)){
       const pay=document.querySelector('[data-a="v5pay"]');const add=document.querySelector('[data-a="v5cartAdd"]');
       if(pay){a=pay;const m=pay.textContent.match(/^Payer\s+([\d\s\u00a0\u202f]+(?:[.,]\d+)?)\s*\$/);
         const tot=m?parseFloat(m[1].replace(/[\s\u00a0\u202f]/g,'').replace(',','.')):NaN;
