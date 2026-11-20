@@ -2448,10 +2448,16 @@ function nextSessions(u){const o=[];db.bookings.filter(b=>!b.cancelled&&b.parts.
 function clientHomeV(u){
   const nx=nextSessions(u)[0];
   let next='';
-  if(nx){const c=db.centres.find(x=>x.name===nx.b.lieu);const w=c?wxFor(c):null;const f=w?fart(w.t):null;
+  if(nx){const c=db.centres.find(x=>x.name===nx.b.lieu);
+    /* 19 nov. 2026 : météo prévue le jour du cours (maximum du jour), plus celle du moment. Cours dans plus de 4 jours,
+       ou prévisions réelles indisponibles en mode réel : aucune météo sur la carte. */
+    const w=(()=>{try{if(!c)return null;const w0=wxFor(c);if(!w0)return null;if(!w0.real&&window.fcReal&&window.fcReal.on)return null;
+      const n=Math.round((new Date(nx.s.date+'T12:00:00')-new Date(today()+'T12:00:00'))/864e5);if(!(n>=0&&n<=4))return null;
+      if(n===0)return {t:w0.t,cond:w0.cond,lbl:''};const x=(w0.days||[])[n];return x?{t:x[1],cond:x[2],lbl:'Prévision pour le jour du cours'}:null}catch(e){return null}})();
+    const f=w?fart(w.t):null;
     next=`<article class="nextc"><div><span class="eyebrow" style="color:var(--navy-soft)">Votre prochain cours</span><h3>${dlong(nx.s.date)} · ${hfmt(nx.s.start)}</h3><p>${bDesc(nx.b)}</p><p>${esc(nx.b.lieu)}</p>
       ${rentCount(nx.b.rental)?`<p class="small" style="color:var(--navy-soft)">Équipement réservé : ${rentCount(nx.b.rental)} article${rentCount(nx.b.rental)>1?'s':''}</p>`:''}</div>
-      ${w?`<div class="nextwx"><b class="num">${w.t}°</b><span>${w.cond}</span><span class="waxdot" style="background:${f.c}">Fart ${f.n}</span>${c&&autoCond(c)&&c.etat?`<span class="small">Pistes : ${esc(c.etat)}</span>`:''}</div>`:''}</article>`}
+      ${w?`<div class="nextwx">${w.lbl?`<span class="small">${w.lbl}</span>`:''}<b class="num">${w.t}°</b><span>${w.cond}</span><span class="waxdot" style="background:${f.c}">Fart ${f.n}</span>${c&&autoCond(c)&&c.etat?`<span class="small">Pistes : ${esc(c.etat)}</span>`:''}</div>`:''}</article>`}
   else next=`<article class="nextc"><div><span class="eyebrow" style="color:var(--navy-soft)">Aucun cours à venir</span><h3>Prêt pour une sortie?</h3><p>Choisissez votre cours en 4 étapes.</p></div><div><button class="btn btn-accent" data-a="tab" data-t="reserver">Réserver un cours</button></div></article>`;
   const todo=[];
   if(!ficheOk(u))todo.push(['warn','Complétez votre fiche avant votre premier cours','Taille, poids, pointure et santé : pour un cours et un équipement adaptés.','ptab','fiche','Compléter']);
@@ -11638,6 +11644,17 @@ slotForm=function(d){if(d<today())return '';const w=JL[wd(d)-1],dm=D(d).getDate(
   const o=[['none','Ne se répète pas'],['day','Chaque jour'],['wk','Chaque semaine le '+w],['wk2','Toutes les 2 semaines le '+w],['wkd','En semaine (lundi au vendredi)'],['mo','Chaque mois le '+(dm===1?'1er':dm)],['mon','Chaque mois le '+(n>4||isLastWd(d)&&n===4?'dernier':ORD(n))+' '+w],['yr','Chaque année le '+D(d).toLocaleDateString('fr-CA',{day:'numeric',month:'long'})],['custom','Personnalisé…']];
   return `<form id="slotForm" class="fs" style="margin:12px 0 0" novalidate><input id="sDate" type="hidden" value="${d}"><div class="grid2 slotrep"><label class="field"><span>Début</span><input id="sStart" type="time" step="1800" value="09:00"></label><label class="field"><span>Fin</span><input id="sEnd" type="time" step="1800" value="12:00"></label>
     <label class="field"><span>Répéter</span><select id="sRep">${o.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label></div><button class="btn btn-accent" type="submit">Ajouter une disponibilité le ${dfmt(d)}</button></form>`};
+/* 19 nov. 2026 : pas de disponibilités en double ni qui se chevauchent (une plage seule, une série rapide ou une série personnalisée).
+   Une plage qui commence exactement à la fin d'une autre reste permise. Vérifié avant les autres gestionnaires du formulaire. */
+function slotClash(date,start,end,skipRec){return (db.slots||[]).find(x=>x&&x.date===date&&(!skipRec||x.rec!==skipRec)&&toMin(start)<toMin(x.end)&&toMin(end)>toMin(x.start))||null}
+function recClash(r){const H=addD2(today(),400);const ex=new Set(r.ex||[]);for(const d of recOcc(r,H)){if(d<today()||ex.has(d))continue;const c=slotClash(d,r.start,r.end,r.id);if(c)return {d,c}}return null}
+const clashMsg=k=>'Vous avez déjà une disponibilité le '+dfmt(k.d)+', de '+hfmt(k.c.start)+' à '+hfmt(k.c.end)+'. Choisissez d\'autres heures ou retirez d\'abord cette plage.';
+document.addEventListener('submit',e=>{const f=e.target;if(!f||f.id!=='slotForm')return;
+  try{const d=(document.getElementById('sDate')||{}).value,s=(document.getElementById('sStart')||{}).value,en=(document.getElementById('sEnd')||{}).value;
+    if(!d||!s||!en||toMin(en)-toMin(s)<60)return;   /* ces cas gardent leur message habituel */
+    const rep=(document.getElementById('sRep')||{}).value||'none';let k=null;
+    if(rep==='none'){const c=slotClash(d,s,en);if(c)k={d,c}}else if(rep!=='custom')k=recClash(newRec(d,s,en,rep));
+    if(k){e.preventDefault();e.stopImmediatePropagation();flash(clashMsg(k))}}catch(err){console.warn('Disponibilités : vérification des chevauchements',err)}},true);
 document.addEventListener('submit',e=>{const f=e.target;if(f.id!=='slotForm')return;const rep=(document.getElementById('sRep')||{}).value||'none';if(rep==='none')return;
   e.preventDefault();e.stopImmediatePropagation();const d=document.getElementById('sDate').value,s=document.getElementById('sStart').value,en=document.getElementById('sEnd').value;
   if(!d||!s||!en){flash('Indiquez les heures');return}if(toMin(en)-toMin(s)<60){flash('La plage doit durer au moins 1 h');return}
@@ -11663,6 +11680,7 @@ document.addEventListener('change',e=>{const t=e.target;if(!t.dataset||!t.datase
   if(k==='from'){if(!v)return;const oldWd=wd(r.from);r.from=v;if(r.freq==='week'&&(r.days||[]).length===1&&r.days[0]===oldWd)r.days=[wd(v)];r.nth=r.nth===-1&&isLastWd(v)?-1:nthOf(v);if(r.until&&r.until<v)r.until=v}else r[k]=v;
   if(k==='freq'&&v==='week'&&!(r.days||[]).length)r.days=[wd(r.from)];
   if(k==='endT'&&v==='until'&&!r.until)r.until=addD2(r.from,84);render()});
+const rdSaveTest=A.rdSave,rdDelTest=A.rdDel;   /* actions du test Ruffier portant le même nom (voir plus bas) */
 Object.assign(A,{
   rdDay(d){const r=st.rd;const k=Number(d.d);r.days=r.days||[];if(r.days.includes(k)){if(r.days.length===1){flash('Gardez au moins une journée');return}r.days=r.days.filter(x=>x!==k)}else r.days.push(k);render()},
   rdSet(d){const r=st.rd;if(d.k==='mmode'){r.mmode='date'}else{r.mmode='nth';r.nth=Number(d.v)}render()},
@@ -11679,9 +11697,16 @@ Object.assign(A,{
     else if(d.op==='from'){const u=addD2(m.date,-1);if(u<r.from){db.recur=RL().filter(x=>x.id!==r.id);flash('Série supprimée')}else{r.endT='until';r.until=u;flash('Série arrêtée à partir du '+dfmt(m.date))}}
     else{db.recur=RL().filter(x=>x.id!==r.id);flash('Série supprimée')}
     st.modal=null;st.rd=null;recSync();save();render()}});
+/* 19 nov. 2026 : « rdSave » et « rdDel » servaient déjà au test Ruffier (enregistrer le test complet, retirer un test du tableau).
+   Le module des séries les remplaçait : ces deux boutons du test Ruffier tombaient en erreur. Chaque bouton retrouve son action :
+   la fenêtre « Disponibilité récurrente » quand elle est ouverte, sinon le test Ruffier. */
+{const serie=()=>!!(st.rd&&st.modal&&st.modal.kind==='recEd');
+A.rdSave=(ser=>function(){return serie()?ser.apply(this,arguments):(typeof rdSaveTest==='function'?rdSaveTest.apply(this,arguments):undefined)})(A.rdSave);
+A.rdDel=(ser=>function(d){return serie()&&!(d&&d.e)?ser.apply(this,arguments):(typeof rdDelTest==='function'?rdDelTest.apply(this,arguments):undefined)})(A.rdDel);}
 MOD3.recDel=function(){const m=st.modal;const r=recById(m.rid);if(!r)return ['<p>Série introuvable.</p><div class="actions"><button class="btn btn-plain" data-a="close">Fermer</button></div>',false];
   return [`<span class="eyebrow">Disponibilité récurrente</span><h3>${m.date?'Retirer la disponibilité du '+dfmt(m.date)+'?':'Supprimer la série?'}</h3><p class="muted small">${esc(recTxt(r))}</p><p class="small">Les cours déjà réservés ne sont pas touchés.</p>
   <div class="actions" style="display:grid;gap:8px">${m.date?`<button class="btn btn-accent" data-a="recDelGo" data-op="one">Cette date seulement</button><button class="btn btn-plain" data-a="recDelGo" data-op="from">Cette date et toutes les suivantes</button>`:''}<button class="btn btn-plain" data-a="recDelGo" data-op="all" style="color:var(--bad)">Toute la série</button><button class="btn btn-plain" data-a="close">Annuler</button></div>`,false]};
+A.rdSave=(old=>function(){try{const r=st.rd;if(r&&st.modal&&st.modal.kind==='recEd'&&r.start&&r.end&&toMin(r.end)-toMin(r.start)>=60){const k=recClash(r);if(k){flash(clashMsg(k));return}}}catch(err){console.warn('Disponibilités : vérification des chevauchements',err)}return old.apply(this,arguments)})(A.rdSave);
 A.delSlot=(old=>function(d){const s=db.slots.find(x=>x.id===d.s);if(s&&s.rec&&recById(s.rec)){st.modal={kind:'recDel',rid:s.rec,date:s.date};render();return}return old(d)})(A.delSlot);
 A.reset=(old=>function(){old();try{recSync();save();render()}catch(e){}})(A.reset);
 
@@ -23977,8 +24002,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-19-v2b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='19 nov. 2026 · Paiements réels v2 (météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
+const FC_BUILD='2026-11-19-v2c';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='19 nov. 2026 · Paiements réels v2 (pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -27173,7 +27198,7 @@ window.fcCashed=function(){try{
     (b.feesSrv||[]).forEach(f=>{if(f.status==='payee'||f.status==='remboursee')n+=Math.max(0,c(f.amount)-(f.status==='remboursee'&&!f.refunded?c(f.amount):c(f.refunded)))})});
   (db.rentals||[]).forEach(r=>{if(r&&r.paid&&!r.real)n+=c(r.amount)});
   return n/100}catch(e){console.warn('v2 encaissé',e);return 0}};
-window.fcV2='apercu-v2-2026-11-18';
+window.fcV2='apercu-v2-2026-11-19';
 })();
 </script>
 
