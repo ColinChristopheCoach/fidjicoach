@@ -24006,8 +24006,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-20-v3c';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='20 nov. 2026 · Paiements réels v2 (aperçu : rabais personnels, parties 1 et 2 (location gratuite avec carte enregistrée sans frais, part d\'un partenaire); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
+const FC_BUILD='2026-11-20-v3d';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='20 nov. 2026 · Paiements réels v2 (aperçu : rabais personnels, parties 1 à 3 (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -27344,7 +27344,7 @@ Object.assign(A,{
 </script>
 
 <script>
-/* ================= Refonte « web et app », lot 3 (19 et 20 nov. 2026) : rabais personnels, parties 1 et 2 =================
+/* ================= Refonte « web et app », lot 3 (19 et 20 nov. 2026) : rabais personnels, parties 1 à 3 =================
    Décisions de Colin : l'administrateur de FidjiCoach crée un rabais de 1 à 100 % pour une personne précise (compte existant
    ou courriel invité), pour toujours ou pour un seul achat. Lié à la personne (jamais un code à transmettre). Non cumulable :
    le serveur garde le plus avantageux entre ce rabais et les autres (forfait de 3 ou 5 cours, promotion, parrainage).
@@ -27358,7 +27358,11 @@ Object.assign(A,{
    Partie 2 (20 nov.) : location gratuite à 100 % = carte enregistrée sans frais (page Stripe en mode « setup », fonctions
    create_rental, create_booking_rent et create-checkout); part d'un partenaire de groupe avec son propre rabais (share_info,
    claim_share); confirmations dans la page pour Désactiver et Supprimer (plus de fenêtre du navigateur).
-   À venir : ventes de FidjiCoach (abonnement direct, Athlète Plus, forfaits Solo / Pro). */
+   Partie 3 (20 nov.) : ventes de FidjiCoach (abonnement direct, Athlète Plus, forfaits Solo et Pro). Le rabais est appliqué
+   par les Edge Functions subscriptions, athlete-plus et coach-billing; la page l'annonce seulement sur les écrans de vente
+   (fonction decoSale). À 100 %, la fonction crée l'abonnement sans page de paiement et renvoie l'adresse de retour habituelle.
+   Aussi : reçu par courriel d'une réservation gratuite (déclencheur fc_payment_free_receipt), bouton de paiement d'un cours
+   avec location (le montant exact vient du serveur). */
 (function(){
 const FR=()=>window.fcReal||{};
 const owner=()=>{try{return typeof isOwner==='function'?!!isOwner():FR().role==='admin'}catch(e){return false}};
@@ -27396,7 +27400,7 @@ function rabaisV(){
     <label class="field"><span>Note interne (la personne ne la voit pas)</span><input type="text" maxlength="300" data-rp="note" value="${E(F.note)}" placeholder="ex. : frère de Lysa"></label></div>
    <div class="actions"><button class="btn btn-accent" data-a="rpSave" ${S.busy?'disabled':''}>${ed?'Enregistrer':'Créer le rabais'}</button>${ed?'<button class="btn btn-plain" data-a="rpNew">Annuler</button>':''}</div>
    <p class="muted small" style="margin:0">Mes cours : cours, forfaits, frais d'accès et de déplacement, location d'équipement. Non cumulable : à chaque achat, la personne paie le plus bas des deux prix (ce rabais, ou le forfait, la promotion ou le parrainage). Dans un duo ou un groupe, seule sa part est réduite. À 100 %, la réservation est confirmée sans paiement, avec une facture à 0 $. Une location gratuite demande quand même une carte, enregistrée sans frais : elle sert seulement aux frais de bris ou de non-retour.</p>
-   <p class="small" style="margin:0"><b>En construction :</b> les ventes de FidjiCoach (abonnement direct, Athlète Plus, forfaits Solo et Pro) ne sont pas encore branchées. Un rabais « ventes de FidjiCoach » peut être créé, mais il n'a pas d'effet pour l'instant.</p></div>
+   <p class="muted small" style="margin:0">Ventes de FidjiCoach : abonnement direct, Athlète Plus et forfaits Solo et Pro. Abonnement direct : à 100 %, aucune carte; « un seul achat » offre le premier mois (ou la première année), puis l'abonnement s'arrête tout seul. Athlète Plus : le rabais porte sur la part de la personne (le total divisé par le nombre d'athlètes), jamais quand le club paie. Forfait Solo ou Pro : non cumulable avec le rabais fondateur ou donné (le plus élevé des deux); à 100 % pour toujours, ni carte ni frais d'activation; « un seul achat » = le premier mois payé après l'essai gratuit. Chez un autre entraîneur, le rabais ne touche jamais ses prix.</p></div>
   ${S.err?`<p class="small" style="color:var(--warn)">Lecture impossible : ${E(S.err)}</p>`:''}
   ${S.list===null?'<p class="muted small">Lecture des rabais…</p>':L.length?`<div class="tablewrap"><table class="rtab"><thead><tr><th>Personne</th><th class="num">Rabais</th><th>S'applique à</th><th>Durée</th><th>État</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Aucun rabais personnel pour l\'instant.</div>'}
   <p class="muted small" style="margin-top:12px">Un rabais qui a déjà servi ne se supprime pas (il figure sur des factures) : désactivez-le. Les « Codes testeurs » restent à part : ils ouvrent les modules de l'application, pas les prix.</p>`}
@@ -27434,9 +27438,9 @@ Object.assign(A,{
 
 /* ---------- 2. Client : son rabais dans le résumé de la réservation ---------- */
 const M={list:null,at:0,uid:null,q:{},pend:{}};
-async function loadMine(force){const r=FR();if(!r.on||!r.sb||r.role!=='client')return;
+async function loadMine(force){const r=FR();if(!r.on||!r.sb||!r.uid)return;
   if(!force&&M.list&&M.uid===r.uid&&Date.now()-M.at<5*60*1000)return;
-  try{const {data,error}=await r.sb.rpc('my_discounts');if(error)return;M.list=Array.isArray(data)?data:[];M.at=Date.now();M.uid=r.uid;M.q={};decorate()}catch(e){}}
+  try{const {data,error}=await r.sb.rpc('my_discounts');if(error)return;M.list=Array.isArray(data)?data:[];M.at=Date.now();M.uid=r.uid;M.q={};decorate();decoSale()}catch(e){}}
 const mine=()=>{const r=FR();if(!M.list||M.uid!==r.uid)return null;return M.list.find(x=>x.scope==='both'||x.scope==='coach')||null};
 function payloadOf(Rq){const r=FR();if(!r.coachId||!Rq||!Rq.lieu||!Rq.type||!Rq.dur)return null;
   return {coach_id:r.coachId,type:Rq.type,formule:Rq.formule,dur:Rq.dur,qty:Rq.qty,nb:Rq.nb,niveau:Rq.niveau||'',tech:Rq.tech||'',lieu:Rq.lieu,
@@ -27462,6 +27466,9 @@ function decorate(){try{
       const el=document.createElement('div');el.id='fcPerso';el.className='fc-perso';el.dataset.sig=sig;el.innerHTML=html;anchor.insertAdjacentElement('afterend',el)}
     if(btn&&due!==null&&!btn.dataset.fcDue){btn.dataset.fcDue='1';
       btn.textContent=free?'Réserver gratuitement':/^Payer/.test(btn.textContent.trim())?'Payer '+cash(due)+' et réserver':btn.textContent}
+    /* cours avec location : le montant exact vient du serveur à la confirmation, le bouton n'affiche plus le plein prix */
+    if(btn&&rent&&due===null&&!btn.dataset.fcDue&&/^Payer/.test(btn.textContent.trim())){btn.dataset.fcDue='1';
+      btn.textContent=Number(d.pct)>=100?'Réserver gratuitement et enregistrer ma carte':'Réserver avec mon rabais de '+pctTxt(d.pct)+' %'}
   }catch(e){}}
 {const css=document.createElement('style');css.textContent='.fc-perso{border:1px solid var(--ok);background:var(--ok-soft);border-radius:var(--r);padding:10px 12px;margin:10px 0;font-size:.92rem}.fc-perso .line{display:flex;justify-content:space-between;gap:10px}.fc-perso .line.total{font-weight:700;margin-top:4px}';document.head.appendChild(css)}
 render=(old=>function(){const r=old.apply(this,arguments);decorate();return r})(render);
@@ -27510,6 +27517,41 @@ function decoJoin(){try{
       box.querySelectorAll('[data-a="fcJoinPay"]').forEach(b=>{if(b!==btn)b.style.display='none'})}
   }catch(e){}}
 render=(old=>function(){const r=old.apply(this,arguments);decoJoin();return r})(render);
+
+/* ---------- 5. Partie 3 : ventes de FidjiCoach, le rabais annoncé sur les écrans de vente ---------- */
+const sale=()=>{const r=FR();if(!M.list||M.uid!==r.uid)return null;return M.list.find(x=>x.scope==='both'||x.scope==='platform')||null};
+function saleBox(id,anchor,html){const old=document.getElementById(id);
+  if(!anchor||!html){if(old)old.remove();return}
+  if(old&&old.dataset.sig===html&&old.nextElementSibling===anchor)return;if(old)old.remove();
+  const el=document.createElement('div');el.id=id;el.className='fc-perso';el.dataset.sig=html;el.innerHTML=html;anchor.insertAdjacentElement('beforebegin',el)}
+function decoSale(){try{
+    const r=FR();const d=sale();const ids=['fcPersoAbo','fcPersoAp','fcPersoFt'];
+    if(!d||!r.on){ids.forEach(i=>{const o=document.getElementById(i);if(o)o.remove()});return}
+    const pct=Number(d.pct)||0;const once=d.duration==='once';const full=pct>=100;
+    const head=`<b>🎁 Vous avez un rabais personnel de ${pctTxt(pct)} %</b>${once?' (valable pour un achat)':''}.`;
+    const sm=s=>`<small class="muted" style="display:block;margin-top:4px">${s}</small>`;
+    /* a) abonnement direct à FidjiCoach : panier, sinon page des forfaits */
+    let a=null,h='';
+    if(r.direct&&r.role==='client'){
+      const pay=document.querySelector('[data-a="v5pay"]');const add=document.querySelector('[data-a="v5cartAdd"]');
+      if(pay){a=pay;const m=pay.textContent.match(/^Payer\s+([\d\s\u00a0\u202f]+(?:[.,]\d+)?)\s*\$/);
+        const tot=m?parseFloat(m[1].replace(/[\s\u00a0\u202f]/g,'').replace(',','.')):NaN;
+        if(!pay.dataset.fcSale&&isFinite(tot)&&!pay.disabled){pay.dataset.fcSale='1';pay.textContent=full?'Activer gratuitement':'Payer '+cash(Math.round(tot*(100-pct))/100)+' et activer'}}
+      else if(add){const art=add.closest('article');a=art&&art.parentElement?art.parentElement:null}
+      if(a)h=head+' Il s\'applique à votre abonnement FidjiCoach.'+sm(full?(once?'Aucun paiement ni carte : la première période (un mois, ou l\'année pour le forfait annuel) est offerte, puis l\'abonnement s\'arrête tout seul. Vous pourrez vous abonner de nouveau au prix courant.':'Aucun paiement ni carte : votre abonnement est gratuit tant que ce rabais est en place.'):(once?'Il réduit votre premier paiement (un mois, ou l\'année pour le forfait annuel). Les paiements suivants sont au prix courant.':'Il réduit chaque paiement. Le montant exact est affiché sur la page de paiement.'))}
+    saleBox('fcPersoAbo',a,h);
+    /* b) Athlète Plus : la personne qui paie (pas le club) */
+    a=null;h='';const ap=document.querySelector('[data-a="apBuy"]');
+    if(ap){a=ap.closest('.actions')||ap;
+      h=head+' Il s\'applique à Athlète Plus, sur <b>votre part</b>.'+sm((full?'Seul : aucun paiement ni carte'+(once?', le premier mois est offert, puis l\'abonnement s\'arrête tout seul.':'.'):'Seul : le rabais porte sur tout le prix'+(once?' du premier mois.':'.'))+' En famille : il porte sur votre part seulement (le total divisé par le nombre d\'athlètes). Le montant exact est affiché sur la page de paiement.')}
+    saleBox('fcPersoAp',a,h);
+    /* c) forfait Solo ou Pro de l'entraîneur */
+    a=null;h='';const ft=document.querySelector('[data-a="fctChoose"]');
+    if(ft&&r.role!=='client'){a=ft.closest('.actions')||ft;
+      h=head+' Il s\'applique à votre forfait FidjiCoach (Solo ou Pro).'+sm(once?'Il est déduit de votre premier mois payé, après l\'essai gratuit. Non cumulable avec un autre rabais sur le forfait : le plus élevé des deux s\'applique.':full?'Forfait gratuit tant que ce rabais est en place : aucune carte, aucuns frais d\'activation.':'Il réduit chaque mois. Non cumulable avec un autre rabais sur le forfait (fondateur, par exemple) : le plus élevé des deux s\'applique.')}
+    saleBox('fcPersoFt',a,h);
+  }catch(e){}}
+render=(old=>function(){const r=old.apply(this,arguments);decoSale();return r})(render);
 })();
 </script>
 
