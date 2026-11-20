@@ -27240,12 +27240,12 @@ setInterval(()=>{if(document.visibilityState==='visible')load()},10*60*1000);
   '.mainnav.tr [data-t="rec"]','.mainnav.tr [data-t="share"]','.mainnav.tr [data-t="dev"]','[data-a="trTab"][data-t="rec"]',
   '[data-a="recStart"]','[data-a="recResume"]','[data-a="trGoRec"]','[data-a="trBt"]',
   '.findpanel','.navfind','[data-a="v5go"][data-x="find"]','[data-a="nav"][data-s="trouver"]','[data-a^="find"]',
-  '#mplayer','.musbtn','[data-a="mpOpen"]','[data-a][data-p="music"]','[data-a="selfTab"][data-t="music"]','[data-a="spGo"]','[data-a="spWeb"]','[data-a="spPlay"]',
+  '#mplayer','.musbtn','[data-a="mpOpen"]','[data-a][data-p="music"]','[data-a="selfTab"][data-t="music"]','[data-a="selfTab"][data-t="appareils"]','[data-a="spGo"]','[data-a="spWeb"]','[data-a="spPlay"]',
   '[data-a][data-p="appareils"]','[data-a="connectApp"]','[data-a="devOn"]','[data-a="devSync"]','[data-a="fcImpGo"]',
   '[data-a="slLink"]','[data-a="slImport"]','[data-a="slDemo"]','[data-a="hrlGo"]','[data-a="hrlPair"]','[data-a="hrlDemoGo"]','[data-a="hrlDemoPair"]',
   '[data-a="rdStart"]','.hv7tabs','.rdcta','label.fc-imp-off'];
  const css=document.createElement('style');css.textContent=sel.map(x=>H+x).join(',')+'{display:none!important}'+
-  '.fc-apponly{border:1px dashed var(--line);border-radius:var(--r);background:var(--surface);padding:12px 14px;margin:0 0 14px;font-size:.9rem;color:var(--navy-soft)}.fc-apponly b{color:var(--ink,inherit)}';
+  '.fc-apponly{border:1px dashed var(--line);border-radius:var(--r);background:var(--surface);padding:12px 14px;margin:0 0 14px;font-size:.9rem}';
  document.head.appendChild(css)}
 
 /* ---------- les actions du direct sont refusées (même si un bouton restait visible) ---------- */
@@ -27265,7 +27265,7 @@ function pre(){if(liveOn())return;try{
     const act=st.rec&&st.rec.status&&st.rec.status!=='ready';const t=st.trTab||'rec';
     if((t==='rec'&&!act)||t==='share'||t==='dev')st.trTab='hist';      /* une sortie déjà commencée peut être terminée */
     if(st.rdM5==='hrv')st.rdM5='full';
-    if(st.selfTab==='music')st.selfTab=null;
+    if(st.selfTab==='music'||st.selfTab==='appareils')st.selfTab=null;
     if(st.tab==='profil'&&(st.ptab==='music'||st.ptab==='appareils')){st.tab='accueil';st.ptab=null}
     if(st.gtab==='trouver'){st.gtab=null;if(st.tab==='gestion')st.tab='today'}
     if(st.modal&&st.modal.kind==='find')st.modal=null;
@@ -27322,8 +27322,7 @@ Object.assign(A,{
 /* ---------- réglage de l'administrateur de la plateforme ---------- */
 const owner=()=>{try{return typeof isOwner==='function'?!!isOwner():FR().role==='admin'}catch(e){return false}};
 function webAppV(){const on=S.web;const ask=st.wlAsk;
-  return `<h3>Web et application</h3>
-  <p class="muted" style="margin:6px 0 14px">Certaines fonctions sont pensées pour l'application FidjiCoach de l'App Store et de Google Play : l'enregistrement en direct avec le GPS, le test Ruffier guidé, la musique, la connexion des montres et des applications (Strava, fichiers), « Trouver mon entraîneur » et « Trouver mon client ».</p>
+  return `<p class="muted" style="margin:0 0 14px">Certaines fonctions sont pensées pour l'application FidjiCoach de l'App Store et de Google Play : l'enregistrement en direct avec le GPS, le test Ruffier guidé, la musique, la connexion des montres et des applications (Strava, fichiers), « Trouver mon entraîneur » et « Trouver mon client ».</p>
   <div class="panel" style="display:grid;gap:10px"><div><span class="pill ${on?'ok':'neutral'}">${on?'Offertes aussi sur le web':'Réservées à l\'application'}</span>${S.loaded?'':' <span class="muted small">(lecture du réglage…)</span>'}</div>
    <p class="small" style="margin:0">${on?'En ce moment, ces fonctions restent offertes sur le site web et dans l\'app installée sur l\'écran d\'accueil. Fermez-les sur le web le jour où l\'application est publiée.':'En ce moment, ces fonctions sont cachées sur le site web et dans l\'app installée sur l\'écran d\'accueil. Les utilisateurs y consultent leurs sorties et leurs résultats, et peuvent les entrer à la main. Dans l\'application de l\'App Store et de Google Play, tout reste offert.'}</p>
    ${ask?`<p class="small" style="margin:0"><b>${on?'Confirmez : ces fonctions disparaîtront du site web pour tous les comptes (clients, athlètes, entraîneurs). Rien n\'est effacé.':'Confirmez : ces fonctions reviendront sur le site web pour tous les comptes.'}</b></p>
