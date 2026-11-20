@@ -10449,6 +10449,10 @@ window.recV=(old=>{const f=function(u){const h=old.apply(this,arguments);const R
    .replace(/<p class="trnote">[\s\S]*?<\/p>/,`<p class="trnote">${st.trFree?'Carte centrée sur votre position.':'La carte se centre sur votre position dès que le GPS répond.'}</p>`)};Object.assign(f,old);return f})(window.recV);
 A.trTab=(old=>function(d){if(d.t==='map'&&isFreeId(st.trC))st.trC=null;return old(d)})(A.trTab);
 A.trGoRec=(old=>function(d){if(isFreeId(st.trC))st.trC=null;return old(d)})(A.trGoRec);
+/* 19 nov. 2026 : à l'onglet Enregistrer, le lieu par défaut est « Sans lieu précis » tant qu'aucun centre ni sentier n'a été choisi.
+   L'utilisateur choisit un centre au besoin dans la liste; son choix est gardé. Une sortie déjà commencée n'est pas touchée. */
+const recDefFree=()=>{try{if(st.trC==null&&st.trNav==null&&!(st.rec&&st.rec.status&&st.rec.status!=='ready')){st.trC='libre';if(st.rec&&st.rec.status==='ready'){st.rec.cid='libre';st.rec.ti=0}return true}}catch(e){}return false};
+if(typeof window.recV==='function')window.recV=(old=>{const f=function(){let d=false;try{if((st.trTab||'rec')==='rec')d=recDefFree()}catch(e){}const h=old.apply(this,arguments);if(d){try{locate()}catch(e){}}return h};Object.assign(f,old);return f})(window.recV);
 A.recStart=(old=>function(d){const R=st.rec;if(R&&R.status==='ready'&&isFreeId(R.cid))R.fc=fcDef();return old(d)})(A.recStart);
 recSummary=(old=>function(u,R,c){let h=old(u,R,c);if(c&&c.free)h=h.replace(/placeholder="[^"]*à Sans lieu précis"/,`placeholder="${esc(trType(R.type)[1])} · sortie libre"`);
   return h.replace('<button class="btn btn-accent" data-a="recSave">Enregistrer la sortie</button>','<button class="btn btn-accent" data-a="recSave">Enregistrer la sortie</button><button class="btn btn-plain" data-a="recSaveShare">Enregistrer et partager</button>')})(recSummary);
