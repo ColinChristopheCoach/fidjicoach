@@ -1878,7 +1878,7 @@ function sessRows(b,u,admin){
       acts+=`<button class="btn-xs ${s.report?'done':''}" data-a="report" data-b="${b.id}" data-s="${s.id}">${s.report?'Rapport ✓':'Rapport de cours'}</button>`}
     else if(own&&fut&&!s.pendingMove)acts=`<button class="btn-xs" data-a="move" data-b="${b.id}" data-s="${s.id}">Déplacer</button><button class="btn-xs" data-a="cancelS" data-b="${b.id}" data-s="${s.id}">Annuler</button>`;
     return `<div class="sessrow"><span><b>${dfmt(s.date)} · ${hfmt(s.start)}</b>${s.pendingMove?`<br><span class="small" style="color:var(--warn)">Demande : ${dfmt(s.pendingMove.date)} · ${hfmt(s.pendingMove.start)}</span>`:''}</span>${acts?`<span class="actions">${acts}</span>`:''}</div>`}).join('');
-  (b.gone||[]).forEach(g=>{h+=`<div class="sessrow" style="opacity:.7"><span><s>${dfmt(g.date)} · ${hfmt(g.start)}</s> <span class="small muted">${g.credit?'annulé, remis en crédit':g.refund?'annulé, remboursement demandé':'annulé moins de 48 h avant'}</span></span></div>`});
+  (b.gone||[]).forEach(g=>{h+=`<div class="sessrow" style="opacity:.7"><span><s>${dfmt(g.date)} · ${hfmt(g.start)}</s> <span class="small muted">${g.credit?'annulé, remis en crédit':g.refund?((b.parts||[]).some(p=>p.paid&&p.amount>0)?'annulé, remboursement demandé':'annulé, sans frais'):'annulé moins de 48 h avant'}</span></span></div>`});
   return h||'<span class="muted small">Aucune date planifiée</span>';
 }
 function bookingCard(b,u,admin){
@@ -24006,7 +24006,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-20-v3e';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-20-v3f';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='20 nov. 2026 · Paiements réels v2 (aperçu : rabais personnels, parties 1 à 3 (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
@@ -27360,7 +27360,8 @@ Object.assign(A,{
    claim_share); confirmations dans la page pour Désactiver et Supprimer (plus de fenêtre du navigateur).
    Partie 3 (20 nov.) : ventes de FidjiCoach (abonnement direct, Athlète Plus, forfaits Solo et Pro). Le rabais est appliqué
    par les Edge Functions subscriptions, athlete-plus et coach-billing; la page l'annonce seulement sur les écrans de vente
-   (fonction decoSale). À 100 %, la fonction crée l'abonnement sans page de paiement et renvoie l'adresse de retour habituelle.
+   (fonction decoSale). Partie 4 (20 nov., v3f) : le rabais « mes cours » vaut aussi pour les forfaits mensuels de l'entraîneur
+   propriétaire (Edge Function subscriptions, fonctions fc_perso_coach_sale et fc_is_owner_coach; encadré : fonction decoPlans). À 100 %, la fonction crée l'abonnement sans page de paiement et renvoie l'adresse de retour habituelle.
    Aussi : reçu par courriel d'une réservation gratuite (déclencheur fc_payment_free_receipt), bouton de paiement d'un cours
    avec location (le montant exact vient du serveur). */
 (function(){
@@ -27528,7 +27529,24 @@ const DIR={};  /* l'entraîneur affiché est-il « FidjiCoach » (abonnement dir
 function isDir(r){const c=r.coachId;if(!c||!r.sb)return false;if(DIR[c]===undefined){DIR[c]=null;
     r.sb.rpc('fc_is_direct',{p_coach:c}).then(({data,error})=>{DIR[c]=error?false:!!data;if(DIR[c])decoSale()}).catch(()=>{DIR[c]=false})}
   return DIR[c]===true}
+const OWN={};  /* partie 4 : l'entraîneur affiché est-il le propriétaire de la plateforme (ses forfaits mensuels acceptent le rabais « mes cours »)? */
+function isOwn(r){const c=r.coachId;if(!c||!r.sb)return false;if(OWN[c]===undefined){OWN[c]=null;
+    r.sb.rpc('fc_is_owner_coach',{p_coach:c}).then(({data,error})=>{OWN[c]=error?false:!!data;if(OWN[c])decoSale()}).catch(()=>{OWN[c]=false})}
+  return OWN[c]===true}
+function decoPlans(){try{
+    const r=FR();const d=mine();const old=document.getElementById('fcPersoPlan');
+    if(!d||!r.on||r.role!=='client'||isDir(r)||!isOwn(r)){if(old)old.remove();return}
+    const pct=Number(d.pct)||0;const once=d.duration==='once';const full=pct>=100;
+    const sm=s=>`<small class="muted" style="display:block;margin-top:4px">${s}</small>`;
+    const pay=document.querySelector('[data-a="v5pay"]');const add=document.querySelector('[data-a="v5cartAdd"]');let a=null;
+    if(pay){a=pay;const m=pay.textContent.match(/^Payer\s+([\d\s\u00a0\u202f]+(?:[.,]\d+)?)\s*\$/);
+      const tot=m?parseFloat(m[1].replace(/[\s\u00a0\u202f]/g,'').replace(',','.')):NaN;
+      if(!pay.dataset.fcSale&&isFinite(tot)&&!pay.disabled){pay.dataset.fcSale='1';pay.textContent=full?'Activer gratuitement':'Payer '+cash(Math.round(tot*(100-pct))/100)+' et activer'}}
+    else if(add){const art=add.closest('article');a=art&&art.parentElement?art.parentElement:null}
+    saleBox('fcPersoPlan',a,a?`<b>🎁 Vous avez un rabais personnel de ${pctTxt(pct)} %</b>${once?' (valable pour un achat)':''}. Il s'applique aux forfaits mensuels de votre entraîneur.`+sm(full?(once?'Aucun paiement ni carte : le premier mois d\'un forfait est offert, puis ce forfait s\'arrête tout seul. Vous pourrez vous abonner de nouveau au prix courant.':'Aucun paiement ni carte : vos forfaits sont gratuits tant que ce rabais est en place.'):(once?'Il réduit le premier paiement d\'un forfait. Les paiements suivants sont au prix courant.':'Il réduit chaque paiement. Le montant exact est affiché sur la page de paiement.')):'')
+  }catch(e){}}
 function decoSale(){try{
+    decoPlans();
     const r=FR();const d=sale();const ids=['fcPersoAbo','fcPersoAp','fcPersoFt'];
     if(!d||!r.on){ids.forEach(i=>{const o=document.getElementById(i);if(o)o.remove()});return}
     const pct=Number(d.pct)||0;const once=d.duration==='once';const full=pct>=100;
