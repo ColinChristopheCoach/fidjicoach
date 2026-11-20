@@ -24006,7 +24006,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-19-v3a';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-19-v3b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='19 nov. 2026 · Paiements réels v2 (aperçu : rabais personnels, partie 1; réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
@@ -27441,23 +27441,25 @@ function payloadOf(Rq){const r=FR();if(!r.coachId||!Rq||!Rq.lieu||!Rq.type||!Rq.
     me:Rq.me!==false,payAll:!!Rq.payAll,pay:Rq.pay==='interac'?'interac':'carte',ref:Rq.refOk?Rq.ref:'',others:(Rq.others||[]).map(o=>({prenom:o.prenom||'',nom:o.nom||''}))}}
 function decorate(){try{
     const old=document.getElementById('fcPerso');const box=document.querySelector('aside.summary');const d=mine();
-    const btn=box&&box.querySelector('[data-a="book"]');
-    if(!box||!btn||!d||FR().role!=='client'){if(old)old.remove();return}
+    const anchor=box&&box.querySelector('.line.total');const btn=document.querySelector('[data-a="book"]');
+    if(!box||!anchor||!d||FR().role!=='client'){if(old)old.remove();return}
     const Rq=st.R;const rent=!!(Rq&&(Rq.wantRent||Rq.what==='location'));
     const head=`<b>🎁 Vous avez un rabais personnel de ${pctTxt(d.pct)} %</b>${d.duration==='once'?' (valable pour un achat)':''}.`;
     const note='<small class="muted" style="display:block;margin-top:4px">Non cumulable avec le rabais de forfait, les promotions et le parrainage : vous payez le plus bas des deux prix. Le montant est calculé par le serveur.</small>';
-    let html=head+' Il est appliqué à la confirmation'+(rent?', sur le cours comme sur la location.':'.')+note;let free=false;
+    let due=null;let html=head+' Il est appliqué à la confirmation'+(rent?', sur le cours comme sur la location.':'.')+note;let free=false;
     const p=(!rent&&Rq&&(!Rq.what||Rq.what==='cours'))?payloadOf(Rq):null;
     if(p){const key=JSON.stringify(p);const q=M.q[key];
       if(q&&q.ok){const ps=q.data&&q.data.perso;const tot=Number(q.data.total)||0;
-        if(ps&&typeof ps==='object'){free=tot===0;
+        if(ps&&typeof ps==='object'){free=tot===0;due=tot;
           html=head+`<div class="line" style="margin-top:6px"><span>Rabais personnel (${pctTxt(ps.pct)} %)</span><span>−${cash(ps.amount)}</span></div><div class="line total"><span>${Rq.formule==='ind'?'Total avec votre rabais':'Votre part avec votre rabais'}</span><span>${free?'Gratuit':cash(tot)}</span></div>`+
             (free?'<small class="muted" style="display:block;margin-top:4px">Aucun paiement à faire : la réservation est confirmée tout de suite, avec une facture à 0 $.</small>':note)}
         else html=head+' Pour cet achat, votre rabais personnel n\'est pas utilisé'+(d.duration==='once'?' et reste disponible':'')+' : il ne s\'applique pas ici, ou le prix affiché plus haut est déjà plus avantageux.'}
       else if(!q&&!M.pend[key]){M.pend[key]=1;FR().sb.rpc('quote_booking',{p}).then(({data,error})=>{delete M.pend[key];M.q[key]=error?{ok:false}:{ok:true,data};decorate()}).catch(()=>{delete M.pend[key];M.q[key]={ok:false}})}}
-    const sig=html+(free?'1':'0');if(old&&old.dataset.sig===sig&&old.nextElementSibling===btn)return;if(old)old.remove();
-    const el=document.createElement('div');el.id='fcPerso';el.className='fc-perso';el.dataset.sig=sig;el.innerHTML=html;btn.parentNode.insertBefore(el,btn);
-    if(free&&!btn.dataset.fcFree){btn.dataset.fcFree='1';btn.textContent='Réserver gratuitement'}
+    const sig=html+(free?'1':'0');
+    if(!(old&&old.dataset.sig===sig&&old.previousElementSibling===anchor)){if(old)old.remove();
+      const el=document.createElement('div');el.id='fcPerso';el.className='fc-perso';el.dataset.sig=sig;el.innerHTML=html;anchor.insertAdjacentElement('afterend',el)}
+    if(btn&&due!==null&&!btn.dataset.fcDue){btn.dataset.fcDue='1';
+      btn.textContent=free?'Réserver gratuitement':/^Payer/.test(btn.textContent.trim())?'Payer '+cash(due)+' et réserver':btn.textContent}
   }catch(e){}}
 {const css=document.createElement('style');css.textContent='.fc-perso{border:1px solid var(--ok);background:var(--ok-soft);border-radius:var(--r);padding:10px 12px;margin:10px 0;font-size:.92rem}.fc-perso .line{display:flex;justify-content:space-between;gap:10px}.fc-perso .line.total{font-weight:700;margin-top:4px}';document.head.appendChild(css)}
 render=(old=>function(){const r=old.apply(this,arguments);decorate();return r})(render);
