@@ -24011,7 +24011,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-20-v4d';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-20-v4e';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='20 nov. 2026 (aperçu : lots 4 à 6, prix après rabais, export comptable mensuel, factures reçues à valider) · Paiements réels v2 (rabais personnels (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
@@ -25218,7 +25218,7 @@ render=(old=>function(){if(directClient()&&['reserver','msg','resa5'].includes(s
    Frais de Stripe et commission : lus dans la base (payments.fee_stripe_cents, fee_com_cents) pour les factures de cours et de location.
    Format à confirmer avec le comptable (Claude n'est pas comptable). Rien n'est envoyé ni modifié : lecture seulement. */
 (function(){
-const L4={busy:false,msg:''};
+const L4={busy:false,msg:''};const RENT4={};
 const prevMonth=()=>{const t=today();let y=+t.slice(0,4),m=+t.slice(5,7)-1;if(m<1){m=12;y--}return y+'-'+String(m).padStart(2,'0')};
 const M4=()=>st.l4m||(st.l4m=prevMonth());
 const MOIS=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
@@ -25235,6 +25235,15 @@ function collect(M,withPlat){const out=[];const inM=d=>String(d||'').slice(0,7)=
   (db.bookings||[]).forEach(b=>{
     (b.parts||[]).forEach(p=>{if(!p.invNo||!(p.paid||p.status==='remboursee'))return;try{const o=inv10Data(b,p);if(inM(o.date))out.push({o,src:'part',pid:p.pid})}catch(e){console.warn('Export : facture',p.invNo,e)}});
     (b.feesSrv||[]).forEach(f=>{if(!f.invNo||!['payee','remboursee'].includes(f.status))return;try{const o=inv11FeeData(b,f);if(inM(o.date))out.push({o,src:'frais',pid:f.pid})}catch(e){console.warn('Export : frais',f.invNo,e)}})});
+  /* locations seules (réservation de type location : dans db.rentals, pas dans db.bookings) */
+  const inB=new Set((db.bookings||[]).map(b=>b.sid).filter(Boolean));
+  (db.rentals||[]).forEach(r=>{if(!r||!r.real||inB.has(r.sid))return;const pb={ref:r.ref,id:'r'+r.sid,sid:r.sid,lieu:r.lieu||''};
+    if(r.invNo&&r.paid&&r.partPid){try{const P=RENT4[r.partPid]||{};const tot=P.amount_cents!=null?P.amount_cents/100:(Number(r.amount)||0);
+      const o=Object.assign({no:r.invNo,date:(P.inv_at?day11(P.inv_at):null)||r.invAt||r.paidAt||today(),ref:r.ref,refTxt:'Location '+r.ref,coach:inv10Coach(),cl:clInfo14(userById(r.userId)),
+        total:tot,method:P.method||'carte',paidAt:r.paidAt,refunded:(P.refunded_cents||0)/100,sessions:[],lieu:r.lieu||'',sent:null,
+        note:'Location d\'équipement '+r.ref+(r.from?' du '+dlong10(r.from)+(r.to&&r.to!==r.from?' au '+dlong10(r.to):''):'')+', payée par '+(PAY10[P.method||'carte']||'carte de crédit')+(r.paidAt?' le '+dlong10(r.paidAt):'')+'.'},
+        inv11Split(P.lines||[],tot,'Location d\'équipement '+r.ref));if(inM(o.date))out.push({o,src:'part',pid:r.partPid})}catch(e){console.warn('Export : location',r.invNo,e)}}
+    (r.fees||[]).forEach(f=>{if(!f.invNo||!['payee','remboursee'].includes(f.status))return;try{const o=inv11FeeData(pb,f);if(inM(o.date))out.push({o,src:'frais',pid:f.pid})}catch(e){console.warn('Export : frais',f.invNo,e)}})});
   (db.subInv||[]).forEach(x=>{try{const o=inv11SubData(x);if(inM(o.date))out.push({o,src:'abo'})}catch(e){console.warn('Export : abonnement',x.no,e)}});
   (db.cnotes||[]).forEach(x=>{try{const o=inv12CnData(x);if(inM(o.date))out.push({o,src:'nc',x})}catch(e){console.warn('Export : note de crédit',x.no,e)}});
   if(withPlat)(db.platInv||[]).forEach(x=>{try{const o=inv13Data(x);if(inM(o.date))out.push({o,src:'plat'})}catch(e){console.warn('Export : plateforme',x.no,e)}});
@@ -25252,6 +25261,10 @@ A.l4Go=async function(){if(L4.busy)return;const M=M4();if(!/^\d{4}-\d{2}$/.test(
   L4.busy=true;L4.msg='';render();busyOn('Lecture des factures de '+mLbl(M)+'…');
   try{
     try{await Promise.all([typeof loadSubs==='function'?loadSubs():null,typeof loadCNotes==='function'?loadCNotes():null,withPlat&&typeof loadPlatInv==='function'?loadPlatInv():null])}catch(e){console.warn('Export : actualisation',e)}
+    /* lignes des locations seules (pas chargées avec la location) */
+    try{const ids=(db.rentals||[]).filter(r=>r&&r.real&&r.partPid&&r.invNo).map(r=>r.partPid);for(const k in RENT4)delete RENT4[k];
+      for(let i=0;i<ids.length;i+=100){const {data,error}=await R.sb.from('payments').select('id,lines,amount_cents,method,refunded_cents,inv_at').in('id',ids.slice(i,i+100));if(error)throw error;(data||[]).forEach(p=>RENT4[p.id]=p)}}
+    catch(e){console.warn('Export : locations',e)}
     const rows=collect(M,withPlat);
     if(!rows.length){flash('Aucune facture ni note de crédit en '+mLbl(M)+' dans cet espace.');return}
     /* frais retenus (Stripe et commission) et remboursements, lus dans la base */
