@@ -23792,7 +23792,14 @@ function revPage(){if(!R.on||R.realRole!=='admin')return '<div class="empty">Ré
     <tr class="tot"><td colspan="2"><b>Total</b></td>${REVK.map(([k])=>`<td class="num"><b>${k==='nb'?S(k):money(S(k))}</b></td>`).join('')}</tr></tbody></table></div>`:'<p class="muted small">Aucun revenu pour cette période.</p>'}
   <p class="muted small" style="margin-top:10px">Frais de Stripe estimés (${'3,1 % + 0,30 $'} par paiement, estimation avec marge, plus Stripe Billing pour les abonnements et les forfaits). Les montants exacts sont chez Stripe :
     <a href="${base}connect/application_fees" target="_blank" rel="noopener">Connect › Frais d'application</a> · <a href="${base}subscriptions" target="_blank" rel="noopener">Facturation › Abonnements</a> · <a href="${base}balance" target="_blank" rel="noopener">Solde</a>.</p>`}
-ASEC.fcrev={l:'Revenus de la plateforme',i:'money',f:()=>revPage()};REL.fcrev=['fctarif','fcpay','compta'];
+ASEC.fcrev={l:'Revenus de la plateforme',i:'money',f:()=>revPage()+revLic7()};
+/* lot 7 (21 nov. 2026) : licences des clubs (factures K-…-FC et notes de crédit NC-…-FC), selon l'année et le mois choisis */
+function revLic7(){if(!R.on||R.realRole!=='admin'||!C7.rev)return '';const F=st.c7rf||{y:String(new Date().getFullYear()),m:''};
+  const D=(db.platInv||[]).filter(v=>(v.k==='K'||v.k==='N')&&String(v.at||'').startsWith(F.m||F.y)).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  const K=r2(D.filter(v=>v.k==='K').reduce((n,v)=>n+v.total,0)),N=r2(D.filter(v=>v.k==='N').reduce((n,v)=>n+v.total,0));
+  return `<h3 class="sech" style="margin-top:22px">Licences des clubs</h3><p class="muted small" style="max-width:48rem">Factures émises par FidjiCoach aux clubs (100 % à la plateforme, sans taxes). Frais de Stripe non déduits ici (voir le solde Stripe).</p>
+  <div class="stats"><div class="stat"><b>${money(K)}</b><span>licences facturées</span></div><div class="stat"><b>${money(N)}</b><span>notes de crédit</span></div><div class="stat"><b>${money(r2(K+N))}</b><span>licences nettes</span></div></div>
+  ${D.length?`<div class="list fcinvlist" style="margin-top:8px">${D.map(v=>`<div class="invrow"><span><b>${esc(v.no)}</b> · ${esc(v.name)} · <span class="num">${v.total<0?'−'+money(-v.total):money(v.total)}</span> <span class="pill neutral">${v.k==='N'?'Note de crédit':'Licence'}</span><br><small>${esc(new Date(String(v.at).slice(0,10)+'T12:00:00').toLocaleDateString('fr-CA',{day:'numeric',month:'long',year:'numeric'}))} · ${esc(v.k==='N'?'Sur la facture '+(v.ref||''):((v.lines[0]||[])[0]||''))}</small></span><button class="btn btn-sm btn-plain" data-a="fcPlatInv" data-id="${esc(v.id)}">Voir</button></div>`).join('')}</div>`:'<p class="muted small">Aucune licence facturée pour cette période.</p>'}`}REL.fcrev=['fctarif','fcpay','compta'];
 document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.c7rf)return;const F=st.c7rf||(st.c7rf={y:'',m:'',c:''});F[t.dataset.c7rf]=t.value;if(t.dataset.c7rf==='y')F.m='';render()});
 A.c7RevReload=async()=>{C7.rev=null;C7.revErr='';busyOn('Lecture…');await c7LoadRev();busyOff();render()};
 A.c7RevXls=async()=>{if(!window.XLSX){flash('Le module Excel n\'est pas chargé');return}const F=st.c7rf||{};const rows=((C7.rev&&C7.rev.rows)||[]).filter(r=>String(r.mois).startsWith(F.y||'')&&(!F.m||r.mois===F.m)&&(!F.c||r.coach_id===F.c));
@@ -24011,7 +24018,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-21-v4k';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-21-v5a';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='21 nov. 2026 · Factures : prix après rabais, export comptable mensuel, factures reçues à valider, logo selon l\'émetteur · Paiements réels v2 (rabais personnels (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
@@ -24988,15 +24995,26 @@ db.platInv=db.platInv||[];
 async function loadPlatInv(){if(!R.uid)return;const adm=R.realRole==='admin';if(!adm&&!R.coachId)return;
   try{let q=R.sb.from('platform_invoices').select('*').order('inv_at',{ascending:false}).limit(500);if(!adm)q=q.eq('coach_id',R.coachId);
     const {data,error}=await q;if(error)throw error;
-    db.platInv=(data||[]).map(v=>({id:v.id,coachId:v.coach_id,k:v.kind,no:v.inv_no,at:day11(v.inv_at),from:v.period_from,to:v.period_to,total:(v.amount_cents||0)/100,
-      lines:v.lines||[],note:v.note||'',name:v.bill_name||'',email:v.bill_email||'',sent:day11(v.sent_at)}))}
-  catch(e){if(!missing(e))console.warn('Factures FidjiCoach',e.message);db.platInv=[]}}
+    const got=(data||[]).map(platMap13);const ids=new Set(got.map(v=>v.id));
+    db.platInv=got.concat((db.platInv||[]).filter(v=>(v.k==='K'||v.k==='N')&&!ids.has(v.id)))}
+  catch(e){if(!missing(e))console.warn('Factures FidjiCoach',e.message);db.platInv=(db.platInv||[]).filter(v=>v.k==='K'||v.k==='N')}}
+/* lot 7 (21 nov. 2026) : factures K- des licences de club et leurs notes de crédit (N, numéro NC-…-FC), même table */
+function platMap13(v){return {id:v.id,coachId:v.coach_id,k:v.kind,no:v.inv_no,at:day11(v.inv_at),from:v.period_from,to:v.period_to,total:(v.amount_cents||0)/100,
+      lines:v.lines||[],note:v.note||'',name:v.bill_name||'',email:v.bill_email||'',sent:day11(v.sent_at),lic:v.license_id||null,payer:v.payer_id||null,ref:v.inv_ref||'',reason:v.reason||''}}
+window.fcPlatAdd=rows=>{const add=(rows||[]).map(platMap13);const ids=new Set(add.map(v=>v.id));db.platInv=(db.platInv||[]).filter(v=>!ids.has(v.id)).concat(add)};
 loadSubs=(old=>async function(){await old();await loadPlatInv()})(loadSubs);
-function inv13Data(x){const sp=inv11Split(x.lines,x.total,x.k==='R'?'Frais de plateforme':'Forfait FidjiCoach');
+function inv13Data(x){if(x.k==='K'||x.k==='N')return inv13Lic(x);const sp=inv11Split(x.lines,x.total,x.k==='R'?'Frais de plateforme':'Forfait FidjiCoach');
   return Object.assign({title:x.k==='R'?'Relevé':'Facture',totLbl:x.k==='R'?'Total des frais retenus':'Total payé',no:x.no,date:x.at||today(),ref:'',
     refTxt:x.k==='R'?'Période : '+dlong10(x.from)+' au '+dlong10(x.to):'Forfait de la plateforme',
     coach:{name:'FidjiCoach',tel:'',email:'facturation@fidjicoach.ca · fidjicoach.ca',region:'Plateforme des entraîneurs',logo:'fidjicoach-logo.png'},cl:{name:x.name||'Entraîneur',email:x.email||''},
     total:x.total,method:'carte',paidAt:x.at,refunded:0,sessions:[],lieu:'',sent:x.sent||null,note:x.note||'',foot:'FidjiCoach · fidjicoach.ca',mailLbl:'à l\'entraîneur'},sp)}
+function inv13Lic(x){const nc=x.k==='N';const sp=inv11Split(x.lines,x.total,nc?'Remboursement de la licence':'Licence FidjiCoach');
+  const back=nc?0:r2((db.platInv||[]).filter(v=>v.k==='N'&&v.ref===x.no).reduce((s,v)=>s-v.total,0));
+  return Object.assign({title:nc?'Note de crédit':'Facture',totLbl:nc?'Total crédité':'Total payé',no:x.no,date:x.at||today(),ref:'',
+    refTxt:nc?'Facture d\'origine '+(x.ref||''):'Licence de club'+(x.from?' · saison '+String(x.from).slice(0,4)+'-'+String(x.to||'').slice(0,4):''),
+    coach:{name:'FidjiCoach',tel:'',email:'facturation@fidjicoach.ca · fidjicoach.ca',region:'Plateforme des entraîneurs',logo:'fidjicoach-logo.png'},cl:{name:x.name||'Club',email:x.email||''},
+    total:x.total,method:'carte',paidAt:x.at,refunded:back,sessions:[],lieu:'',sent:x.sent||null,
+    note:(x.note||'')+(nc&&x.reason?' Motif : '+x.reason+'.':'')+' Montants en dollars canadiens (CAD).',foot:'FidjiCoach · facturation@fidjicoach.ca · fidjicoach.ca',mailLbl:'au payeur du club'},sp)}
 invCur0=(old=>function(){const m=st.modal;if(m&&m.kind==='fcInv'&&m.src==='plat'){const x=(db.platInv||[]).find(v=>v.id===m.id);
     return x?{o:inv13Data(x),real:R.realRole==='admin',body:{platform_invoice_id:x.id},mark:()=>{x.sent=today()}}:null}return old()})(invCur0);
 A.fcPlatInv=d=>{if(!(db.platInv||[]).some(v=>v.id===d.id)){flash('Facture introuvable : touchez Actualiser.');return}st.modal={kind:'fcInv',src:'plat',id:d.id};render()};
@@ -25007,18 +25025,18 @@ A.fcPlatRun=async()=>{if(!confirm('Émettre maintenant les relevés R- des mois 
   catch(e){flash(await errMsg(e))}finally{busyOff();render()}};
 function fcPlatSection(){const adm=R.realRole==='admin';let L=(db.platInv||[]).filter(v=>adm||v.coachId===R.coachId);
   const mine=L.filter(v=>v.coachId===R.coachId),others=adm?L.filter(v=>v.coachId!==R.coachId):[];
-  const row=v=>`<div class="invrow"><span><b>${esc(v.no)}</b>${adm?' · '+esc(v.name):''} · <span class="num">${v.total<0?'−'+money(-v.total):money(v.total)}</span> <span class="pill neutral">${v.k==='R'?'Relevé':'Forfait'}</span>${v.sent?' <span class="pill ok">envoyée</span>':''}<br><small>${esc(dlong10(v.at))} · ${esc(v.k==='R'?'Frais retenus du '+dlong10(v.from)+' au '+dlong10(v.to):((v.lines[0]||[])[0]||'Forfait FidjiCoach'))}</small></span><button class="btn btn-sm btn-plain" data-a="fcPlatInv" data-id="${esc(v.id)}">Voir</button></div>`;
+  const row=v=>`<div class="invrow"><span><b>${esc(v.no)}</b>${adm?' · '+esc(v.name):''} · <span class="num">${v.total<0?'−'+money(-v.total):money(v.total)}</span> <span class="pill neutral">${({R:'Relevé',K:'Licence de club',N:'Note de crédit'})[v.k]||'Forfait'}</span>${v.sent?' <span class="pill ok">envoyée</span>':''}<br><small>${esc(dlong10(v.at))} · ${esc(v.k==='R'?'Frais retenus du '+dlong10(v.from)+' au '+dlong10(v.to):v.k==='N'?'Remboursement sur la facture '+(v.ref||'')+(v.reason?' · '+v.reason:''):((v.lines[0]||[])[0]||'Forfait FidjiCoach'))}</small></span><button class="btn btn-sm btn-plain" data-a="fcPlatInv" data-id="${esc(v.id)}">Voir</button></div>`;
   let h='';
   if(mine.length||!adm)h+=`<section class="panel fs" style="margin:0 0 22px;border-top-color:var(--line)"><span class="eyebrow">FidjiCoach</span><h3>Factures reçues de FidjiCoach</h3>
     <p class="muted small">Votre forfait (P-) et le relevé mensuel des frais de plateforme retenus sur vos paiements (R-, émis le 1er du mois). Rien à payer pour les relevés : les frais sont déjà retenus.</p>
     ${mine.length?`<div class="list fcinvlist">${mine.map(row).join('')}</div>`:'<div class="empty">Aucune facture de FidjiCoach pour l\'instant.</div>'}</section>`;
-  if(adm){const F=st.fcP;const n={tout:others.length,P:others.filter(v=>v.k==='P').length,R:others.filter(v=>v.k==='R').length};const V=F.t==='tout'?others:others.filter(v=>v.k===F.t);
+  if(adm){const F=st.fcP;const n={tout:others.length,P:others.filter(v=>v.k==='P').length,R:others.filter(v=>v.k==='R').length,K:others.filter(v=>v.k==='K').length,N:others.filter(v=>v.k==='N').length};const V=F.t==='tout'?others:others.filter(v=>v.k===F.t);
     const tot=r2(V.reduce((s,v)=>s+v.total,0));
-    h+=`<section class="panel fs" style="margin:0 0 22px;border-top-color:var(--line)"><span class="eyebrow">Administrateur</span><h3>Factures émises par FidjiCoach aux entraîneurs</h3>
-    <p class="muted small">P- : chaque paiement du forfait d'un entraîneur (Solo, Pro, activation, pause). R- : relevé mensuel des frais retenus (commission + Stripe, moins les frais rendus lors des remboursements), émis automatiquement le 1er du mois. Suite propre à FidjiCoach.</p>
-    <div class="fcf-bar"><div class="fcf-chips">${[['tout','Toutes'],['P','Forfaits (P)'],['R','Relevés (R)']].map(([k,l])=>`<button type="button" class="chip ${F.t===k?'on':''}" data-a="fcPt" data-v="${k}">${l}${n[k]?` <span class="muted">${n[k]}</span>`:''}</button>`).join('')}</div></div>
+    h+=`<section class="panel fs" style="margin:0 0 22px;border-top-color:var(--line)"><span class="eyebrow">Administrateur</span><h3>Factures émises par FidjiCoach aux entraîneurs et aux clubs</h3>
+    <p class="muted small">P- : chaque paiement du forfait d'un entraîneur (Solo, Pro, activation, pause). R- : relevé mensuel des frais retenus (commission + Stripe, moins les frais rendus lors des remboursements), émis automatiquement le 1er du mois. K- : licence de saison d'un club, émise au paiement. NC- : note de crédit d'une licence remboursée. Tous les numéros de FidjiCoach finissent par -FC.</p>
+    <div class="fcf-bar"><div class="fcf-chips">${[['tout','Toutes'],['P','Forfaits (P)'],['R','Relevés (R)'],['K','Licences (K)'],['N','Notes de crédit (NC)']].map(([k,l])=>`<button type="button" class="chip ${F.t===k?'on':''}" data-a="fcPt" data-v="${k}">${l}${n[k]?` <span class="muted">${n[k]}</span>`:''}</button>`).join('')}</div></div>
     <p class="muted small" style="margin:0 0 8px">${V.length} document${V.length>1?'s':''} · total <b>${money(tot)}</b> <button type="button" class="linkbtn" data-a="fcPlatRun">Émettre les relevés des mois terminés</button></p>
-    ${V.length?`<div class="list fcinvlist">${V.map(row).join('')}</div>`:'<div class="empty">Aucune facture émise aux entraîneurs pour l\'instant. Les factures P- arrivent à chaque paiement de forfait, les relevés R- le 1er du mois.</div>'}</section>`}
+    ${V.length?`<div class="list fcinvlist">${V.map(row).join('')}</div>`:'<div class="empty">Aucun document dans cette catégorie pour l\'instant. Les factures P- arrivent à chaque paiement de forfait, les relevés R- le 1er du mois, les factures K- au paiement d\'une licence de club.</div>'}</section>`}
   return h}
 adminFactu=(old=>function(){const h=old();try{if(!R.on||R.role!=='admin')return h;const s=fcPlatSection();const k=h.indexOf('</section>');return k<0?h+s:h.slice(0,k+10)+s+h.slice(k+10)}catch(e){console.warn(e);return h}})(adminFactu);
 (function(){const s=document.createElement('style');s.textContent=`.fc13i{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;margin-left:6px}.fc13i .fc13last{flex-basis:100%}
@@ -26843,16 +26861,23 @@ const seasonNow=()=>{const d=new Date();const y=d.getFullYear();return d.getMont
 const m$=c=>money(c/100);
 async function licLoad(c,n){const R=FR();const k=c.id;const L=LIC[k]=LIC[k]||{rows:null,srv:null,busy:false,n:null};if(L.busy)return;L.busy=true;
   try{const [{data,error},pr]=await Promise.all([R.sb.from('club_licenses').select('*').eq('club_ref',String(c.id)).order('created_at',{ascending:false}),R.sb.rpc('club_license_price',{p_members:n})]);
-    if(error)throw error;L.rows=data||[];L.srv=pr&&pr.data||null;L.n=n}catch(e){console.warn('Licence du club',e);L.rows=L.rows||[];L.err=e.message||String(e)}finally{L.busy=false;render()}}
+    if(error)throw error;L.rows=data||[];L.srv=pr&&pr.data||null;L.n=n;await licDocs(L.rows)}catch(e){console.warn('Licence du club',e);L.rows=L.rows||[];L.err=e.message||String(e)}finally{L.busy=false;render()}}
+/* lot 7 (21 nov. 2026) : facture K-…-FC émise par FidjiCoach au paiement, note de crédit NC-…-FC au remboursement (table platform_invoices) */
+async function licDocs(rows){const R=FR();const ids=(rows||[]).filter(x=>x.status==='paid'||x.status==='refunded').map(x=>x.id);if(!ids.length||!R.sb)return;
+  try{const {data,error}=await R.sb.from('platform_invoices').select('*').in('license_id',ids).order('inv_at',{ascending:true});if(error)throw error;if(window.fcPlatAdd)window.fcPlatAdd(data||[])}
+  catch(e){console.warn('Factures de licence',e.message||e)}}
+const licInv=id=>(db.platInv||[]).filter(v=>v.lic===id&&(v.k==='K'||v.k==='N'));
+const licBtns=x=>licInv(x.id).map(v=>`<button class="btn-xs" data-a="fcPlatInv" data-id="${esc(v.id)}" title="${v.k==='N'?'Note de crédit':'Facture'} (PDF)">${v.k==='N'?'Note de crédit ':'Facture '}${esc(v.no)}</button>`).join(' ');
+const licState=x=>x.status==='refunded'?' · <b>remboursée</b>':(x.refunded_cents>0?' · '+m$(x.refunded_cents)+' remboursés':'');
 window.fcLicPanel=function(c,u,o){const R=FR();const season=seasonNow();
   const head=`<h3 class="sech" style="margin-top:16px">Paiement de la licence ${season}</h3>`;
   if(!R.on||!R.sb)return head+`<p class="small muted">Le paiement par carte se fait dans la plateforme en ligne (fidjicoach.ca), avec votre compte.</p>`;
   const L=LIC[c.id];if(!L||(L.n!==o.n&&!L.busy))setTimeout(()=>licLoad(c,o.n),0);
   if(!L||L.rows==null)return head+'<p class="small muted">Chargement…</p>';
-  const paid=L.rows.filter(x=>x.status==='paid');const cur=paid.find(x=>x.season===season);
+  const paid=L.rows.filter(x=>x.status==='paid'||x.status==='refunded');const cur=paid.find(x=>x.season===season&&x.status==='paid');
   const srv=L.srv||{tier:o.tier.n,cents:Math.round(o.price*100)};
-  const hist=paid.length?`<div class="list" style="gap:4px;margin-top:8px">${paid.map(x=>`<div class="invrow small"><span>✓ ${esc(x.season)} · ${esc(x.tier)} · ${x.members} membres · ${m$(x.amount_cents)} · payée le ${new Date(x.paid_at).toLocaleDateString('fr-CA',{day:'numeric',month:'long',year:'numeric'})}</span>${x.receipt_url?`<a class="btn-xs" href="${esc(x.receipt_url)}" target="_blank" rel="noopener">Reçu ↗</a>`:''}</div>`).join('')}</div>`:'';
-  if(cur)return head+`<div class="info ok" style="border-color:var(--ok)"><b>✓ Licence ${season} payée</b> : ${esc(cur.tier)}, ${m$(cur.amount_cents)}. Merci! Tous les modules du club sont inclus jusqu'à la fin de la saison.</div>`+hist;
+  const hist=paid.length?`<div class="list" style="gap:4px;margin-top:8px">${paid.map(x=>`<div class="invrow small"><span>${x.status==='refunded'?'↩':'✓'} ${esc(x.season)} · ${esc(x.tier)} · ${x.members} membre${x.members>1?'s':''} · ${m$(x.amount_cents)} · payée le ${new Date(x.paid_at).toLocaleDateString('fr-CA',{day:'numeric',month:'long',year:'numeric'})}${licState(x)}</span><span style="display:inline-flex;gap:6px;flex-wrap:wrap">${licBtns(x)||'<small class="muted">Facture en préparation…</small>'}</span></div>`).join('')}</div><p class="small muted" style="margin-top:4px">Factures émises par FidjiCoach (facturation@fidjicoach.ca), sans taxes, en dollars canadiens. Elles sont aussi envoyées par courriel, avec le PDF, à la personne qui a payé.</p><div></div>`:'';
+  if(cur)return head+`<div class="info ok" style="border-color:var(--ok)"><b>✓ Licence ${season} payée</b> : ${esc(cur.tier)}, ${m$(cur.amount_cents)}. Merci! Tous les modules du club sont inclus jusqu'à la fin de la saison.${licInv(cur.id).filter(v=>v.k==='K').map(v=>` Facture ${esc(v.no)} ci-dessous.`).join('')}</div>`+hist;
   return head+`<div class="panel" style="display:grid;gap:8px"><span class="eyebrow">Saison ${season} · ${esc(srv.tier)} · ${o.n} membre${o.n>1?'s':''} inscrit${o.n>1?'s':''} ou en attente</span><h3 style="margin:0">${m$(srv.cents)} <small class="muted" style="font-size:.9rem;font-weight:500">pour la saison</small></h3>
     ${o.ro?'<p class="small muted">Seuls l\'administrateur, le trésorier et le président du club peuvent payer la licence (Équipe › Accès et droits).</p>':`<div class="actions"><button class="btn btn-accent" data-a="licPay" data-c="${esc(c.id)}">Payer par carte</button></div>
     <p class="small muted">Paiement sécurisé par Stripe, une seule fois pour la saison. Le prix suit le nombre de membres inscrits au moment du paiement. ${/test/i.test(String(window.FC_STRIPE_MODE||'test'))?'<b>Mode test</b> : carte 4242 4242 4242 4242, date future, n\'importe quel code.':''}</p>`}
@@ -26869,10 +26894,29 @@ A.licPay=async function(d){const R=FR();const c=(db.clubs||[]).find(x=>String(x.
       Object.keys(LIC).forEach(k=>delete LIC[k]);render();flash(l&&l.status==='paid'?'Licence '+l.season+' payée : merci!':'Paiement en traitement : la licence s\'affichera payée dans quelques instants')}catch(e){flash('Licence : vérification du paiement impossible ('+(e.message||e)+')')}})()}}
 /* administrateur : licences reçues, dans Entraîneurs FidjiCoach › Clubs */
 const ADM={rows:null,busy:false};
-async function admLoad(){const R=FR();if(ADM.busy||!R.sb)return;ADM.busy=true;try{const {data,error}=await R.sb.from('club_licenses').select('*').order('created_at',{ascending:false}).limit(200);if(error)throw error;ADM.rows=data||[]}catch(e){ADM.rows=[];ADM.err=e.message}finally{ADM.busy=false;render()}}
-if(typeof coachsAdmin==='function')coachsAdmin=(old=>function(){let h=old();try{const R=FR();if((st.coTab||'dem')==='clubs'&&R.on&&R.role==='admin'){if(ADM.rows==null)setTimeout(admLoad,0);const P=(ADM.rows||[]).filter(x=>x.status==='paid');const tot=P.filter(x=>x.season===seasonNow()).reduce((s,x)=>s+x.amount_cents,0);
-  h+=`<h3 class="sech" style="margin-top:22px">Licences payées par carte</h3><p class="muted small" style="margin-bottom:8px">Saison ${seasonNow()} : <b>${m$(tot)}</b> reçus de ${P.filter(x=>x.season===seasonNow()).length} club(s). Montants versés à votre compte Stripe${STRIPE_TEST?' (mode test)':''}.</p>`+
-   (ADM.rows==null?'<p class="small muted">Chargement…</p>':P.length?`<div class="list" style="gap:4px">${P.map(x=>`<div class="invrow small"><span><b>${esc(x.club_name)}</b> · ${esc(x.season)} · ${esc(x.tier)} · ${x.members} membres · ${m$(x.amount_cents)} · ${new Date(x.paid_at).toLocaleDateString('fr-CA')}</span>${x.receipt_url?`<a class="btn-xs" href="${esc(x.receipt_url)}" target="_blank" rel="noopener">Reçu ↗</a>`:''}</div>`).join('')}</div>`:'<div class="empty">Aucune licence payée pour l\'instant.</div>')}}catch(e){console.error(e)}return h})(coachsAdmin);
+async function admLoad(){const R=FR();if(ADM.busy||!R.sb)return;ADM.busy=true;try{const {data,error}=await R.sb.from('club_licenses').select('*').order('created_at',{ascending:false}).limit(200);if(error)throw error;ADM.rows=data||[];await licDocs(ADM.rows)}catch(e){ADM.rows=[];ADM.err=e.message}finally{ADM.busy=false;render()}}
+if(typeof coachsAdmin==='function')coachsAdmin=(old=>function(){let h=old();try{const R=FR();if((st.coTab||'dem')==='clubs'&&R.on&&R.role==='admin'){if(ADM.rows==null)setTimeout(admLoad,0);const P=(ADM.rows||[]).filter(x=>x.status==='paid'||x.status==='refunded');const tot=P.filter(x=>x.season===seasonNow()).reduce((s,x)=>s+x.amount_cents-(x.refunded_cents||0),0);
+  h+=`<h3 class="sech" style="margin-top:22px">Licences payées par carte</h3><p class="muted small" style="margin-bottom:8px">Saison ${seasonNow()} : <b>${m$(tot)}</b> nets (après remboursements) de ${P.filter(x=>x.season===seasonNow()).length} club(s). Montants versés à votre compte Stripe${STRIPE_TEST?' (mode test)':''}. Chaque paiement a sa facture FidjiCoach K-…-FC (envoyée au payeur avec le PDF); un remboursement fait sa note de crédit NC-…-FC.</p>`+
+   (ADM.rows==null?'<p class="small muted">Chargement…</p>':P.length?`<div class="list" style="gap:4px">${P.map(x=>admLicRow(x)).join('')}</div>`:'<div class="empty">Aucune licence payée pour l\'instant.</div>')}}catch(e){console.error(e)}return h})(coachsAdmin);
+/* lot 7 : ligne d'une licence (administrateur) : factures, reçu Stripe, remboursement en ligne (sans boîte de dialogue) */
+const RF={open:null,busy:false};
+function admLicRow(x){const left=x.amount_cents-(x.refunded_cents||0);const f=RF.open===x.id;
+  return `<div class="invrow small" style="flex-wrap:wrap"><span><b>${esc(x.club_name)}</b> · ${esc(x.season)} · ${esc(x.tier)} · ${x.members} membre${x.members>1?'s':''} · ${m$(x.amount_cents)} · ${new Date(x.paid_at).toLocaleDateString('fr-CA')}${licState(x)}</span>
+    <span style="display:inline-flex;gap:6px;flex-wrap:wrap">${licBtns(x)}${x.receipt_url?`<a class="btn-xs" href="${esc(x.receipt_url)}" target="_blank" rel="noopener">Reçu Stripe ↗</a>`:''}${left>0&&x.stripe_payment_intent&&!f?`<button class="btn-xs" data-a="licRfOpen" data-l="${esc(x.id)}">Rembourser…</button>`:''}</span>
+    ${f?`<div class="fclicrf" style="flex-basis:100%;display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:8px">
+      <label class="small">Montant ($)<br><input id="licRfAmt" type="number" min="0.01" step="0.01" max="${(left/100).toFixed(2)}" value="${(left/100).toFixed(2)}" style="width:110px"></label>
+      <label class="small" style="flex:1;min-width:200px">Motif (sur la note de crédit)<br><input id="licRfWhy" type="text" maxlength="200" placeholder="Remboursement de la licence" style="width:100%"></label>
+      <button class="btn btn-sm btn-accent" data-a="licRfGo" data-l="${esc(x.id)}" ${RF.busy?'disabled':''}>${RF.busy?'Remboursement…':'Rembourser par Stripe'}</button><button class="btn btn-sm btn-plain" data-a="licRfOpen" data-l="">Annuler</button>
+      <small class="muted" style="flex-basis:100%">Au plus ${m$(left)}. Le montant retourne sur la carte du club; la note de crédit NC-…-FC est émise et envoyée par courriel au payeur. ${x.status==='paid'&&left===x.amount_cents?'Un remboursement complet retire la licence payée de la saison.':''}</small></div>`:''}</div>`}
+A.licRfOpen=d=>{RF.open=d.l||null;render()};
+A.licRfGo=async function(d){const R=FR();if(RF.busy||!R.sb)return;const x=(ADM.rows||[]).find(r=>r.id===d.l);if(!x)return;
+  const v=Math.round(parseFloat(String((document.getElementById('licRfAmt')||{}).value||'').replace(',','.'))*100);const why=String((document.getElementById('licRfWhy')||{}).value||'').trim();
+  const left=x.amount_cents-(x.refunded_cents||0);if(!(v>0)||v>left){flash('Montant invalide : au plus '+m$(left)+'.');return}
+  RF.busy=true;render();
+  try{const {data,error}=await R.sb.functions.invoke('club-license',{body:{action:'refund',licence_id:x.id,amount_cents:v,reason:why}});
+    if(error){let msg=error.message;try{const j=await error.context.json();msg=j.error||msg}catch(e){}throw new Error(msg)}if(data&&data.error)throw new Error(data.error);
+    const cn=data&&data.credit_note&&data.credit_note.cn_no;RF.open=null;ADM.rows=null;await admLoad();flash('Licence remboursée ('+m$(v)+')'+(cn?' : note de crédit '+cn+' envoyée au payeur.':'.'))}
+  catch(e){flash('Remboursement de la licence : '+(e.message||e))}finally{RF.busy=false;render()}};
 /* les formules modifiées par l'administrateur deviennent le prix exigé par le serveur */
 let tT=null;document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||!/^clubs\.tiers\./.test(t.dataset.plat7||''))return;const R=FR();if(!R.on||R.role!=='admin'||!R.sb)return;clearTimeout(tT);
   tT=setTimeout(async()=>{try{const T=window.fc7().clubs.tiers.map(x=>({id:x.id,n:x.n,max:x.max==null?null:Number(x.max),price:Number(x.price)||0,per:Number(x.per)||0}));const {error}=await R.sb.rpc('admin_club_tiers',{p_tiers:T});if(error)throw error;flash('Prix des licences enregistrés en ligne')}catch(err){flash('Prix des licences : '+(err.message||err))}},700)});
