@@ -24011,8 +24011,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-20-v4c';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='20 nov. 2026 (aperçu : lots 4 à 6, prix après rabais et export comptable mensuel) · Paiements réels v2 (rabais personnels (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
+const FC_BUILD='2026-11-20-v4d';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='20 nov. 2026 (aperçu : lots 4 à 6, prix après rabais, export comptable mensuel, factures reçues à valider) · Paiements réels v2 (rabais personnels (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -25303,6 +25303,64 @@ function l4Panel(){const adm=R.realRole==='admin';const M=M4();
     <p class="small muted" style="margin:0">Espace : <b>${esc((R.coachRow&&R.coachRow.nom_affiche)||'')}</b>. ${adm?'Pour les abonnements directs, faites aussi l\'export dans l\'espace FidjiCoach. ':''}Format à confirmer avec votre comptable.</p></section>`}
 if(typeof exportV==='function')exportV=(old=>function(){const h=old();if(!R.on)return h;try{return h.replace('<div class="c9x" style="display:grid;gap:16px">','<div class="c9x" style="display:grid;gap:16px">'+l4Panel())}catch(e){console.warn('Export mensuel',e);return h}})(exportV);
 if(typeof EN5==='object')Object.assign(EN5,{'Comptabilité · export mensuel':'Accounting · monthly export','Factures du mois (PDF) et registre Excel':'Monthly invoices (PDF) and Excel register'});
+})();
+/* ================= Refonte « web et app », lot 6 (20 nov. 2026) : factures reçues → dépenses, à valider =================
+   Décision de Colin (20 nov., 22 h 40) : les factures des fournisseurs (Supabase, Stripe, Apple, etc.) que la tâche planifiée
+   « Dépenses FidjiCoach vers Drive et registre » range dans Google Drive et dans le registre Google Sheets sont AUSSI proposées
+   ici, dans Finances › Comptabilité du compte administrateur. Rien n'est inscrit sans le bouton « Inscrire » de Colin :
+   la lecture automatique d'un PDF peut se tromper (montant, devise : Supabase, Apple et Stripe facturent en dollars américains).
+   Table expense_inbox (base, migration lot6_factures_recues_a_valider), décision : fonction expense_inbox_decide.
+   « Inscrire » ajoute la dépense comme une saisie à la main (db.expenses, puis synchronisation habituelle vers la table expenses),
+   avec le lien de la pièce dans Google Drive à la place d'un reçu joint. */
+(function(){
+const IB={rows:null,busy:false,at:0,err:''};
+const ibOn=()=>R.on&&R.realRole==='admin'&&R.role==='admin'&&!!R.coachId;
+async function ibLoad(force){if(!ibOn()||IB.busy)return;if(!force&&IB.rows&&Date.now()-IB.at<120000)return;IB.busy=true;
+  try{const {data,error}=await R.sb.from('expense_inbox').select('*').eq('coach_id',R.coachId).eq('status','a_valider').order('date',{ascending:true}).limit(100);
+    if(error)throw error;IB.rows=data||[];IB.err='';IB.at=Date.now()}
+  catch(e){IB.err=/expense_inbox/.test(String(e.message||''))&&/exist|find/i.test(String(e.message||''))?'':String(e.message||e);IB.rows=IB.rows||[]}
+  finally{IB.busy=false}}
+const n2=v=>Math.round((Number(String(v??'').replace(',','.'))||0)*100)/100;
+function ibRow(x){const usd=x.currency&&x.currency!=='CAD';const cats=(typeof EXCATS!=='undefined'?EXCATS:['Autre']);const cat=cats.includes(x.cat)?x.cat:'Autre';
+  return `<div class="panel" style="display:grid;gap:8px;margin:0;padding:12px" data-ib="${esc(x.id)}">
+    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span><b>${esc(x.supplier||'Fournisseur')}</b>${x.inv_no?' · facture '+esc(x.inv_no):''}<br><small class="muted">${x.date?dfmt(String(x.date).slice(0,10)):'Date à vérifier'}${x.descr?' · '+esc(x.descr):''}${x.pay_with?' · payé avec '+esc(x.pay_with):''}</small></span>
+    ${x.file_url?`<a class="btn-xs" href="${esc(x.file_url)}" target="_blank" rel="noopener">Voir la pièce ↗</a>`:'<span class="pill warn">Sans pièce</span>'}</div>
+    ${usd?`<p class="small" style="margin:0"><span class="pill warn">${esc(x.currency)}</span> Montant d'origine : <b>${esc(String(x.amount_orig??''))} ${esc(x.currency)}</b>. Vérifiez le montant en dollars canadiens (relevé de carte).</p>`:''}
+    ${x.note?`<p class="small muted" style="margin:0">${esc(x.note)}</p>`:''}
+    <div class="grid2" style="grid-template-columns:1.4fr 1fr .8fr .8fr;gap:8px;align-items:end">
+      <label class="field"><span>Catégorie</span><select data-ibf="cat">${cats.map(c=>`<option ${c===cat?'selected':''}>${esc(c)}</option>`).join('')}</select></label>
+      <label class="field"><span>Total (CAD)</span><input type="number" step="0.01" min="0" data-ibf="amount" value="${x.amount!=null?esc(String(x.amount)):''}"></label>
+      <label class="field"><span>TPS</span><input type="number" step="0.01" min="0" data-ibf="tps" value="${esc(String(x.tps??0))}"></label>
+      <label class="field"><span>TVQ</span><input type="number" step="0.01" min="0" data-ibf="tvq" value="${esc(String(x.tvq??0))}"></label></div>
+    <div class="actions"><button class="btn btn-accent btn-sm" data-a="ibOk" data-id="${esc(x.id)}">Inscrire la dépense</button><button class="btn btn-plain btn-sm" data-a="ibNo" data-id="${esc(x.id)}">Rejeter</button></div></div>`}
+function ibPanel(){if(!ibOn())return '';if(IB.rows===null){ibLoad().then(()=>{if(IB.rows&&IB.rows.length)render()});return ''}
+  if(Date.now()-IB.at>120000)ibLoad().then(()=>render());
+  if(!IB.rows.length&&!IB.err)return '';
+  return `<section class="panel fc-l6" style="display:grid;gap:10px;margin-bottom:18px"><span class="eyebrow">Factures reçues · à valider</span>
+    <h3>${IB.rows.length} facture${IB.rows.length>1?'s':''} de fournisseur à inscrire</h3>
+    <p class="small muted" style="margin:0">Lues automatiquement dans Google Drive et vos courriels : vérifiez le montant, les taxes et la catégorie avant d'inscrire. Montants en dollars canadiens.</p>
+    ${IB.err?`<p class="small">Lecture impossible : ${esc(IB.err)}</p>`:''}
+    <div class="list" style="gap:8px">${IB.rows.map(ibRow).join('')}</div></section>`}
+const vals=id=>{const el=document.querySelector(`[data-ib="${CSS.escape(id)}"]`);const g=k=>{const i=el&&el.querySelector(`[data-ibf="${k}"]`);return i?i.value:''};return {cat:g('cat'),amount:n2(g('amount')),tps:n2(g('tps')),tvq:n2(g('tvq'))}};
+A.ibOk=async d=>{const x=(IB.rows||[]).find(r=>r.id===d.id);if(!x)return;const v=vals(x.id);
+  if(!x.date){flash('Date manquante : rejetez cette facture et ajoutez la dépense à la main.');return}
+  if(!(v.amount>0)){flash('Indiquez le total en dollars canadiens.');return}
+  if(v.tps+v.tvq>v.amount){flash('Les taxes dépassent le total.');return}
+  const lid='inb-'+x.id;db.expenses=db.expenses||[];
+  if(!db.expenses.some(e=>e.id===lid)){
+    const desc=[x.supplier,x.descr,x.inv_no?'facture '+x.inv_no:'',x.currency&&x.currency!=='CAD'&&x.amount_orig!=null?x.amount_orig+' '+x.currency:''].filter(Boolean).join(' · ');
+    db.expenses.push({id:lid,date:String(x.date).slice(0,10),cat:v.cat||'Autre',desc:desc.slice(0,300)||'Facture de fournisseur',amount:v.amount,tps:v.tps,tvq:v.tvq,
+      receipt:x.file_url?{name:x.file_name||'Pièce (Google Drive)',type:'application/pdf',data:x.file_url,url:x.file_url}:null});
+    save()}
+  try{const {error}=await R.sb.rpc('expense_inbox_decide',{p_id:x.id,p_status:'inscrite',p_local:lid});if(error)throw error;
+    IB.rows=IB.rows.filter(r=>r.id!==x.id);flash('Dépense inscrite : '+money(v.amount)+(x.supplier?' · '+x.supplier:''))}
+  catch(e){flash('Dépense ajoutée, mais la facture reste dans la liste : '+(e.message||e))}
+  render()};
+A.ibNo=async d=>{const x=(IB.rows||[]).find(r=>r.id===d.id);if(!x)return;
+  try{const {error}=await R.sb.rpc('expense_inbox_decide',{p_id:x.id,p_status:'rejetee'});if(error)throw error;IB.rows=IB.rows.filter(r=>r.id!==x.id);flash('Facture rejetée : rien n\'est inscrit.')}
+  catch(e){flash('Rejet impossible : '+(e.message||e))}render()};
+comptaV=(old=>function(){const h=old();try{return ibPanel()+h}catch(e){console.warn('Factures reçues',e);return h}})(comptaV);
+resetLocal=(old=>function(){old();IB.rows=null;IB.at=0})(resetLocal);
 })();
 })();
 </script>
