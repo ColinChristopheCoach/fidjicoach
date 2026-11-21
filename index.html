@@ -5209,7 +5209,7 @@ const planOf=id=>(db.subPlans||[]).find(p=>p.id===id);
 const addMonth1=d=>{const x=new Date(d+'T12:00');x.setMonth(x.getMonth()+1);return x.toISOString().slice(0,10)};
 function aboClient(u){const s=subOf(u.id);
   if(s){const p=planOf(s.planId)||{name:'Forfait',price:s.amount};return `<div class="panel fs" style="margin:0"><span class="eyebrow">Abonnement actif</span><h3>${esc(p.name)}</h3><p class="muted">${esc(p.desc||'')}</p>
-    <dl class="kv"><dt>Prix</dt><dd>${money(s.amount)} par mois${s.idisc?' (rabais Interac inclus)':''}</dd><dt>Depuis le</dt><dd>${dfmt(s.start)}</dd><dt>Prochain paiement</dt><dd>${dfmt(s.next)} · ${s.pay==='interac'?'virement Interac':'carte de crédit'}</dd></dl>
+    <dl class="kv"><dt>Prix</dt><dd>${money(s.amount)} par mois${s.idisc?' (rabais Interac inclus)':''}${s.full>s.amount?' <small class="muted">(<s>'+money(s.full)+'</s> · '+esc(s.disc||'rabais')+')</small>':''}</dd><dt>Depuis le</dt><dd>${dfmt(s.start)}</dd><dt>Prochain paiement</dt><dd>${dfmt(s.next)} · ${s.full>0&&s.amount===0?'rien à payer (rabais)':s.pay==='interac'?'virement Interac':'carte de crédit'}</dd></dl>
     <h3 class="sech">Paiements</h3><div class="list" style="gap:6px">${(s.payments||[]).slice().reverse().map(x=>`<div class="invrow"><span>${dfmt(x.date)}</span><b>${money(x.amount)}</b></div>`).join('')}</div>
     <div class="actions" style="margin-top:16px">${st.subCancel?`<span class="small">L'abonnement se termine le ${dfmt(s.next)}. Confirmer?</span><button class="btn btn-sm btn-accent" data-a="subCancelYes">Oui, annuler</button><button class="btn btn-sm btn-plain" data-a="subCancelNo">Non</button>`:`<button class="btn btn-sm btn-plain" data-a="subCancel">Annuler l'abonnement</button>`}</div>
     <p class="muted small">Annulable en tout temps, sans frais. Le coaching continue jusqu'à la fin du mois payé.</p></div>`}
@@ -11316,7 +11316,7 @@ function forfaitsV(u){const F=st.v5f||(st.v5f={dur:'0',end:plusM(today(),3)});co
     <div class="actions">${act?`<span class="pill ok">Actif${act.end?' jusqu\'au '+dfmt(act.end):''}</span>`:inCart(p.id)?`<button class="btn btn-plain btn-sm" data-a="v5cartDel" data-id="${p.id}">Retirer du panier</button><button class="btn btn-accent btn-sm" data-a="v5go" data-t="panier">Voir le panier</button>`:`<button class="btn btn-accent btn-sm" data-a="v5cartAdd" data-id="${p.id}">Ajouter au panier</button>${p.trial&&!isOpt(p)?`<button class="btn btn-plain btn-sm" data-a="v5trial" data-id="${p.id}">Essai gratuit ${p.trial} jours</button>`:''}`}</div></article>`};
   const P=plansOn().filter(p=>!isOpt(p)),O=plansOn().filter(isOpt);
   return `<p class="muted" style="max-width:44rem;margin-bottom:16px">Le coaching à distance se paie au mois. Choisissez la durée, ajoutez un forfait et des options à votre panier, puis payez en une fois. Sans date de fin, le forfait est renouvelé automatiquement chaque mois, et vous pouvez l'annuler en tout temps.</p>
-  ${S.length?`<section class="panel v5mine"><span class="eyebrow">Mes forfaits actifs</span>${S.map(s=>{const p=(db.subPlans||[]).find(x=>x.id===s.planId);return `<div class="part"><span><b>${esc(p?p.name:'Forfait')}</b> · ${money(s.amount||0)} / mois</span><span class="small muted">${s.status==='essai'?'Essai gratuit':s.end?'Se termine le '+dfmt(s.end):'Prochain paiement le '+dfmt(s.next||today())}</span></div>`}).join('')}<button class="linkbtn small" data-a="v5go" data-p="abo">Gérer ou annuler mes abonnements</button></section>`:''}
+  ${S.length?`<section class="panel v5mine"><span class="eyebrow">Mes forfaits actifs</span>${S.map(s=>{const p=(db.subPlans||[]).find(x=>x.id===s.planId);return `<div class="part"><span><b>${esc(p?p.name:'Forfait')}</b> · ${s.full>(s.amount||0)?'<s class="muted">'+money(s.full)+'</s> ':''}${money(s.amount||0)} / mois</span><span class="small muted">${s.status==='essai'?'Essai gratuit':s.end?'Se termine le '+dfmt(s.end):s.full>0&&!s.amount?'Offert (rabais) · renouvelé le '+dfmt(s.next||today()):'Prochain paiement le '+dfmt(s.next||today())}</span></div>`}).join('')}<button class="linkbtn small" data-a="v5go" data-p="abo">Gérer ou annuler mes abonnements</button></section>`:''}
   <section class="panel v5dur"><span class="eyebrow">1. Durée</span><div class="seg">${DURS.map(([v,l,s])=>`<button class="${F.dur===v?'on':''}" data-a="v5dur" data-v="${v}">${l}${s?`<small>${s}</small>`:''}</button>`).join('')}</div>
    ${F.dur==='date'?`<label class="field" style="max-width:240px;margin-top:10px"><span>Date de fin</span><input type="date" id="v5end" value="${F.end}" min="${plusM(today(),1)}"></label>`:''}
    <p class="small" style="margin-top:8px">${esc(durTxt(F.dur,F.end))}.</p></section>
@@ -19687,7 +19687,7 @@ function apSubCard(s,X,club){const ed=st.apEdit&&st.apEdit.id===s.id;const st_=s
      <div class="actions"><button class="btn btn-plain btn-sm" data-a="apEAdd">+ Ajouter</button><button class="btn btn-accent btn-sm" data-a="apESave" data-id="${esc(s.id)}">Enregistrer (le prix suit, au prorata)</button><button class="linkbtn small" data-a="apECancel">Annuler</button></div>`
     :`<p class="small" style="margin:0">${(s.list||[]).map(x=>esc(x.name||x.email)+(club?'':' <span class="muted">('+esc(x.email)+')</span>')+(x.consent===true?' · partage ✓':x.consent===false?' · privé':'')).join(' · ')}</p>`;
   return `<div class="panel" style="display:grid;gap:8px"><span class="eyebrow">${club?esc(s.group_name||'Groupe')+' · payé par le club':(s.kind==='famille'?'Abonnement familial':'Mon abonnement')} · ${s.seats} athlète${s.seats>1?'s':''}</span>
-   <h3 style="margin:0">${money(s.amount_cents/100)} <small class="muted" style="font-size:.9rem;font-weight:500">par mois · ${st_}</small></h3>${list}
+   <h3 style="margin:0">${s.net_cents!=null&&s.net_cents<s.amount_cents?'<s class="muted" style="font-size:.95rem;font-weight:500">'+money(s.amount_cents/100)+'</s> ':''}${money((s.net_cents!=null?s.net_cents:s.amount_cents)/100)} <small class="muted" style="font-size:.9rem;font-weight:500">par mois · ${st_}</small></h3>${s.net_cents!=null&&s.net_cents<s.amount_cents?'<p class="small muted" style="margin:0">'+esc(s.disc_label||'Rabais personnel')+'</p>':''}${list}
    ${s.active&&!ed?`<div class="actions">${s.cancel?`<button class="btn btn-plain btn-sm" data-a="apResume" data-id="${esc(s.id)}">Garder l'abonnement</button>`:`<button class="btn btn-plain btn-sm" data-a="apEdit" data-id="${esc(s.id)}">Modifier la liste</button><button class="btn btn-plain btn-sm" data-a="apStop" data-id="${esc(s.id)}">Arrêter à la fin du mois</button>`}<button class="linkbtn small" data-a="apPortal">Carte et reçus ↗</button></div>`:''}</div>`}
 function apReal(c,u,X){X.ensure();const M=X.me;if(!M)return '<p class="muted">Chargement…</p>';
   const mine=(M.subs||[]).filter(s=>s.kind!=='club');
@@ -20199,7 +20199,7 @@ qcCard=(old=>function(q,admin,big){let h=old(q,admin,big);if(!big)return h;const
 /* ================= V6 : soutien FidjiCoach — journal d'erreurs, « Signaler un bogue », console de soutien du propriétaire ================= */
 (function(){
 const SUP_VER='FidjiCoach V7 · version 3 (Corrections 1)';
-const SUP_MAIL='admin@fidjicoach.ca';
+const SUP_MAIL='support@fidjicoach.ca';
 NI.bug=SV('<path d="M8 8a4 4 0 0 1 8 0"/><rect x="7" y="8" width="10" height="12" rx="5"/><path d="M12 12v8M3 13h4M17 13h4M4 7l3 2M20 7l-3 2M4 19l3-2M20 19l-3-2"/>');
 NI.shield=SV('<path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6Z"/><path d="M9 12l2 2 4-4"/>');
 
@@ -22259,7 +22259,7 @@ async function loadSubs(){if(!R.coachId||!R.uid)return;
   try{const {data,error}=await R.sb.from('subscriptions').select('*').eq('coach_id',R.coachId).order('created_at');if(error)throw error;R.subsOn=true;
     db.subs=(data||[]).map(s=>({id:'s'+s.id.slice(0,8),sid:s.id,real:true,userId:lid(s.client_id),planId:s.plan_id,planName:s.plan_name,
       start:ymd(s.started_at||s.created_at),next:ymd(s.current_period_end)||today(),status:['active','trialing','past_due'].includes(s.status)?'actif':'annulé',
-      srv:s.status,cancelAt:!!s.cancel_at_period_end,end:s.cancel_at_period_end?ymd(s.current_period_end):undefined,amount:(s.amount_cents||0)/100,pay:'carte',
+      srv:s.status,cancelAt:!!s.cancel_at_period_end,end:s.cancel_at_period_end?ymd(s.current_period_end):undefined,amount:(s.net_cents!=null?s.net_cents:(s.amount_cents||0))/100,full:(s.amount_cents||0)/100,disc:s.disc_label||'',pay:'carte',
       payments:(s.payments||[]).map(x=>({date:x.date,amount:Number(x.amount)||0}))}))}
   catch(e){if(missing(e))R.subsOn=false;console.warn('Abonnements',e.message)}}
 const realSubs=()=>R.on&&R.subsOn!==false;
@@ -23637,7 +23637,7 @@ function forfaitPage(){if(!R.on)return '<div class="empty">Connectez-vous.</div>
   if(R.bill===false)return '<p class="fcmsgoff">Le forfait FidjiCoach n\'est pas encore offert. Réessayez plus tard.</p>';
   const B=R.bill;const P=Object.assign({},DEFP,B.prices||{});const F=rulesOf(B.fees||{});const subd=SUBD9.includes(B.status);const disc=Number(B.total_discount_pct||0);
   const price=c=>disc>0?`<s>${c2(c)}</s>${c2(Math.round(c*(1-disc/100)))}`:c2(c);
-  const card=k=>`<div class="fctplan ${B.plan===k&&subd?'on':''}"><span class="eyebrow">${B.plan===k&&subd?'Votre forfait':'Forfait'}</span><h3>${PLANS9[k]}</h3><p class="fctprice">${price(P[k])}<small> / mois</small></p><ul>${featsOf(k,P).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+  const card=k=>`<div class="fctplan ${B.plan===k&&subd?'on':''}"><span class="eyebrow">${B.plan===k&&subd?'Votre forfait':'Forfait'}</span><h3>${PLANS9[k]}</h3><p class="fctprice">${B.plan===k&&subd&&!B.paused&&B.net_cents!=null?`<s>${c2(B.amount_cents||P[k]||0)}</s>${c2(B.net_cents)}`:price(P[k])}<small> / mois</small></p><ul>${featsOf(k,P).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
     ${subd?'':`<div class="actions"><button class="btn ${k==='pro'?'btn-accent':'btn-plain'}" data-a="fctChoose" data-p="${k}">Choisir ${PLANS9[k]}</button></div>`}</div>`;
   const notes=[];if(!subd){if(P.trial_on&&!B.trial_used)notes.push(`<b>Essai gratuit de ${P.trial_days} jours</b> : rien n'est prélevé avant la fin de l'essai.`);
     if(B.activation_due)notes.push(`Frais d'activation de ${c2(P.activation)}, une seule fois, ${P.trial_on&&!B.trial_used?'avec le premier mois payé':'avec le premier mois'}.`);
@@ -23646,9 +23646,9 @@ function forfaitPage(){if(!R.on)return '<div class="empty">Connectez-vous.</div>
   let h='';
   if(subd){const solo=B.plan==='solo';const n=Number(B.active_clients||0),mx=B.max_clients==null?null:Number(B.max_clients);const w=mx?Math.min(100,Math.round(n/mx*100)):0;
     const when=B.status==='essai'?`Essai gratuit jusqu'au <b>${day9(B.trial_end)}</b>; premier prélèvement à cette date.`:B.status==='pause'?`En pause hors saison : <b>${c2(Math.round(P.pause*(1-disc/100)))}</b> par mois. Écrivez à FidjiCoach pour reprendre.`
-      :B.status==='en_retard'?'<b>Le dernier paiement a été refusé.</b> Mettez votre carte à jour pour garder votre forfait.':B.cancel_at_period_end?`Votre forfait se termine le <b>${day9(B.period_end)}</b>.`:B.period_end?`Prochain prélèvement le <b>${day9(B.period_end)}</b>.`:'';
+      :B.status==='en_retard'?'<b>Le dernier paiement a été refusé.</b> Mettez votre carte à jour pour garder votre forfait.':B.cancel_at_period_end?`Votre forfait se termine le <b>${day9(B.period_end)}</b>.`:B.period_end?(B.net_cents===0?`Offert grâce à votre ${esc(String(B.disc_label||'rabais').replace(/^./,c=>c.toLowerCase()))} : rien n'est prélevé. Renouvelé le <b>${day9(B.period_end)}</b>.`:`Prochain prélèvement le <b>${day9(B.period_end)}</b>.`):'';
     h+=`<section class="panel fc8p"><span class="eyebrow">Votre forfait FidjiCoach</span><h3>${PLANS9[B.plan]||'Forfait'} ${stTag9(B.status)} ${B.founder?'<span class="fc8tag ok">Fondateur</span>':''}</h3>
-      <p class="fctprice">${price(B.paused?P.pause:P[B.plan]||0)}<small> / mois${B.paused?' (pause)':''}</small></p><p class="small">${when}</p>
+      <p class="fctprice">${!B.paused&&B.net_cents!=null?`<s>${c2(B.amount_cents||P[B.plan]||0)}</s>${c2(B.net_cents)}`:price(B.paused?P.pause:P[B.plan]||0)}<small> / mois${B.paused?' (pause)':''}</small></p>${!B.paused&&B.net_cents!=null&&B.disc_label?`<p class="small muted" style="margin:0">${esc(B.disc_label)}</p>`:''}<p class="small">${when}</p>
       ${solo&&mx?`<p class="small" style="margin-top:8px"><b>${n}</b> client${n>1?'s':''} actif${n>1?'s':''} sur ${mx}</p><div class="fctbar"><i class="${w>=90?'warn':''}" style="width:${w}%"></i></div><p class="fc8note">Client actif : réservation dans les 12 derniers mois, cours à venir ou abonnement en cours. ${n>=mx?'<b>Limite atteinte : vos nouveaux clients ne peuvent plus réserver.</b> ':''}Le forfait Pro n'a pas de limite.</p>`:''}
       <div class="actions" style="margin-top:10px"><button class="btn ${B.status==='en_retard'?'btn-accent':'btn-plain'}" data-a="fctPortal">Changer de carte ou voir mes reçus</button><button class="btn btn-plain" data-a="fctSync">Actualiser</button></div>
       <p class="fc8note">Pour changer de forfait, le mettre en pause hors saison ou y mettre fin, écrivez à FidjiCoach. Un changement vaut à partir du mois suivant.</p></section>`}
@@ -24011,8 +24011,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-20-v3i';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='20 nov. 2026 · Paiements réels v2 (rabais personnels (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
+const FC_BUILD='2026-11-21-v4k';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='21 nov. 2026 · Factures : prix après rabais, export comptable mensuel, factures reçues à valider, logo selon l\'émetteur · Paiements réels v2 (rabais personnels (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -24676,7 +24676,7 @@ function inv10Data(b,p){const cl=userById(p.userId);
   return {no:p.invNo,date:p.invAt||p.paidAt||today(),ref:b.ref,coach:inv10Coach(),cl:clInfo14(cl),items,tax,
     sub:r2(items.reduce((n,l)=>n+l[1],0)),total:p.amount,method:p.method,paidAt:p.paidAt,refunded:Number(p.refunded)||0,
     sessions:(b.sessions||[]).map(s=>dlong10(s.date)+(s.start?' à '+hfmt(s.start):'')),lieu:b.lieu||'',sent:p.invSent||null}}
-function inv10Note(o){const cad=' Montants en dollars canadiens (CAD).';if(o.note)return /\(CAD\)/.test(o.note)?o.note:String(o.note).replace(/\s+$/,'')+cad;return 'Payé'+(o.method?' par '+(PAY10[o.method]||o.method):'')+' le '+dlong10(o.paidAt||o.date)+'.'+cad}
+function inv10Note(o){const cad=' Montants en dollars canadiens (CAD).';if(o.note)return /\(CAD\)/.test(o.note)?o.note:String(o.note).replace(/\s+$/,'')+cad;return (o.method==='credit'&&!(Number(o.total)>0)?'Aucun paiement (rabais personnel) · confirmée':'Payé'+(o.method?' par '+(PAY10[o.method]||o.method):''))+' le '+dlong10(o.paidAt||o.date)+'.'+cad}
 /* Corrections 15b : date, heure et lieu du cours en 2e ligne, sous la description */
 function inv15Det(o){const S=(o.sessions||[]).filter(Boolean),l=o.lieu||'';if(!S.length&&!l)return [];
   if(S.length<=1)return [[S[0]||'',l].filter(Boolean).join(' · ')];return S.concat(l?['Lieu : '+l]:[])}
@@ -24821,7 +24821,7 @@ function inv11FeeData(b,f){const cl=userById(f.payer);const sp=inv11Split(f.line
 function inv11SubData(x){const cl=userById(x.userId);const sp=inv11Split(x.lines,x.total,(x.plan||'Forfait mensuel')+' · abonnement mensuel');
   return Object.assign({no:x.no,date:x.at||today(),ref:x.plan||'',refTxt:'Abonnement · '+(x.plan||'mensuel'),coach:inv10Coach(),cl:clInfo14(cl),
     total:x.total,method:'carte',paidAt:x.at,refunded:0,sessions:[],lieu:'',sent:x.sent||null,
-    note:'Abonnement mensuel payé par carte de crédit le '+dlong10(x.at)+(x.end?', pour la période du '+dlong10(x.at)+' au '+dlong10(x.end):'')+'. Renouvellement automatique chaque mois, annulable en tout temps (aucun remboursement d\'un mois commencé).'},sp)}
+    note:(Number(x.total)>0?'Abonnement mensuel payé par carte de crédit le ':'Abonnement mensuel offert (rabais personnel), aucun paiement, le ')+dlong10(x.at)+(x.end?', pour la période du '+dlong10(x.at)+' au '+dlong10(x.end):'')+'. Renouvellement automatique chaque mois, annulable en tout temps (aucun remboursement d\'un mois commencé).'},sp)}
 A.fcInvX=d=>{if(d.s==='fee'){const x=inv11Fee(d.b,d.p);if(!x||!x.f.invNo){flash(x&&x.f.status==='payee'?'Le numéro de facture arrive dans un instant : touchez Actualiser.':'Pas de facture : ces frais ne sont pas encore payés.');return}
     st.modal={kind:'fcInv',src:'fee',bid:d.b,pid:d.p}}
   else if(d.s==='nc'){if(!(db.cnotes||[]).some(v=>v.id===d.id)){flash('Note de crédit introuvable : touchez Actualiser.');return}st.modal={kind:'fcInv',src:'nc',id:d.id}}
@@ -25170,7 +25170,7 @@ function c27dom(){const ap=document.getElementById('app')||document.body;
     [/Forfaits mensuels payables par carte de crédit seulement, prélevés automatiquement chaque mois\./g,'Payable par carte de crédit seulement, prélevé automatiquement à chaque période (mois ou année).'],
     [/Payé avec le même mode de paiement, chaque mois, annulable en tout temps\./g,'Renouvelé automatiquement, annulable en tout temps.'],
     [/Changer ou comparer les forfaits/g,'Les formules FidjiCoach'],
-    [/colin\.christophe@hotmail\.fr/g,'admin@fidjicoach.ca'],[/avant votre premier cours/g,'pour un plan adapté à vous']])}
+    [/colin\.christophe@hotmail\.fr/g,'support@fidjicoach.ca'],[/avant votre premier cours/g,'pour un plan adapté à vous']])}
 function txt(root,R2){const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode())){let v=n.nodeValue,o=v;R2.forEach(([a,b])=>{v=v.replace(a,b)});if(v!==o)n.nodeValue=v}}
 
 /* ---------- 2b. inscription chez FidjiCoach : sans le choix Club/Entraîneur, avec le code de parrainage ---------- */
@@ -25208,6 +25208,212 @@ homeV=(old=>function(){try{if(R.direct&&!me()&&!platMode()){const P=(db.subPlans
   <div class="actions"><button class="btn btn-accent" data-a="fc27Signup">Créer mon compte</button><button class="btn btn-plain" data-a="hLogin">J'ai déjà un compte</button><button class="btn btn-ghost" data-a="fc27Find">Je préfère un entraîneur</button></div></section></main>`}}catch(e){console.warn('c27 vitrine',e)}
   return old.apply(this,arguments)})(homeV);
 render=(old=>function(){if(directClient()&&['reserver','msg','resa5'].includes(st.tab))st.tab='accueil';const r=old.apply(this,arguments);try{c27dom()}catch(e){console.warn('c27',e)}return r})(render);
+})();
+/* ================= Refonte « web et app », lot 4 (20 nov. 2026) : export comptable mensuel =================
+   Demande de Colin (19 nov.) : choix du mois; un dossier compressé (.zip) avec les PDF des factures émises (cours C-,
+   locations L-, abonnements A-, notes de crédit NC-, et pour l'administrateur les factures et relevés de la plateforme P- / R-)
+   et un registre Excel (date, numéro, client, montant avant taxes, TPS, TVQ, total, mode de paiement, frais retenus, remboursements).
+   Où : Finances › Exporter (fonction exportV), dans l'espace entraîneur choisi (Colin Christophe, ou FidjiCoach pour l'abonnement direct).
+   Les PDF sont faits par le même code que « Enregistrer le PDF » d'une facture (inv10Pdf), à partir des données déjà chargées.
+   Frais de Stripe et commission : lus dans la base (payments.fee_stripe_cents, fee_com_cents) pour les factures de cours et de location.
+   Format à confirmer avec le comptable (Claude n'est pas comptable). Rien n'est envoyé ni modifié : lecture seulement. */
+(function(){
+const L4={busy:false,msg:''};const RENT4={};
+/* 21 nov. : l'administrateur exporte aussi l'espace FidjiCoach (abonnements directs), lu dans la base (le compte FidjiCoach est un autre compte) */
+async function directRows(M){
+  const {data:c,error:ce}=await R.sb.from('coaches').select('id,nom_affiche').eq('slug','fidjicoach').maybeSingle();if(ce)throw ce;if(!c)throw new Error('espace FidjiCoach introuvable');
+  const {data:isd}=await R.sb.rpc('fc_is_direct',{p_coach:c.id});if(!isd)throw new Error('l\'espace FidjiCoach n\'est pas l\'entraîneur des abonnements directs');
+  const {data:pub}=await R.sb.from('coach_public').select('data').eq('coach_id',c.id).maybeSingle();const D=(pub&&pub.data)||{};const I=D.coachInfo||{};
+  const coach={name:c.nom_affiche||I.name||'FidjiCoach',tel:I.tel||'',email:I.email||'',region:I.region||'',logo:'/fidjicoach-logo.png'};
+  const y=+M.slice(0,4),m=+M.slice(5,7);const from=new Date(Date.UTC(y,m-1,1)-86400000).toISOString(),to=new Date(Date.UTC(y,m,1)+86400000).toISOString();
+  const [{data:V,error:ve},{data:N,error:ne}]=await Promise.all([
+    R.sb.from('sub_invoices').select('*').eq('coach_id',c.id).gte('inv_at',from).lt('inv_at',to).limit(1000),
+    R.sb.from('credit_notes').select('*').eq('coach_id',c.id).gte('cn_at',from).lt('cn_at',to).limit(1000)]);
+  if(ve)throw ve;if(ne)throw ne;
+  const ids=[...new Set([...(V||[]).map(v=>v.client_id),...(N||[]).map(n=>n.client_id)].filter(Boolean))];const P={};
+  for(let i=0;i<ids.length;i+=100){const {data}=await R.sb.from('profiles').select('id,prenom,nom,email,tel').in('id',ids.slice(i,i+100));(data||[]).forEach(x=>P[x.id]=x)}
+  const clOf=id=>{const x=P[id]||{};return {name:[x.prenom,x.nom].filter(Boolean).join(' ')||x.email||'Client',email:x.email||'',tel:x.tel||'',addr:''}};
+  const out=[];
+  (V||[]).forEach(v=>{const x={no:v.inv_no,at:day11(v.inv_at||v.paid_at),end:day11(v.period_end),total:(v.amount_cents||0)/100,lines:v.lines||[],plan:v.plan_name||''};
+    if(!x.no||String(x.at).slice(0,7)!==M)return;
+    try{const o=Object.assign(inv11SubData(x),{coach,cl:clOf(v.client_id)});out.push({o,src:'abo'})}catch(e){console.warn('Export : abonnement direct',x.no,e)}});
+  (N||[]).forEach(v=>{const x={no:v.cn_no,at:day11(v.cn_at),total:(v.amount_cents||0)/100,invRef:v.inv_ref,reason:v.reason,method:v.method};
+    if(!x.no||String(x.at).slice(0,7)!==M)return;
+    try{const o=Object.assign(inv12CnData(x),{coach,cl:clOf(v.client_id)});out.push({o,src:'nc',x})}catch(e){console.warn('Export : note de crédit',x.no,e)}});
+  return {rows:out.sort((a,b)=>inv12Cmp(a.o.no,b.o.no)),name:coach.name}}
+const prevMonth=()=>{const t=today();let y=+t.slice(0,4),m=+t.slice(5,7)-1;if(m<1){m=12;y--}return y+'-'+String(m).padStart(2,'0')};
+const M4=()=>st.l4m||(st.l4m=prevMonth());
+const MOIS=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+const mLbl=m=>MOIS[+m.slice(5,7)-1]+' '+m.slice(0,4);
+const r2_=n=>Math.round((Number(n)||0)*100)/100;
+const KIND={C:'Cours',L:'Location',A:'Abonnement',NC:'Note de crédit',P:'Forfait de la plateforme',R:'Relevé de la plateforme',F:'Facture'};
+const kindOf=no=>{const m=/^([A-Z]+)-/.exec(no||'');return m?m[1]:'F'};
+const safeName=s=>String(s||'').replace(/[\\/:*?"<>|]+/g,'-').slice(0,120);
+async function jszip(){if(window.JSZip)return window.JSZip;
+  await new Promise((ok,ko)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';s.onload=ok;s.onerror=()=>ko(new Error('le module de compression n\'a pas pu être chargé'));document.head.appendChild(s)});
+  if(!window.JSZip)throw new Error('le module de compression n\'est pas chargé');return window.JSZip}
+/* toutes les factures de l'espace courant pour le mois : {o (données de la facture), src, pid?} */
+function collect(M,withPlat){const out=[];const inM=d=>String(d||'').slice(0,7)===M;
+  (db.bookings||[]).forEach(b=>{
+    (b.parts||[]).forEach(p=>{if(!p.invNo||!(p.paid||p.status==='remboursee'))return;try{const o=inv10Data(b,p);if(inM(o.date))out.push({o,src:'part',pid:p.pid})}catch(e){console.warn('Export : facture',p.invNo,e)}});
+    (b.feesSrv||[]).forEach(f=>{if(!f.invNo||!['payee','remboursee'].includes(f.status))return;try{const o=inv11FeeData(b,f);if(inM(o.date))out.push({o,src:'frais',pid:f.pid})}catch(e){console.warn('Export : frais',f.invNo,e)}})});
+  /* locations seules (réservation de type location : dans db.rentals, pas dans db.bookings) */
+  const inB=new Set((db.bookings||[]).map(b=>b.sid).filter(Boolean));
+  (db.rentals||[]).forEach(r=>{if(!r||!r.real||inB.has(r.sid))return;const pb={ref:r.ref,id:'r'+r.sid,sid:r.sid,lieu:r.lieu||''};
+    if(r.invNo&&r.paid&&r.partPid){try{const P=RENT4[r.partPid]||{};const tot=P.amount_cents!=null?P.amount_cents/100:(Number(r.amount)||0);
+      const o=Object.assign({no:r.invNo,date:(P.inv_at?day11(P.inv_at):null)||r.invAt||r.paidAt||today(),ref:r.ref,refTxt:'Location '+r.ref,coach:inv10Coach(),cl:clInfo14(userById(r.userId)),
+        total:tot,method:P.method||'carte',paidAt:r.paidAt,refunded:(P.refunded_cents||0)/100,sessions:[],lieu:r.lieu||'',sent:null,
+        note:'Location d\'équipement '+r.ref+(r.from?' du '+dlong10(r.from)+(r.to&&r.to!==r.from?' au '+dlong10(r.to):''):'')+', payée par '+(PAY10[P.method||'carte']||'carte de crédit')+(r.paidAt?' le '+dlong10(r.paidAt):'')+'.'},
+        inv11Split(P.lines||[],tot,'Location d\'équipement '+r.ref));if(inM(o.date))out.push({o,src:'part',pid:r.partPid})}catch(e){console.warn('Export : location',r.invNo,e)}}
+    (r.fees||[]).forEach(f=>{if(!f.invNo||!['payee','remboursee'].includes(f.status))return;try{const o=inv11FeeData(pb,f);if(inM(o.date))out.push({o,src:'frais',pid:f.pid})}catch(e){console.warn('Export : frais',f.invNo,e)}})});
+  (db.subInv||[]).forEach(x=>{try{const o=inv11SubData(x);if(inM(o.date))out.push({o,src:'abo'})}catch(e){console.warn('Export : abonnement',x.no,e)}});
+  (db.cnotes||[]).forEach(x=>{try{const o=inv12CnData(x);if(inM(o.date))out.push({o,src:'nc',x})}catch(e){console.warn('Export : note de crédit',x.no,e)}});
+  if(withPlat)(db.platInv||[]).forEach(x=>{try{const o=inv13Data(x);if(inM(o.date))out.push({o,src:'plat'})}catch(e){console.warn('Export : plateforme',x.no,e)}});
+  const seen=new Set();return out.filter(r=>r.o&&r.o.no&&!seen.has(r.o.no)&&seen.add(r.o.no)).sort((a,c)=>inv12Cmp(a.o.no,c.o.no))}
+function split(o){const tax=o.tax||[];const tps=r2_(tax.filter(t=>/TPS|GST/i.test(t[0])).reduce((n,t)=>n+t[1],0));
+  const tvq=r2_(tax.filter(t=>/TVQ|QST/i.test(t[0])).reduce((n,t)=>n+t[1],0));const autres=r2_(tax.reduce((n,t)=>n+t[1],0)-tps-tvq);
+  const total=r2_(o.total);const disc=r2_((o.items||[]).filter(i=>i[1]<0).reduce((n,i)=>n+i[1],0));
+  return {tps,tvq,autres,total,avant:r2_(total-tps-tvq-autres),disc}}
+const PAYL={carte:'Carte',interac:'Interac',credit:'Crédit (aucun paiement)',comptant:'Comptant'};
+A.l4Go=async function(){if(L4.busy)return;const M=M4();if(!/^\d{4}-\d{2}$/.test(M)){flash('Choisissez un mois.');return}
+  if(!window.XLSX){flash('Le module Excel n\'est pas chargé. Actualisez la page.');return}
+  if(!window.jspdf){flash('Le générateur de PDF n\'est pas chargé. Actualisez la page.');return}
+  if(!R.on||!R.coachId){flash('Connectez-vous à votre compte entraîneur.');return}
+  const adm=R.realRole==='admin';const withPlat=adm&&st.l4p!==false&&st.l4s!=='direct';
+  L4.busy=true;L4.msg='';render();busyOn('Lecture des factures de '+mLbl(M)+'…');
+  try{
+    try{await Promise.all([typeof loadSubs==='function'?loadSubs():null,typeof loadCNotes==='function'?loadCNotes():null,withPlat&&typeof loadPlatInv==='function'?loadPlatInv():null])}catch(e){console.warn('Export : actualisation',e)}
+    /* lignes des locations seules (pas chargées avec la location) */
+    try{const ids=(db.rentals||[]).filter(r=>r&&r.real&&r.partPid&&r.invNo).map(r=>r.partPid);for(const k in RENT4)delete RENT4[k];
+      for(let i=0;i<ids.length;i+=100){const {data,error}=await R.sb.from('payments').select('id,lines,amount_cents,method,refunded_cents,inv_at').in('id',ids.slice(i,i+100));if(error)throw error;(data||[]).forEach(p=>RENT4[p.id]=p)}}
+    catch(e){console.warn('Export : locations',e)}
+    const dir=adm&&st.l4s==='direct';let spaceNm=(R.coachRow&&R.coachRow.nom_affiche)||'FidjiCoach';
+    let rows;if(dir){const d=await directRows(M);rows=d.rows;spaceNm=d.name}else rows=collect(M,withPlat);
+    if(!rows.length){L4.msg='Aucune facture ni note de crédit en '+mLbl(M)+' dans cet espace : aucun fichier.';flash(L4.msg);return}
+    /* frais retenus (Stripe et commission) et remboursements, lus dans la base */
+    const pids=rows.map(r=>r.pid).filter(Boolean);const fee={};
+    for(let i=0;i<pids.length;i+=100){const {data,error}=await R.sb.from('payments').select('id,fee_stripe_cents,fee_com_cents,refunded_cents,method').in('id',pids.slice(i,i+100));if(error)console.warn('Export : frais',error.message);(data||[]).forEach(p=>fee[p.id]=p)}
+    const Z=new (await jszip())();const coachNm=safeName(spaceNm);
+    const rev=[],rem=[],errs=[];let n=0;
+    for(const r of rows){const o=r.o;const k=kindOf(o.no);const nc=r.src==='nc';
+      const dir=nc?'Notes de crédit':r.src==='plat'?'Plateforme':'Factures';const fn=safeName(o.no)+'.pdf';
+      n++;busyOn('PDF '+n+' sur '+rows.length+' : '+o.no+'…');
+      try{const blob=(await inv10Pdf(o)).output('blob');Z.file(dir+'/'+fn,blob)}catch(e){errs.push(o.no+' : '+(e&&e.message||e))}
+      const s=split(o);const cl=(o.cl&&o.cl.name)||'';const desc=(o.items||[]).filter(i=>i[1]>=0).map(i=>i[0]).join(' ; ');
+      if(nc){const x=r.x||{};rem.push({'Date':o.date,'N° de note de crédit':o.no,'Facture d\'origine':x.invRef||'','Client':cl,'Motif':x.reason||'','Mode':PAYL[o.method]||o.method||'',
+        'Avant taxes ($)':Math.abs(s.avant),'TPS ($)':Math.abs(s.tps),'TVQ ($)':Math.abs(s.tvq),'Total ($)':Math.abs(s.total),'Fichier PDF':dir+'/'+fn});continue}
+      const f=r.pid?fee[r.pid]:null;const stripe=f?c$(f.fee_stripe_cents):0,com=f?c$(f.fee_com_cents):0;const refd=f?c$(f.refunded_cents):r2_(o.refunded);
+      const src=r.src==='frais'?'Frais de location':k==='L'?'Location':KIND[k]||'Facture';
+      rev.push({'Date':o.date,'N° de facture':o.no,'Source':src,'Client':cl,'Description':desc,'Mode de paiement':!(s.total>0)&&s.disc<0?'Aucun paiement (rabais)':PAYL[(f&&f.method)||o.method]||o.method||'',
+        'Avant taxes ($)':s.avant,'TPS ($)':s.tps,'TVQ ($)':s.tvq,'Total ($)':s.total,'Rabais inclus ($)':s.disc,'Remboursé ($)':refd,'Frais Stripe ($)':stripe,'Commission FidjiCoach ($)':com,
+        'Net reçu ($)':r2_(s.total-refd-stripe-com),'Fichier PDF':dir+'/'+fn})}
+    const XL=window.XLSX;const wb=XL.utils.book_new();
+    const sum=(L,c)=>r2_(L.reduce((n,x)=>n+(Number(x[c])||0),0));
+    const res=[['Export comptable FidjiCoach'],['Espace',spaceNm],['Mois',mLbl(M)],['Préparé le',today()],[],
+      ['Factures émises',rev.length],['Revenus avant taxes ($)',sum(rev,'Avant taxes ($)')],['TPS perçue ($)',sum(rev,'TPS ($)')],['TVQ perçue ($)',sum(rev,'TVQ ($)')],['Total facturé ($)',sum(rev,'Total ($)')],
+      ['Rabais accordés ($)',sum(rev,'Rabais inclus ($)')],['Frais Stripe ($)',sum(rev,'Frais Stripe ($)')],['Commission FidjiCoach ($)',sum(rev,'Commission FidjiCoach ($)')],[],
+      ['Notes de crédit',rem.length],['Remboursé avant taxes ($)',sum(rem,'Avant taxes ($)')],['TPS remboursée ($)',sum(rem,'TPS ($)')],['TVQ remboursée ($)',sum(rem,'TVQ ($)')],['Total remboursé ($)',sum(rem,'Total ($)')],[],
+      ['Remarques'],['Montants en dollars canadiens (CAD). Les remboursements apparaissent dans l\'onglet Remboursements, au mois de la note de crédit.'],
+      ['« Remboursé » dans l\'onglet Revenus : total remboursé à ce jour sur la facture, quel que soit le mois du remboursement.'],
+      ['Format à confirmer avec votre comptable.']];
+    XL.utils.book_append_sheet(wb,XL.utils.aoa_to_sheet(res),'Résumé');
+    XL.utils.book_append_sheet(wb,XL.utils.json_to_sheet(rev.length?rev:[{'Date':'','N° de facture':'Aucune facture'}]),'Revenus');
+    XL.utils.book_append_sheet(wb,XL.utils.json_to_sheet(rem.length?rem:[{'Date':'','N° de note de crédit':'Aucune note de crédit'}]),'Remboursements');
+    Z.file('Registre '+M+'.xlsx',XL.write(wb,{bookType:'xlsx',type:'array'}));
+    if(errs.length)Z.file('À lire - PDF manquants.txt','Ces PDF n\'ont pas pu être faits :\r\n'+errs.join('\r\n'));
+    busyOn('Compression…');const blob=await Z.generateAsync({type:'blob',compression:'DEFLATE'});
+    const name='Export comptable '+coachNm+' '+M+'.zip';
+    L4.msg=`${rev.length} facture${rev.length>1?'s':''}, ${rem.length} note${rem.length>1?'s':''} de crédit${errs.length?' · '+errs.length+' PDF manquant'+(errs.length>1?'s':'')+' (voir le fichier « À lire »)':''}.`;
+    busyOff();await offerFile(name,blob)}
+  catch(e){flash('Export impossible : '+(e&&e.message||e))}
+  finally{L4.busy=false;busyOff();render()}};
+A.l4P=()=>{st.l4p=st.l4p===false;render()};
+document.addEventListener('change',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.l4m!==undefined){st.l4m=t.value;L4.msg=''}if(t&&t.dataset&&t.dataset.l4s!==undefined){st.l4s=t.value;L4.msg='';render()}});
+function l4Panel(){const adm=R.realRole==='admin';const M=M4();
+  return `<section class="panel fc-l4" style="display:grid;gap:12px"><span class="eyebrow">Comptabilité · export mensuel</span><h3>Factures du mois (PDF) et registre Excel</h3>
+    <p class="small">Un fichier .zip avec le PDF de chaque facture émise dans le mois (cours, locations, frais de location, abonnements) et de chaque note de crédit, plus un registre Excel : date, numéro, client, montant avant taxes, TPS, TVQ, total, mode de paiement, rabais, frais de Stripe, commission et remboursements.</p>
+    <div class="grid2"><label class="field"><span>Mois</span><input type="month" data-l4m="1" value="${esc(M)}" max="${today().slice(0,7)}"></label>
+    ${adm?`<label class="field"><span>Espace</span><select data-l4s="1"><option value="mine" ${st.l4s!=='direct'?'selected':''}>${esc((R.coachRow&&R.coachRow.nom_affiche)||'Mon espace')} (cours, locations, forfaits)</option><option value="direct" ${st.l4s==='direct'?'selected':''}>FidjiCoach (abonnements directs)</option></select></label>`:''}</div>
+    ${adm&&st.l4s!=='direct'?`<label class="check"><input type="checkbox" data-a="l4P" ${st.l4p!==false?'checked':''}> Inclure les factures et relevés de la plateforme (P-, R-)</label>`:''}
+    <div class="actions"><button class="btn btn-accent" data-a="l4Go" ${L4.busy?'disabled':''}>${L4.busy?'Préparation…':'Télécharger l\'export de '+esc(mLbl(M))+' (.zip)'}</button></div>
+    ${L4.msg?`<p class="small" style="margin:0">${/^Aucune/.test(L4.msg)?'':'✓ '}${esc(L4.msg)}</p>`:''}
+    <p class="small muted" style="margin:0">${adm?'Faites un export par espace : le vôtre et celui de FidjiCoach (abonnements directs). ':''}Format à confirmer avec votre comptable.</p></section>`}
+if(typeof exportV==='function')exportV=(old=>function(){const h=old();if(!R.on)return h;try{return h.replace('<div class="c9x" style="display:grid;gap:16px">','<div class="c9x" style="display:grid;gap:16px">'+l4Panel())}catch(e){console.warn('Export mensuel',e);return h}})(exportV);
+if(typeof EN5==='object')Object.assign(EN5,{'Comptabilité · export mensuel':'Accounting · monthly export','Factures du mois (PDF) et registre Excel':'Monthly invoices (PDF) and Excel register'});
+})();
+/* ================= Refonte « web et app », lot 6 (20 nov. 2026) : factures reçues → dépenses, à valider =================
+   Décision de Colin (20 nov., 22 h 40) : les factures des fournisseurs (Supabase, Stripe, Apple, etc.) que la tâche planifiée
+   « Dépenses FidjiCoach vers Drive et registre » range dans Google Drive et dans le registre Google Sheets sont AUSSI proposées
+   ici, dans Finances › Comptabilité du compte administrateur. Rien n'est inscrit sans le bouton « Inscrire » de Colin :
+   la lecture automatique d'un PDF peut se tromper (montant, devise : Supabase, Apple et Stripe facturent en dollars américains).
+   Table expense_inbox (base, migration lot6_factures_recues_a_valider), décision : fonction expense_inbox_decide.
+   « Inscrire » ajoute la dépense comme une saisie à la main (db.expenses, puis synchronisation habituelle vers la table expenses),
+   avec le lien de la pièce dans Google Drive à la place d'un reçu joint. */
+(function(){
+const IB={rows:null,busy:false,at:0,err:''};
+const ibOn=()=>R.on&&R.realRole==='admin'&&R.role==='admin'&&!!R.coachId;
+async function ibLoad(force){if(!ibOn()||IB.busy)return;if(!force&&IB.rows&&Date.now()-IB.at<120000)return;IB.busy=true;
+  try{const {data,error}=await R.sb.from('expense_inbox').select('*').eq('coach_id',R.coachId).eq('status','a_valider').order('date',{ascending:true}).limit(100);
+    if(error)throw error;IB.rows=data||[];IB.err='';IB.at=Date.now()}
+  catch(e){IB.err=/expense_inbox/.test(String(e.message||''))&&/exist|find/i.test(String(e.message||''))?'':String(e.message||e);IB.rows=IB.rows||[]}
+  finally{IB.busy=false}}
+const n2=v=>Math.round((Number(String(v??'').replace(',','.'))||0)*100)/100;
+function ibRow(x){const usd=x.currency&&x.currency!=='CAD';const cats=(typeof EXCATS!=='undefined'?EXCATS:['Autre']);const cat=cats.includes(x.cat)?x.cat:'Autre';
+  return `<div class="panel" style="display:grid;gap:8px;margin:0;padding:12px" data-ib="${esc(x.id)}">
+    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span><b>${esc(x.supplier||'Fournisseur')}</b>${x.inv_no?' · facture '+esc(x.inv_no):''}<br><small class="muted">${x.date?dfmt(String(x.date).slice(0,10)):'Date à vérifier'}${x.descr?' · '+esc(x.descr):''}${x.pay_with?' · payé avec '+esc(x.pay_with):''}</small></span>
+    ${x.file_url?`<a class="btn-xs" href="${esc(x.file_url)}" target="_blank" rel="noopener">Voir la pièce ↗</a>`:'<span class="pill warn">Sans pièce</span>'}</div>
+    ${usd?`<p class="small" style="margin:0"><span class="pill warn">${esc(x.currency)}</span> Montant d'origine : <b>${esc(String(x.amount_orig??''))} ${esc(x.currency)}</b>. Vérifiez le montant en dollars canadiens (relevé de carte).</p>`:''}
+    ${x.note?`<p class="small muted" style="margin:0">${esc(x.note)}</p>`:''}
+    <div class="grid2" style="grid-template-columns:1.4fr 1fr .8fr .8fr;gap:8px;align-items:end">
+      <label class="field"><span>Catégorie</span><select data-ibf="cat">${cats.map(c=>`<option ${c===cat?'selected':''}>${esc(c)}</option>`).join('')}</select></label>
+      <label class="field"><span>Total (CAD)</span><input type="number" step="0.01" min="0" data-ibf="amount" value="${x.amount!=null?esc(String(x.amount)):''}"></label>
+      <label class="field"><span>TPS</span><input type="number" step="0.01" min="0" data-ibf="tps" value="${esc(String(x.tps??0))}"></label>
+      <label class="field"><span>TVQ</span><input type="number" step="0.01" min="0" data-ibf="tvq" value="${esc(String(x.tvq??0))}"></label></div>
+    <div class="actions"><button class="btn btn-accent btn-sm" data-a="ibOk" data-id="${esc(x.id)}">Inscrire la dépense</button><button class="btn btn-plain btn-sm" data-a="ibNo" data-id="${esc(x.id)}">Rejeter</button></div></div>`}
+function ibPanel(){if(!ibOn())return '';if(IB.rows===null){ibLoad().then(()=>{if(IB.rows&&IB.rows.length)render()});return ''}
+  if(Date.now()-IB.at>120000)ibLoad().then(()=>render());
+  if(!IB.rows.length&&!IB.err)return '';
+  return `<section class="panel fc-l6" style="display:grid;gap:10px;margin-bottom:18px"><span class="eyebrow">Factures reçues · à valider</span>
+    <h3>${IB.rows.length} facture${IB.rows.length>1?'s':''} de fournisseur à inscrire</h3>
+    <p class="small muted" style="margin:0">Lues automatiquement dans Google Drive et vos courriels : vérifiez le montant, les taxes et la catégorie avant d'inscrire. Montants en dollars canadiens.</p>
+    ${IB.err?`<p class="small">Lecture impossible : ${esc(IB.err)}</p>`:''}
+    <div class="list" style="gap:8px">${IB.rows.map(ibRow).join('')}</div></section>`}
+const vals=id=>{const el=document.querySelector(`[data-ib="${CSS.escape(id)}"]`);const g=k=>{const i=el&&el.querySelector(`[data-ibf="${k}"]`);return i?i.value:''};return {cat:g('cat'),amount:n2(g('amount')),tps:n2(g('tps')),tvq:n2(g('tvq'))}};
+A.ibOk=async d=>{const x=(IB.rows||[]).find(r=>r.id===d.id);if(!x)return;const v=vals(x.id);
+  if(!x.date){flash('Date manquante : rejetez cette facture et ajoutez la dépense à la main.');return}
+  if(!(v.amount>0)){flash('Indiquez le total en dollars canadiens.');return}
+  if(v.tps+v.tvq>v.amount){flash('Les taxes dépassent le total.');return}
+  const lid='inb-'+x.id;db.expenses=db.expenses||[];
+  if(!db.expenses.some(e=>e.id===lid)){
+    const desc=[x.supplier,x.descr,x.inv_no?'facture '+x.inv_no:'',x.currency&&x.currency!=='CAD'&&x.amount_orig!=null?x.amount_orig+' '+x.currency:''].filter(Boolean).join(' · ');
+    db.expenses.push({id:lid,date:String(x.date).slice(0,10),cat:v.cat||'Autre',desc:desc.slice(0,300)||'Facture de fournisseur',amount:v.amount,tps:v.tps,tvq:v.tvq,
+      receipt:x.file_url?{name:x.file_name||'Pièce (Google Drive)',type:'application/pdf',data:x.file_url,url:x.file_url}:null});
+    save()}
+  try{const {error}=await R.sb.rpc('expense_inbox_decide',{p_id:x.id,p_status:'inscrite',p_local:lid});if(error)throw error;
+    IB.rows=IB.rows.filter(r=>r.id!==x.id);flash('Dépense inscrite : '+money(v.amount)+(x.supplier?' · '+x.supplier:''))}
+  catch(e){flash('Dépense ajoutée, mais la facture reste dans la liste : '+(e.message||e))}
+  render()};
+A.ibNo=async d=>{const x=(IB.rows||[]).find(r=>r.id===d.id);if(!x)return;
+  try{const {error}=await R.sb.rpc('expense_inbox_decide',{p_id:x.id,p_status:'rejetee'});if(error)throw error;IB.rows=IB.rows.filter(r=>r.id!==x.id);flash('Facture rejetée : rien n\'est inscrit.')}
+  catch(e){flash('Rejet impossible : '+(e.message||e))}render()};
+comptaV=(old=>function(){const h=old();try{return ibPanel()+h}catch(e){console.warn('Factures reçues',e);return h}})(comptaV);
+resetLocal=(old=>function(){old();IB.rows=null;IB.at=0})(resetLocal);
+})();
+/* ================= 21 nov. 2026 : logo des factures selon l'émetteur (décision de Colin, 7 h 53) =================
+   FidjiCoach (abonnements directs) : logo FidjiCoach. Colin Christophe : son logo (« Colin Christophe · entraîneur de ski de fond »).
+   Tout autre entraîneur : SON logo (vitrine ou Ma marque), jamais celui de Colin (avant : repli sur le logo intégré de l'app, celui de Colin).
+   Factures de la plateforme (P-, R-) : logo FidjiCoach (inchangé). Documents des clubs : logo du club (inchangé, p8br).
+   Le même choix est publié pour le serveur (invLogo, reçus par courriel). */
+(function(){
+const OWN_SLUG=typeof COACH_SLUG==='string'?COACH_SLUG:'colin-christophe';
+function fcInvLogo(){const slug=(R.coachRow&&R.coachRow.slug)||'';
+  if(slug==='fidjicoach')return '/fidjicoach-logo.png';
+  if(R.role==='admin'){let S={};try{S=show9()||{}}catch(e){}if(S.logo)return S.logo;const own=((db.settings||{}).brand||{}).color;if(own)return own;return slug===OWN_SLUG?BRAND0.color:''}
+  const S=R.show||{};if(S.logo)return S.logo;if(R.invLogoPub)return R.invLogoPub;return slug===OWN_SLUG?BRAND0.color:''}
+inv10Coach=(old=>function(){const o=old();try{if(R.on)o.logo=fcInvLogo()}catch(e){console.warn('Logo de facture',e)}return o})(inv10Coach);
+applyPub=(old=>function(d){old(d);try{R.invLogoPub=d&&typeof d.invLogo==='string'?d.invLogo:''}catch(e){}})(applyPub);
+window.FC26logoSrc=()=>{try{return R.on?fcInvLogo():''}catch(e){return ''}};
+window.fcInvLogo=fcInvLogo;
 })();
 })();
 </script>
@@ -26697,7 +26903,7 @@ AP.ensure=()=>{if(AP.real()&&!AP.me&&!AP.loading)setTimeout(AP.load,0)};
 const call=async(body)=>{const {data,error}=await FR().sb.functions.invoke('athlete-plus',{body});const m=await errOf(error,data);if(m)throw new Error(m);return data};
 AP.checkout=async function(body){if(!AP.real())return flash('Connectez-vous à la plateforme en ligne pour payer');AP.busy=true;AP.err=null;render();
   try{flash('Ouverture de la page de paiement…');const d=await call({action:'checkout',...body});location.href=d.url}catch(e){AP.err=e.message||String(e);flash('Athlète Plus : '+AP.err)}finally{AP.busy=false;render()}};
-AP.seats=async function(id,seats){AP.busy=true;AP.err=null;try{const d=await call({action:'seats',id,seats});if(d&&d.card_needed&&d.url){/* v3h : abonnement gratuit sans carte qui devient payant */flash('Votre abonnement gratuit devient payant : enregistrez une carte. Rien n\'est prélevé aujourd\'hui.');location.href=d.url;return false}flash('Liste mise à jour : '+money(d.cents/100)+' par mois');await AP.load();return true}catch(e){AP.err=e.message;flash('Athlète Plus : '+e.message);return false}finally{AP.busy=false;render()}};
+AP.seats=async function(id,seats){AP.busy=true;AP.err=null;try{const d=await call({action:'seats',id,seats});if(d&&d.card_needed&&d.url){/* v3h : abonnement gratuit sans carte qui devient payant */flash('Votre abonnement gratuit devient payant : enregistrez une carte. Rien n\'est prélevé aujourd\'hui.');location.href=d.url;return false}flash('Liste mise à jour : '+money((d.net!=null?d.net:d.cents)/100)+' par mois');await AP.load();/* lots 4 à 6 : le prix après rabais arrive par le webhook, une seconde ou deux plus tard */setTimeout(()=>{AP.load().then(()=>render()).catch(()=>{})},4000);return true}catch(e){AP.err=e.message;flash('Athlète Plus : '+e.message);return false}finally{AP.busy=false;render()}};
 AP.cancel=async function(id,stop){try{await call({action:stop?'cancel':'resume',id});flash(stop?'Athlète Plus s\'arrêtera à la fin du mois payé':'Abonnement gardé');await AP.load()}catch(e){flash('Athlète Plus : '+e.message)}};
 AP.portal=async function(){try{const d=await call({action:'portal'});location.href=d.url}catch(e){flash(e.message)}};
 AP.consent=async function(v){try{const {data,error}=await FR().sb.rpc('aplus_set_consent',{p_on:!!v});if(error)throw error;AP.me=data;const u=me();if(u&&u.aplus)u.aplus.consent=data.consent;render();flash(v?'Données partagées avec les entraîneurs de votre groupe':'Vos données restent privées')}catch(e){flash('Partage : '+(e.message||e))}};
@@ -27162,12 +27368,12 @@ if(typeof render==='function')render=(old=>function(){const r=old.apply(this,arg
 <script>
 /* ================= Paiements réels v2 (15 nov. 2026) — APERÇU =================
    1. Pied de page : abonné direct, page publique et page de connexion = « FidjiCoach · La plateforme des entraîneurs »
-      avec admin@fidjicoach.ca (plus de « Entraîneur de ski de fond » ni de séparateur en double); mention CAD partout.
+      avec support@fidjicoach.ca (plus de « Entraîneur de ski de fond » ni de séparateur en double); mention CAD partout.
    2. Fenêtre Rembourser : la virgule est acceptée dans le montant partiel; rappel « un remboursement complet annule le cours ».
    3. Frais de Stripe : 3,1 % + 0,30 $, « estimation avec marge » (7 textes, modifiés dans le texte de la page). */
 (function(){
 const FR=()=>window.fcReal||{};
-const MAIL='admin@fidjicoach.ca';
+const MAIL='support@fidjicoach.ca';
 const direct=()=>{const r=FR();return !!(r.on&&r.direct&&r.role==='client')};
 const yes=f=>{try{return !!f()}catch(e){return false}};
 /* ---------- 1. pied de page ---------- */
