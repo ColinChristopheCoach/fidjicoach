@@ -24011,8 +24011,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-20-v4a';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
-const FC_BUILD_LBL='20 nov. 2026 (aperçu : lots 4 à 6, factures et prix après rabais) · Paiements réels v2 (rabais personnels (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
+const FC_BUILD='2026-11-20-v4b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD_LBL='20 nov. 2026 (aperçu : lots 4 à 6, prix après rabais et export comptable mensuel) · Paiements réels v2 (rabais personnels (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
 window.fcC8=C8;
@@ -27601,6 +27601,103 @@ function decoAnnual(){try{
 render=(old=>function(){const r=old.apply(this,arguments);decoSale();decoAnnual();return r})(render);
 /* v3i : Athlète Plus, le bouton garde le montant après rabais quand on tape le courriel d'un athlète (la page réécrivait le prix courant) */
 ['input','change'].forEach(ev=>document.addEventListener(ev,e=>{try{if(document.querySelector('[data-a="apBuy"]')&&e.target&&e.target.matches&&e.target.matches('input'))setTimeout(decoSale,0)}catch(x){}}));
+})();
+</script>
+<script>
+/* ================= Refonte « web et app », lot 4 (20 nov. 2026) : export comptable mensuel =================
+   Demande de Colin (19 nov.) : choix du mois; un dossier compressé (.zip) avec les PDF des factures émises (cours C-,
+   locations L-, abonnements A-, notes de crédit NC-, et pour l'administrateur les factures et relevés de la plateforme P- / R-)
+   et un registre Excel (date, numéro, client, montant avant taxes, TPS, TVQ, total, mode de paiement, frais retenus, remboursements).
+   Où : Finances › Exporter (fonction exportV), dans l'espace entraîneur choisi (Colin Christophe, ou FidjiCoach pour l'abonnement direct).
+   Les PDF sont faits par le même code que « Enregistrer le PDF » d'une facture (inv10Pdf), à partir des données déjà chargées.
+   Frais de Stripe et commission : lus dans la base (payments.fee_stripe_cents, fee_com_cents) pour les factures de cours et de location.
+   Format à confirmer avec le comptable (Claude n'est pas comptable). Rien n'est envoyé ni modifié : lecture seulement. */
+(function(){
+const L4={busy:false,msg:''};
+const prevMonth=()=>{const t=today();let y=+t.slice(0,4),m=+t.slice(5,7)-1;if(m<1){m=12;y--}return y+'-'+String(m).padStart(2,'0')};
+const M4=()=>st.l4m||(st.l4m=prevMonth());
+const MOIS=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+const mLbl=m=>MOIS[+m.slice(5,7)-1]+' '+m.slice(0,4);
+const r2_=n=>Math.round((Number(n)||0)*100)/100;
+const KIND={C:'Cours',L:'Location',A:'Abonnement',NC:'Note de crédit',P:'Forfait de la plateforme',R:'Relevé de la plateforme',F:'Facture'};
+const kindOf=no=>{const m=/^([A-Z]+)-/.exec(no||'');return m?m[1]:'F'};
+const safeName=s=>String(s||'').replace(/[\\/:*?"<>|]+/g,'-').slice(0,120);
+async function jszip(){if(window.JSZip)return window.JSZip;
+  await new Promise((ok,ko)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';s.onload=ok;s.onerror=()=>ko(new Error('le module de compression n\'a pas pu être chargé'));document.head.appendChild(s)});
+  if(!window.JSZip)throw new Error('le module de compression n\'est pas chargé');return window.JSZip}
+/* toutes les factures de l'espace courant pour le mois : {o (données de la facture), src, pid?} */
+function collect(M,withPlat){const out=[];const inM=d=>String(d||'').slice(0,7)===M;
+  (db.bookings||[]).forEach(b=>{
+    (b.parts||[]).forEach(p=>{if(!p.invNo||!(p.paid||p.status==='remboursee'))return;try{const o=inv10Data(b,p);if(inM(o.date))out.push({o,src:'part',pid:p.pid})}catch(e){console.warn('Export : facture',p.invNo,e)}});
+    (b.feesSrv||[]).forEach(f=>{if(!f.invNo||!['payee','remboursee'].includes(f.status))return;try{const o=inv11FeeData(b,f);if(inM(o.date))out.push({o,src:'frais',pid:f.pid})}catch(e){console.warn('Export : frais',f.invNo,e)}})});
+  (db.subInv||[]).forEach(x=>{try{const o=inv11SubData(x);if(inM(o.date))out.push({o,src:'abo'})}catch(e){console.warn('Export : abonnement',x.no,e)}});
+  (db.cnotes||[]).forEach(x=>{try{const o=inv12CnData(x);if(inM(o.date))out.push({o,src:'nc',x})}catch(e){console.warn('Export : note de crédit',x.no,e)}});
+  if(withPlat)(db.platInv||[]).forEach(x=>{try{const o=inv13Data(x);if(inM(o.date))out.push({o,src:'plat'})}catch(e){console.warn('Export : plateforme',x.no,e)}});
+  const seen=new Set();return out.filter(r=>r.o&&r.o.no&&!seen.has(r.o.no)&&seen.add(r.o.no)).sort((a,c)=>inv12Cmp(a.o.no,c.o.no))}
+function split(o){const tax=o.tax||[];const tps=r2_(tax.filter(t=>/TPS|GST/i.test(t[0])).reduce((n,t)=>n+t[1],0));
+  const tvq=r2_(tax.filter(t=>/TVQ|QST/i.test(t[0])).reduce((n,t)=>n+t[1],0));const autres=r2_(tax.reduce((n,t)=>n+t[1],0)-tps-tvq);
+  const total=r2_(o.total);const disc=r2_((o.items||[]).filter(i=>i[1]<0).reduce((n,i)=>n+i[1],0));
+  return {tps,tvq,autres,total,avant:r2_(total-tps-tvq-autres),disc}}
+const PAYL={carte:'Carte',interac:'Interac',credit:'Crédit (aucun paiement)',comptant:'Comptant'};
+A.l4Go=async function(){if(L4.busy)return;const M=M4();if(!/^\d{4}-\d{2}$/.test(M)){flash('Choisissez un mois.');return}
+  if(!window.XLSX){flash('Le module Excel n\'est pas chargé. Actualisez la page.');return}
+  if(!window.jspdf){flash('Le générateur de PDF n\'est pas chargé. Actualisez la page.');return}
+  if(!R.on||!R.coachId){flash('Connectez-vous à votre compte entraîneur.');return}
+  const adm=R.realRole==='admin';const withPlat=adm&&st.l4p!==false;
+  L4.busy=true;L4.msg='';render();busyOn('Lecture des factures de '+mLbl(M)+'…');
+  try{
+    try{await Promise.all([typeof loadSubs==='function'?loadSubs():null,typeof loadCNotes==='function'?loadCNotes():null,withPlat&&typeof loadPlatInv==='function'?loadPlatInv():null])}catch(e){console.warn('Export : actualisation',e)}
+    const rows=collect(M,withPlat);
+    if(!rows.length){flash('Aucune facture ni note de crédit en '+mLbl(M)+' dans cet espace.');return}
+    /* frais retenus (Stripe et commission) et remboursements, lus dans la base */
+    const pids=rows.map(r=>r.pid).filter(Boolean);const fee={};
+    for(let i=0;i<pids.length;i+=100){const {data,error}=await R.sb.from('payments').select('id,fee_stripe_cents,fee_com_cents,refunded_cents,method').in('id',pids.slice(i,i+100));if(error)console.warn('Export : frais',error.message);(data||[]).forEach(p=>fee[p.id]=p)}
+    const Z=new (await jszip())();const coachNm=safeName((R.coachRow&&R.coachRow.nom_affiche)||'FidjiCoach');
+    const rev=[],rem=[],errs=[];let n=0;
+    for(const r of rows){const o=r.o;const k=kindOf(o.no);const nc=r.src==='nc';
+      const dir=nc?'Notes de crédit':r.src==='plat'?'Plateforme':'Factures';const fn=safeName(o.no)+'.pdf';
+      n++;busyOn('PDF '+n+' sur '+rows.length+' : '+o.no+'…');
+      try{const blob=(await inv10Pdf(o)).output('blob');Z.file(dir+'/'+fn,blob)}catch(e){errs.push(o.no+' : '+(e&&e.message||e))}
+      const s=split(o);const cl=(o.cl&&o.cl.name)||'';const desc=(o.items||[]).filter(i=>i[1]>=0).map(i=>i[0]).join(' ; ');
+      if(nc){const x=r.x||{};rem.push({'Date':o.date,'N° de note de crédit':o.no,'Facture d\'origine':x.invRef||'','Client':cl,'Motif':x.reason||'','Mode':PAYL[o.method]||o.method||'',
+        'Avant taxes ($)':Math.abs(s.avant),'TPS ($)':Math.abs(s.tps),'TVQ ($)':Math.abs(s.tvq),'Total ($)':Math.abs(s.total),'Fichier PDF':dir+'/'+fn});continue}
+      const f=r.pid?fee[r.pid]:null;const stripe=f?c$(f.fee_stripe_cents):0,com=f?c$(f.fee_com_cents):0;const refd=f?c$(f.refunded_cents):r2_(o.refunded);
+      const src=r.src==='frais'?'Frais de location':k==='L'?'Location':KIND[k]||'Facture';
+      rev.push({'Date':o.date,'N° de facture':o.no,'Source':src,'Client':cl,'Description':desc,'Mode de paiement':PAYL[(f&&f.method)||o.method]||o.method||'',
+        'Avant taxes ($)':s.avant,'TPS ($)':s.tps,'TVQ ($)':s.tvq,'Total ($)':s.total,'Rabais inclus ($)':s.disc,'Remboursé ($)':refd,'Frais Stripe ($)':stripe,'Commission FidjiCoach ($)':com,
+        'Net reçu ($)':r2_(s.total-refd-stripe-com),'Fichier PDF':dir+'/'+fn})}
+    const XL=window.XLSX;const wb=XL.utils.book_new();
+    const sum=(L,c)=>r2_(L.reduce((n,x)=>n+(Number(x[c])||0),0));
+    const res=[['Export comptable FidjiCoach'],['Espace',(R.coachRow&&R.coachRow.nom_affiche)||''],['Mois',mLbl(M)],['Préparé le',today()],[],
+      ['Factures émises',rev.length],['Revenus avant taxes ($)',sum(rev,'Avant taxes ($)')],['TPS perçue ($)',sum(rev,'TPS ($)')],['TVQ perçue ($)',sum(rev,'TVQ ($)')],['Total facturé ($)',sum(rev,'Total ($)')],
+      ['Rabais accordés ($)',sum(rev,'Rabais inclus ($)')],['Frais Stripe ($)',sum(rev,'Frais Stripe ($)')],['Commission FidjiCoach ($)',sum(rev,'Commission FidjiCoach ($)')],[],
+      ['Notes de crédit',rem.length],['Remboursé avant taxes ($)',sum(rem,'Avant taxes ($)')],['TPS remboursée ($)',sum(rem,'TPS ($)')],['TVQ remboursée ($)',sum(rem,'TVQ ($)')],['Total remboursé ($)',sum(rem,'Total ($)')],[],
+      ['Remarques'],['Montants en dollars canadiens (CAD). Les remboursements apparaissent dans l\'onglet Remboursements, au mois de la note de crédit.'],
+      ['« Remboursé » dans l\'onglet Revenus : total remboursé à ce jour sur la facture, quel que soit le mois du remboursement.'],
+      ['Format à confirmer avec votre comptable.']];
+    XL.utils.book_append_sheet(wb,XL.utils.aoa_to_sheet(res),'Résumé');
+    XL.utils.book_append_sheet(wb,XL.utils.json_to_sheet(rev.length?rev:[{'Date':'','N° de facture':'Aucune facture'}]),'Revenus');
+    XL.utils.book_append_sheet(wb,XL.utils.json_to_sheet(rem.length?rem:[{'Date':'','N° de note de crédit':'Aucune note de crédit'}]),'Remboursements');
+    Z.file('Registre '+M+'.xlsx',XL.write(wb,{bookType:'xlsx',type:'array'}));
+    if(errs.length)Z.file('À lire - PDF manquants.txt','Ces PDF n\'ont pas pu être faits :\r\n'+errs.join('\r\n'));
+    busyOn('Compression…');const blob=await Z.generateAsync({type:'blob',compression:'DEFLATE'});
+    const name='Export comptable '+coachNm+' '+M+'.zip';
+    L4.msg=`${rev.length} facture${rev.length>1?'s':''}, ${rem.length} note${rem.length>1?'s':''} de crédit${errs.length?' · '+errs.length+' PDF manquant'+(errs.length>1?'s':'')+' (voir le fichier « À lire »)':''}.`;
+    busyOff();await offerFile(name,blob)}
+  catch(e){flash('Export impossible : '+(e&&e.message||e))}
+  finally{L4.busy=false;busyOff();render()}};
+A.l4P=()=>{st.l4p=st.l4p===false;render()};
+document.addEventListener('change',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.l4m!==undefined){st.l4m=t.value;L4.msg=''}});
+function l4Panel(){const adm=R.realRole==='admin';const M=M4();
+  return `<section class="panel fc-l4" style="display:grid;gap:12px"><span class="eyebrow">Comptabilité · export mensuel</span><h3>Factures du mois (PDF) et registre Excel</h3>
+    <p class="small">Un fichier .zip avec le PDF de chaque facture émise dans le mois (cours, locations, frais de location, abonnements) et de chaque note de crédit, plus un registre Excel : date, numéro, client, montant avant taxes, TPS, TVQ, total, mode de paiement, rabais, frais de Stripe, commission et remboursements.</p>
+    <div class="grid2"><label class="field"><span>Mois</span><input type="month" data-l4m="1" value="${esc(M)}" max="${today().slice(0,7)}"></label>
+    ${adm?`<label class="check" style="align-self:end"><input type="checkbox" data-a="l4P" ${st.l4p!==false?'checked':''}> Inclure les factures et relevés de la plateforme (P-, R-)</label>`:''}</div>
+    <div class="actions"><button class="btn btn-accent" data-a="l4Go" ${L4.busy?'disabled':''}>${L4.busy?'Préparation…':'Télécharger l\'export de '+esc(mLbl(M))+' (.zip)'}</button></div>
+    ${L4.msg?`<p class="small" style="margin:0">✓ ${esc(L4.msg)}</p>`:''}
+    <p class="small muted" style="margin:0">Espace : <b>${esc((R.coachRow&&R.coachRow.nom_affiche)||'')}</b>. ${adm?'Pour les abonnements directs, faites aussi l\'export dans l\'espace FidjiCoach. ':''}Format à confirmer avec votre comptable.</p></section>`}
+if(typeof exportV==='function')exportV=(old=>function(){const h=old();if(!R.on)return h;try{return h.replace('<div class="c9x" style="display:grid;gap:16px">','<div class="c9x" style="display:grid;gap:16px">'+l4Panel())}catch(e){console.warn('Export mensuel',e);return h}})(exportV);
+if(typeof EN5==='object')Object.assign(EN5,{'Comptabilité · export mensuel':'Accounting · monthly export','Factures du mois (PDF) et registre Excel':'Monthly invoices (PDF) and Excel register'});
 })();
 </script>
 
