@@ -24018,7 +24018,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-21-v6c';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-21-v7a';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='21 nov. 2026 · Factures : prix après rabais, export comptable mensuel, factures reçues à valider, logo selon l\'émetteur · Paiements réels v2 (rabais personnels (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
@@ -27863,13 +27863,13 @@ render=(old=>function(){const r=old.apply(this,arguments);decoSale();decoAnnual(
      Google Sheets (onglets, colonnes, menus déroulants gardés), dans le dossier « FidjiCoach – Exports ».
    • « Télécharger le fichier Excel » reste offert (réimport de l'inventaire ou des membres, comptable…).
    • Projet Google Cloud « fidjicoach » (compte colinchristophe.coach@gmail.com), app en mode Test :
-     seul l'administrateur voit l'option tant que l'app n'est pas publiée chez Google (FC_GSHEETS_ALL = true ensuite).
+     depuis le 21 nov. 2026 (app publiée chez Google), FC_GSHEETS_ALL = true : option offerte à tous les comptes connectés.
    Les PDF, .ics, .csv, .json, .zip et .html ne changent pas. */
 (function(){
 const CLIENT_ID='296531880300-4j9tf73h6qi7ifhjccahorvgh6hq8a08.apps.googleusercontent.com';
 const SCOPE='https://www.googleapis.com/auth/drive.file';
 const FOLDER_NAME='FidjiCoach – Exports';
-window.FC_GSHEETS_ALL=window.FC_GSHEETS_ALL||false;      /* true quand l'app Google sera publiée : option offerte à tous */
+window.FC_GSHEETS_ALL=true;      /* app Google « FidjiCoach » publiée et image de marque vérifiée le 21 nov. 2026 : option offerte à tous */
 const LS=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
 const LSset=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}};
 const G={tok:null,exp:0,tc:null,loading:null,pending:null};
@@ -27906,7 +27906,7 @@ function show(name,blob,old){close();loadGis().catch(()=>{});
   const reimp=/^(inventaire|membres)/i.test(name);const auto=LS('fcGsAuto')==='1';
   box=document.createElement('div');box.className='fcgs-ov';
   box.innerHTML=`<div class="fcgs-box" role="dialog" aria-modal="true" aria-labelledby="fcgsT"><span class="eyebrow">Exporter</span><h3 id="fcgsT" style="margin:4px 0 6px">${eh(name.replace(/\.xlsx$/i,''))}</h3>
-    <p class="small muted" style="margin:0 0 12px">Le tableau s'ouvre dans Google Sheets, dans votre Google Drive (dossier « ${eh(FOLDER_NAME)} »). FidjiCoach ne voit que les fichiers qu'il crée.</p>
+    <p class="small muted" style="margin:0 0 12px">Le tableau s'ouvre dans Google Sheets, dans votre Google Drive (dossier « ${eh(FOLDER_NAME)} »). FidjiCoach ne voit que les fichiers qu'il crée. <a href="confidentialite.html#google" target="_blank" rel="noopener">Confidentialité</a></p>
     <div class="fcgs-st small" aria-live="polite"></div>
     <div class="actions" style="flex-wrap:wrap;gap:8px"><button class="btn btn-accent" data-gs="go">Ouvrir dans Google Sheets</button><button class="btn btn-plain" data-gs="xl">Télécharger le fichier Excel</button><button class="btn btn-plain" data-gs="no">Annuler</button></div>
     ${reimp?'<p class="small muted" style="margin:10px 0 0">Pour réimporter dans FidjiCoach après vos changements : dans Google Sheets, Fichier › Télécharger › Microsoft Excel (.xlsx), puis importez ce fichier.</p>':''}
