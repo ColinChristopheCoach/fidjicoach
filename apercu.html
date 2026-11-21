@@ -24011,7 +24011,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-21-v4g';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-21-v4h';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='21 nov. 2026 (aperçu : lots 4 à 6, prix après rabais, export comptable mensuel, factures reçues à valider) · Paiements réels v2 (rabais personnels (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
@@ -25224,7 +25224,7 @@ async function directRows(M){
   const {data:c,error:ce}=await R.sb.from('coaches').select('id,nom_affiche').eq('slug','fidjicoach').maybeSingle();if(ce)throw ce;if(!c)throw new Error('espace FidjiCoach introuvable');
   const {data:isd}=await R.sb.rpc('fc_is_direct',{p_coach:c.id});if(!isd)throw new Error('l\'espace FidjiCoach n\'est pas l\'entraîneur des abonnements directs');
   const {data:pub}=await R.sb.from('coach_public').select('data').eq('coach_id',c.id).maybeSingle();const D=(pub&&pub.data)||{};const I=D.coachInfo||{};
-  const coach={name:c.nom_affiche||I.name||'FidjiCoach',tel:I.tel||'',email:I.email||'',region:I.region||'',logo:D.invLogo||''};
+  const coach={name:c.nom_affiche||I.name||'FidjiCoach',tel:I.tel||'',email:I.email||'',region:I.region||'',logo:'/fidjicoach-logo.png'};
   const y=+M.slice(0,4),m=+M.slice(5,7);const from=new Date(Date.UTC(y,m-1,1)-86400000).toISOString(),to=new Date(Date.UTC(y,m,1)+86400000).toISOString();
   const [{data:V,error:ve},{data:N,error:ne}]=await Promise.all([
     R.sb.from('sub_invoices').select('*').eq('coach_id',c.id).gte('inv_at',from).lt('inv_at',to).limit(1000),
@@ -25398,6 +25398,22 @@ A.ibNo=async d=>{const x=(IB.rows||[]).find(r=>r.id===d.id);if(!x)return;
   catch(e){flash('Rejet impossible : '+(e.message||e))}render()};
 comptaV=(old=>function(){const h=old();try{return ibPanel()+h}catch(e){console.warn('Factures reçues',e);return h}})(comptaV);
 resetLocal=(old=>function(){old();IB.rows=null;IB.at=0})(resetLocal);
+})();
+/* ================= 21 nov. 2026 : logo des factures selon l'émetteur (décision de Colin, 7 h 53) =================
+   FidjiCoach (abonnements directs) : logo FidjiCoach. Colin Christophe : son logo (« Colin Christophe · entraîneur de ski de fond »).
+   Tout autre entraîneur : SON logo (vitrine ou Ma marque), jamais celui de Colin (avant : repli sur le logo intégré de l'app, celui de Colin).
+   Factures de la plateforme (P-, R-) : logo FidjiCoach (inchangé). Documents des clubs : logo du club (inchangé, p8br).
+   Le même choix est publié pour le serveur (invLogo, reçus par courriel). */
+(function(){
+const OWN_SLUG=typeof COACH_SLUG==='string'?COACH_SLUG:'colin-christophe';
+function fcInvLogo(){const slug=(R.coachRow&&R.coachRow.slug)||'';
+  if(slug==='fidjicoach')return '/fidjicoach-logo.png';
+  if(R.role==='admin'){let S={};try{S=show9()||{}}catch(e){}if(S.logo)return S.logo;const own=((db.settings||{}).brand||{}).color;if(own)return own;return slug===OWN_SLUG?BRAND0.color:''}
+  const S=R.show||{};if(S.logo)return S.logo;if(R.invLogoPub)return R.invLogoPub;return slug===OWN_SLUG?BRAND0.color:''}
+inv10Coach=(old=>function(){const o=old();try{if(R.on)o.logo=fcInvLogo()}catch(e){console.warn('Logo de facture',e)}return o})(inv10Coach);
+applyPub=(old=>function(d){old(d);try{R.invLogoPub=d&&typeof d.invLogo==='string'?d.invLogo:''}catch(e){}})(applyPub);
+window.FC26logoSrc=()=>{try{return R.on?fcInvLogo():''}catch(e){return ''}};
+window.fcInvLogo=fcInvLogo;
 })();
 })();
 </script>
