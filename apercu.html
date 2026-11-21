@@ -24011,7 +24011,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-20-v3h';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-20-v3i';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='20 nov. 2026 · Paiements réels v2 (rabais personnels (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
@@ -27599,6 +27599,8 @@ function decoAnnual(){try{
       while((x=w.nextNode())){const v=x.nodeValue.replace(/\/ mois/g,'/ an').replace(/par mois/g,'par année');if(v!==x.nodeValue)x.nodeValue=v}})
   }catch(e){}}
 render=(old=>function(){const r=old.apply(this,arguments);decoSale();decoAnnual();return r})(render);
+/* v3i : Athlète Plus, le bouton garde le montant après rabais quand on tape le courriel d'un athlète (la page réécrivait le prix courant) */
+['input','change'].forEach(ev=>document.addEventListener(ev,e=>{try{if(document.querySelector('[data-a="apBuy"]')&&e.target&&e.target.matches&&e.target.matches('input'))setTimeout(decoSale,0)}catch(x){}}));
 })();
 </script>
 
