@@ -24821,7 +24821,7 @@ function inv11FeeData(b,f){const cl=userById(f.payer);const sp=inv11Split(f.line
 function inv11SubData(x){const cl=userById(x.userId);const sp=inv11Split(x.lines,x.total,(x.plan||'Forfait mensuel')+' · abonnement mensuel');
   return Object.assign({no:x.no,date:x.at||today(),ref:x.plan||'',refTxt:'Abonnement · '+(x.plan||'mensuel'),coach:inv10Coach(),cl:clInfo14(cl),
     total:x.total,method:'carte',paidAt:x.at,refunded:0,sessions:[],lieu:'',sent:x.sent||null,
-    note:'Abonnement mensuel payé par carte de crédit le '+dlong10(x.at)+(x.end?', pour la période du '+dlong10(x.at)+' au '+dlong10(x.end):'')+'. Renouvellement automatique chaque mois, annulable en tout temps (aucun remboursement d\'un mois commencé).'},sp)}
+    note:(Number(x.total)>0?'Abonnement mensuel payé par carte de crédit le ':'Abonnement mensuel offert (rabais personnel), aucun paiement, le ')+dlong10(x.at)+(x.end?', pour la période du '+dlong10(x.at)+' au '+dlong10(x.end):'')+'. Renouvellement automatique chaque mois, annulable en tout temps (aucun remboursement d\'un mois commencé).'},sp)}
 A.fcInvX=d=>{if(d.s==='fee'){const x=inv11Fee(d.b,d.p);if(!x||!x.f.invNo){flash(x&&x.f.status==='payee'?'Le numéro de facture arrive dans un instant : touchez Actualiser.':'Pas de facture : ces frais ne sont pas encore payés.');return}
     st.modal={kind:'fcInv',src:'fee',bid:d.b,pid:d.p}}
   else if(d.s==='nc'){if(!(db.cnotes||[]).some(v=>v.id===d.id)){flash('Note de crédit introuvable : touchez Actualiser.');return}st.modal={kind:'fcInv',src:'nc',id:d.id}}
