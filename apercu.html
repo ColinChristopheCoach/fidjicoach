@@ -23637,7 +23637,7 @@ function forfaitPage(){if(!R.on)return '<div class="empty">Connectez-vous.</div>
   if(R.bill===false)return '<p class="fcmsgoff">Le forfait FidjiCoach n\'est pas encore offert. Réessayez plus tard.</p>';
   const B=R.bill;const P=Object.assign({},DEFP,B.prices||{});const F=rulesOf(B.fees||{});const subd=SUBD9.includes(B.status);const disc=Number(B.total_discount_pct||0);
   const price=c=>disc>0?`<s>${c2(c)}</s>${c2(Math.round(c*(1-disc/100)))}`:c2(c);
-  const card=k=>`<div class="fctplan ${B.plan===k&&subd?'on':''}"><span class="eyebrow">${B.plan===k&&subd?'Votre forfait':'Forfait'}</span><h3>${PLANS9[k]}</h3><p class="fctprice">${price(P[k])}<small> / mois</small></p><ul>${featsOf(k,P).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+  const card=k=>`<div class="fctplan ${B.plan===k&&subd?'on':''}"><span class="eyebrow">${B.plan===k&&subd?'Votre forfait':'Forfait'}</span><h3>${PLANS9[k]}</h3><p class="fctprice">${B.plan===k&&subd&&!B.paused&&B.net_cents!=null?`<s>${c2(B.amount_cents||P[k]||0)}</s>${c2(B.net_cents)}`:price(P[k])}<small> / mois</small></p><ul>${featsOf(k,P).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
     ${subd?'':`<div class="actions"><button class="btn ${k==='pro'?'btn-accent':'btn-plain'}" data-a="fctChoose" data-p="${k}">Choisir ${PLANS9[k]}</button></div>`}</div>`;
   const notes=[];if(!subd){if(P.trial_on&&!B.trial_used)notes.push(`<b>Essai gratuit de ${P.trial_days} jours</b> : rien n'est prélevé avant la fin de l'essai.`);
     if(B.activation_due)notes.push(`Frais d'activation de ${c2(P.activation)}, une seule fois, ${P.trial_on&&!B.trial_used?'avec le premier mois payé':'avec le premier mois'}.`);
@@ -24011,7 +24011,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-21-v4h';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-21-v4i';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='21 nov. 2026 (aperçu : lots 4 à 6, prix après rabais, export comptable mensuel, factures reçues à valider) · Paiements réels v2 (rabais personnels (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
