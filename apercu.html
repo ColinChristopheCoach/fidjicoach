@@ -25336,7 +25336,7 @@ function l4Panel(){const adm=R.realRole==='admin';const M=M4();
     ${adm?`<label class="field"><span>Espace</span><select data-l4s="1"><option value="mine" ${st.l4s!=='direct'?'selected':''}>${esc((R.coachRow&&R.coachRow.nom_affiche)||'Mon espace')} (cours, locations, forfaits)</option><option value="direct" ${st.l4s==='direct'?'selected':''}>FidjiCoach (abonnements directs)</option></select></label>`:''}</div>
     ${adm&&st.l4s!=='direct'?`<label class="check"><input type="checkbox" data-a="l4P" ${st.l4p!==false?'checked':''}> Inclure les factures et relevés de la plateforme (P-, R-)</label>`:''}
     <div class="actions"><button class="btn btn-accent" data-a="l4Go" ${L4.busy?'disabled':''}>${L4.busy?'Préparation…':'Télécharger l\'export de '+esc(mLbl(M))+' (.zip)'}</button></div>
-    ${L4.msg?`<p class="small" style="margin:0">✓ ${esc(L4.msg)}</p>`:''}
+    ${L4.msg?`<p class="small" style="margin:0">${/^Aucune/.test(L4.msg)?'':'✓ '}${esc(L4.msg)}</p>`:''}
     <p class="small muted" style="margin:0">${adm?'Faites un export par espace : le vôtre et celui de FidjiCoach (abonnements directs). ':''}Format à confirmer avec votre comptable.</p></section>`}
 if(typeof exportV==='function')exportV=(old=>function(){const h=old();if(!R.on)return h;try{return h.replace('<div class="c9x" style="display:grid;gap:16px">','<div class="c9x" style="display:grid;gap:16px">'+l4Panel())}catch(e){console.warn('Export mensuel',e);return h}})(exportV);
 if(typeof EN5==='object')Object.assign(EN5,{'Comptabilité · export mensuel':'Accounting · monthly export','Factures du mois (PDF) et registre Excel':'Monthly invoices (PDF) and Excel register'});
