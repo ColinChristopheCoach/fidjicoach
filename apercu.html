@@ -24995,7 +24995,7 @@ loadSubs=(old=>async function(){await old();await loadPlatInv()})(loadSubs);
 function inv13Data(x){const sp=inv11Split(x.lines,x.total,x.k==='R'?'Frais de plateforme':'Forfait FidjiCoach');
   return Object.assign({title:x.k==='R'?'Relevé':'Facture',totLbl:x.k==='R'?'Total des frais retenus':'Total payé',no:x.no,date:x.at||today(),ref:'',
     refTxt:x.k==='R'?'Période : '+dlong10(x.from)+' au '+dlong10(x.to):'Forfait de la plateforme',
-    coach:{name:'FidjiCoach',tel:'',email:'fidjicoach.ca',region:'Plateforme des entraîneurs',logo:'fidjicoach-logo.png'},cl:{name:x.name||'Entraîneur',email:x.email||''},
+    coach:{name:'FidjiCoach',tel:'',email:'facturation@fidjicoach.ca · fidjicoach.ca',region:'Plateforme des entraîneurs',logo:'fidjicoach-logo.png'},cl:{name:x.name||'Entraîneur',email:x.email||''},
     total:x.total,method:'carte',paidAt:x.at,refunded:0,sessions:[],lieu:'',sent:x.sent||null,note:x.note||'',foot:'FidjiCoach · fidjicoach.ca',mailLbl:'à l\'entraîneur'},sp)}
 invCur0=(old=>function(){const m=st.modal;if(m&&m.kind==='fcInv'&&m.src==='plat'){const x=(db.platInv||[]).find(v=>v.id===m.id);
     return x?{o:inv13Data(x),real:R.realRole==='admin',body:{platform_invoice_id:x.id},mark:()=>{x.sent=today()}}:null}return old()})(invCur0);
