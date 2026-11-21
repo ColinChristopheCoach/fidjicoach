@@ -23662,12 +23662,17 @@ function forfaitPage(){if(!R.on)return '<div class="empty">Connectez-vous.</div>
 ASEC.fcforfait={l:'Mon forfait FidjiCoach',i:'repeat',f:()=>forfaitPage()};REL.fcforfait=['fcpay','setup9'];
 const fctQ=document.createElement('div');fctQ.className='fcq';fctQ.hidden=true;
 fctQ.innerHTML=`<form novalidate><div><span class="eyebrow">Forfait FidjiCoach</span><h2 data-t></h2></div><p class="small" data-l1></p><p class="small" data-l2 hidden></p>
-<p class="small muted">Vous serez dirigé vers la page de paiement sécurisée de Stripe.</p><div class="actions"><button type="submit" class="btn btn-accent">Continuer vers Stripe</button><button type="button" class="btn btn-plain" data-x>Annuler</button></div></form>`;
+<p class="small muted" data-l3>Vous serez dirigé vers la page de paiement sécurisée de Stripe.</p><div class="actions"><button type="submit" class="btn btn-accent">Continuer vers Stripe</button><button type="button" class="btn btn-plain" data-x>Annuler</button></div></form>`;
 document.body.appendChild(fctQ);
 const fctAsk=(k,P,B,trial)=>new Promise(res=>{const F=fctQ.querySelector('form');
   fctQ.querySelector('[data-t]').textContent='Choisir le forfait '+PLANS9[k]+'?';
   fctQ.querySelector('[data-l1]').textContent=c2(P[k])+' par mois'+(Number(B.total_discount_pct)>0?', avant rabais':'')+'.';
   const l2=fctQ.querySelector('[data-l2]');l2.hidden=!trial;l2.textContent=trial?'Essai gratuit de '+P.trial_days+' jours : rien n\'est prélevé aujourd\'hui.':'';
+  /* v3h : rabais personnel de 100 % pour toujours = forfait activé sans page de paiement */
+  let free=false;try{const pd=window.fcPerso&&window.fcPerso.sale&&window.fcPerso.sale();free=!!(pd&&Number(pd.pct)>=100&&pd.duration!=='once')}catch(e){}
+  if(free){l2.hidden=true;fctQ.querySelector('[data-l1]').textContent=c2(P[k])+' par mois, avant rabais.'}
+  fctQ.querySelector('[data-l3]').textContent=free?'Gratuit avec votre rabais personnel de 100 % : aucune carte, aucuns frais d\'activation. Le forfait est activé tout de suite, sans page de paiement.':'Vous serez dirigé vers la page de paiement sécurisée de Stripe.';
+  F.querySelector('[type=submit]').textContent=free?'Activer gratuitement':'Continuer vers Stripe';
   const end=v=>{fctQ.hidden=true;document.body.style.overflow='';F.onsubmit=null;res(v)};
   F.onsubmit=e=>{e.preventDefault();end(true)};fctQ.querySelector('[data-x]').onclick=()=>end(false);
   fctQ.hidden=false;document.body.style.overflow='hidden';setTimeout(()=>F.querySelector('[type=submit]').focus(),50)});
@@ -24006,7 +24011,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-20-v3g';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-20-v3h';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='20 nov. 2026 · Paiements réels v2 (aperçu : rabais personnels, parties 1 à 3 (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
@@ -26692,7 +26697,7 @@ AP.ensure=()=>{if(AP.real()&&!AP.me&&!AP.loading)setTimeout(AP.load,0)};
 const call=async(body)=>{const {data,error}=await FR().sb.functions.invoke('athlete-plus',{body});const m=await errOf(error,data);if(m)throw new Error(m);return data};
 AP.checkout=async function(body){if(!AP.real())return flash('Connectez-vous à la plateforme en ligne pour payer');AP.busy=true;AP.err=null;render();
   try{flash('Ouverture de la page de paiement…');const d=await call({action:'checkout',...body});location.href=d.url}catch(e){AP.err=e.message||String(e);flash('Athlète Plus : '+AP.err)}finally{AP.busy=false;render()}};
-AP.seats=async function(id,seats){AP.busy=true;AP.err=null;try{const d=await call({action:'seats',id,seats});flash('Liste mise à jour : '+money(d.cents/100)+' par mois');await AP.load();return true}catch(e){AP.err=e.message;flash('Athlète Plus : '+e.message);return false}finally{AP.busy=false;render()}};
+AP.seats=async function(id,seats){AP.busy=true;AP.err=null;try{const d=await call({action:'seats',id,seats});if(d&&d.card_needed&&d.url){/* v3h : abonnement gratuit sans carte qui devient payant */flash('Votre abonnement gratuit devient payant : enregistrez une carte. Rien n\'est prélevé aujourd\'hui.');location.href=d.url;return false}flash('Liste mise à jour : '+money(d.cents/100)+' par mois');await AP.load();return true}catch(e){AP.err=e.message;flash('Athlète Plus : '+e.message);return false}finally{AP.busy=false;render()}};
 AP.cancel=async function(id,stop){try{await call({action:stop?'cancel':'resume',id});flash(stop?'Athlète Plus s\'arrêtera à la fin du mois payé':'Abonnement gardé');await AP.load()}catch(e){flash('Athlète Plus : '+e.message)}};
 AP.portal=async function(){try{const d=await call({action:'portal'});location.href=d.url}catch(e){flash(e.message)}};
 AP.consent=async function(v){try{const {data,error}=await FR().sb.rpc('aplus_set_consent',{p_on:!!v});if(error)throw error;AP.me=data;const u=me();if(u&&u.aplus)u.aplus.consent=data.consent;render();flash(v?'Données partagées avec les entraîneurs de votre groupe':'Vos données restent privées')}catch(e){flash('Partage : '+(e.message||e))}};
@@ -26734,8 +26739,8 @@ A.apActBack=function(){st.trAct=null;render();window.scrollTo(0,0)};
 {const q=new URLSearchParams(location.search);const v=q.get('aplus');if(v){const sid=q.get('sid');q.delete('aplus');q.delete('sid');history.replaceState(history.state,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);
   (async()=>{if(v==='annule'){setTimeout(()=>flash('Paiement Athlète Plus annulé'),1500);return}
     for(let i=0;i<80&&!AP.real();i++)await new Promise(r=>setTimeout(r,250));if(!AP.real())return;
-    try{if(v==='ok'&&sid)await call({action:'sync',session_id:sid});else await call({action:'sync'})}catch(e){console.warn(e)}
-    await AP.load();try{if(v==='ok'){st.p3on=true;st.p3p=st.p3p||'a_plus'}}catch(e){}render();flash(v==='ok'?(AP.me&&AP.me.on?'Bienvenue dans Athlète Plus!':'Paiement reçu : Athlète Plus s\'active dans quelques instants'):'Abonnement à jour')})()}}
+    let sy=null,syE=null;try{if(v==='ok'&&sid)sy=await call({action:'sync',session_id:sid});else await call({action:'sync'})}catch(e){console.warn(e);syE=e}
+    await AP.load();try{if(v==='ok'){st.p3on=true;st.p3p=st.p3p||'a_plus'}}catch(e){}render();flash(sy&&sy.card?'Carte enregistrée, rien n\'a été prélevé. Liste mise à jour : '+money((sy.net!=null?sy.net:sy.cents)/100)+' par mois.':syE&&sid&&/carte/i.test(String(syE.message||''))?'Athlète Plus : '+syE.message:v==='ok'?(AP.me&&AP.me.on?'Bienvenue dans Athlète Plus!':'Paiement reçu : Athlète Plus s\'active dans quelques instants'):'Abonnement à jour')})()}}
 /* chargement à la connexion */
 (async()=>{for(let i=0;i<120&&!AP.real();i++)await new Promise(r=>setTimeout(r,500));if(AP.real()&&!AP.me)AP.load()})();
 
@@ -27362,6 +27367,9 @@ Object.assign(A,{
    par les Edge Functions subscriptions, athlete-plus et coach-billing; la page l'annonce seulement sur les écrans de vente
    (fonction decoSale). Partie 4 (20 nov., v3f) : le rabais « mes cours » vaut aussi pour les forfaits mensuels de l'entraîneur
    propriétaire (Edge Function subscriptions, fonctions fc_perso_coach_sale et fc_is_owner_coach; encadré : fonction decoPlans). À 100 %, la fonction crée l'abonnement sans page de paiement et renvoie l'adresse de retour habituelle.
+   21e séance (20 nov., v3h) : Athlète Plus gratuit qui devient une famille = carte demandée à l'ajout (Edge Function athlete-plus,
+   réponse card_needed); bouton Athlète Plus au montant après rabais; encadré du rabais sur les cours seulement chez l'entraîneur
+   propriétaire; « / an » pour le forfait annuel; fenêtre du forfait Solo / Pro quand il est gratuit.
    Aussi : reçu par courriel d'une réservation gratuite (déclencheur fc_payment_free_receipt), bouton de paiement d'un cours
    avec location (le montant exact vient du serveur). */
 (function(){
@@ -27449,7 +27457,7 @@ function payloadOf(Rq){const r=FR();if(!r.coachId||!Rq||!Rq.lieu||!Rq.type||!Rq.
 function decorate(){try{
     const old=document.getElementById('fcPerso');const box=document.querySelector('aside.summary');const d=mine();
     const anchor=box&&box.querySelector('.line.total');const btn=document.querySelector('[data-a="book"]');
-    if(!box||!anchor||!d||FR().role!=='client'||box.querySelector('[data-a="v5pay"]')){if(old)old.remove();return}  /* v3g : pas dans le panier des forfaits mensuels (encadré de decoSale ou decoPlans) */
+    if(!box||!anchor||!d||FR().role!=='client'||!isOwn(FR())||box.querySelector('[data-a="v5pay"]')){if(old)old.remove();return}  /* v3h : seulement chez l'entraîneur propriétaire (ailleurs le serveur n'applique pas le rabais « mes cours ») */  /* v3g : pas dans le panier des forfaits mensuels (encadré de decoSale ou decoPlans) */
     const Rq=st.R;const rent=!!(Rq&&(Rq.wantRent||Rq.what==='location'));
     const head=`<b>🎁 Vous avez un rabais personnel de ${pctTxt(d.pct)} %</b>${d.duration==='once'?' (valable pour un achat)':''}.`;
     const note='<small class="muted" style="display:block;margin-top:4px">Non cumulable avec le rabais de forfait, les promotions et le parrainage : vous payez le plus bas des deux prix. Le montant est calculé par le serveur.</small>';
@@ -27521,17 +27529,18 @@ render=(old=>function(){const r=old.apply(this,arguments);decoJoin();return r})(
 
 /* ---------- 5. Partie 3 : ventes de FidjiCoach, le rabais annoncé sur les écrans de vente ---------- */
 const sale=()=>{const r=FR();if(!M.list||M.uid!==r.uid)return null;return M.list.find(x=>x.scope==='both'||x.scope==='platform')||null};
+try{window.fcPerso.sale=sale}catch(e){}
 function saleBox(id,anchor,html){const old=document.getElementById(id);
   if(!anchor||!html){if(old)old.remove();return}
   if(old&&old.dataset.sig===html&&old.nextElementSibling===anchor)return;if(old)old.remove();
   const el=document.createElement('div');el.id=id;el.className='fc-perso';el.dataset.sig=html;el.innerHTML=html;anchor.insertAdjacentElement('beforebegin',el)}
 const DIR={};  /* l'entraîneur affiché est-il « FidjiCoach » (abonnement direct)? réponse du serveur, gardée par entraîneur */
 function isDir(r){const c=r.coachId;if(!c||!r.sb)return false;if(DIR[c]===undefined){DIR[c]=null;
-    r.sb.rpc('fc_is_direct',{p_coach:c}).then(({data,error})=>{DIR[c]=error?false:!!data;if(DIR[c])decoSale()}).catch(()=>{DIR[c]=false})}
+    r.sb.rpc('fc_is_direct',{p_coach:c}).then(({data,error})=>{DIR[c]=error?false:!!data;if(DIR[c]){decoSale();decoAnnual()}}).catch(()=>{DIR[c]=false})}
   return DIR[c]===true}
 const OWN={};  /* partie 4 : l'entraîneur affiché est-il le propriétaire de la plateforme (ses forfaits mensuels acceptent le rabais « mes cours »)? */
 function isOwn(r){const c=r.coachId;if(!c||!r.sb)return false;if(OWN[c]===undefined){OWN[c]=null;
-    r.sb.rpc('fc_is_owner_coach',{p_coach:c}).then(({data,error})=>{OWN[c]=error?false:!!data;if(OWN[c])decoSale()}).catch(()=>{OWN[c]=false})}
+    r.sb.rpc('fc_is_owner_coach',{p_coach:c}).then(({data,error})=>{OWN[c]=error?false:!!data;if(OWN[c]){decorate();decoSale()}}).catch(()=>{OWN[c]=false})}
   return OWN[c]===true}
 function decoPlans(){try{
     const r=FR();const d=mine();const old=document.getElementById('fcPersoPlan');
@@ -27565,7 +27574,12 @@ function decoSale(){try{
     /* b) Athlète Plus : la personne qui paie (pas le club) */
     a=null;h='';const ap=document.querySelector('[data-a="apBuy"]');
     if(ap){a=ap.closest('.actions')||ap;
-      h=head+' Il s\'applique à Athlète Plus, sur <b>votre part</b>.'+sm((full?'Seul : aucun paiement ni carte'+(once?', le premier mois est offert, puis l\'abonnement s\'arrête tout seul.':'.'):'Seul : le rabais porte sur tout le prix'+(once?' du premier mois.':'.'))+' En famille : il porte sur votre part seulement (le total divisé par le nombre d\'athlètes). Le montant exact est affiché sur la page de paiement.')}
+      h=head+' Il s\'applique à Athlète Plus, sur <b>votre part</b>.'+sm((full?'Seul : aucun paiement ni carte'+(once?', le premier mois est offert, puis l\'abonnement s\'arrête tout seul.':'.'):'Seul : le rabais porte sur tout le prix'+(once?' du premier mois.':'.'))+' En famille : il porte sur votre part seulement (le total divisé par le nombre d\'athlètes). Le montant exact est affiché sur la page de paiement.');
+      /* v3h : le bouton annonce le montant après rabais (même calcul que le serveur : pourcentage de la part) */
+      try{const D=st.apDraft;const n=Math.max(1,D?D.rows.filter(x=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x.email||'')).length:1);
+        const c=Math.round(window.fc7aplus(n)*100);const off=Math.max(0,Math.min(c,Math.round(Math.round(c/n)*Math.min(100,pct)/100)));
+        if(off>0&&!ap.disabled&&ap.dataset.fcSale!==String(n)){ap.dataset.fcSale=String(n);
+          ap.textContent=off>=c?(once?'Activer gratuitement (premier mois offert)':'Activer gratuitement'):'S\'abonner : '+cash((c-off)/100)+(once?' le premier mois, puis '+cash(c/100)+' par mois':' par mois')}}catch(e){}}
     saleBox('fcPersoAp',a,h);
     /* c) forfait Solo ou Pro de l'entraîneur */
     a=null;h='';const ft=document.querySelector('[data-a="fctChoose"]');
@@ -27573,7 +27587,18 @@ function decoSale(){try{
       h=head+' Il s\'applique à votre forfait FidjiCoach (Solo ou Pro).'+sm(once?'Il est déduit de votre premier mois payé, après l\'essai gratuit. Non cumulable avec un autre rabais sur le forfait : le plus élevé des deux s\'applique.':full?'Forfait gratuit tant que ce rabais est en place : aucune carte, aucuns frais d\'activation.':'Il réduit chaque mois. Non cumulable avec un autre rabais sur le forfait (fondateur, par exemple) : le plus élevé des deux s\'applique.')}
     saleBox('fcPersoFt',a,h);
   }catch(e){}}
-render=(old=>function(){const r=old.apply(this,arguments);decoSale();return r})(render);
+/* v3h : forfait annuel de l'abonnement direct, « / an » au lieu de « / mois » sur la carte, le tableau comparatif et Mes forfaits actifs */
+function decoAnnual(){try{
+    const r=FR();if(!r.on||r.role!=='client'||!isDir(r))return;
+    const low=x=>String(x||'').trim().toLowerCase();
+    const N=(db.subPlans||[]).filter(p=>p&&p.per==='an').map(p=>low(p.name)).filter(Boolean);if(!N.length)return;
+    document.querySelectorAll('article.v5plan,article.plancard,.cmptab th,.v5mine .part').forEach(el=>{
+      const h=el.querySelector('h3,b');const t=h?low(h.textContent):'';
+      if(!t||!N.some(n=>t===n||t===n.replace(/^option : /,'')))return;
+      const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let x;
+      while((x=w.nextNode())){const v=x.nodeValue.replace(/\/ mois/g,'/ an').replace(/par mois/g,'par année');if(v!==x.nodeValue)x.nodeValue=v}})
+  }catch(e){}}
+render=(old=>function(){const r=old.apply(this,arguments);decoSale();decoAnnual();return r})(render);
 })();
 </script>
 
