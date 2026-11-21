@@ -24018,7 +24018,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-21-v6b';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-21-v6c';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='21 nov. 2026 · Factures : prix après rabais, export comptable mensuel, factures reçues à valider, logo selon l\'émetteur · Paiements réels v2 (rabais personnels (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
@@ -27921,7 +27921,7 @@ function show(name,blob,old){close();loadGis().catch(()=>{});
       try{if(!(window.google&&google.accounts&&google.accounts.oauth2)){await loadGis();st.textContent='Service Google prêt : touchez encore « Ouvrir dans Google Sheets ».';go.disabled=false;return}
         const tok=await getToken();st.textContent='Création du tableau dans Google Drive…';
         const f=await upload(tok,name,blob);const link=f.webViewLink||('https://docs.google.com/spreadsheets/d/'+f.id+'/edit');
-        const w=window.open(link,'_blank','noopener');
+        let w=null;try{w=window.open(link,'_blank');if(w)w.opener=null}catch(e){}
         st.innerHTML=`<b>✓ Tableau créé :</b> <a href="${eh(link)}" target="_blank" rel="noopener">${eh(f.name||name)} ↗</a>${w?'':' (touchez le lien pour l\'ouvrir)'}`;
         go.textContent='Fait';fl('Tableau ouvert dans Google Sheets')}
       catch(err){console.warn('Google Sheets',err);st.innerHTML='<span style="color:var(--danger,#b00)">'+eh(err.message||err)+'</span> Vous pouvez aussi télécharger le fichier Excel.';go.disabled=false}}});
