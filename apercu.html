@@ -24011,7 +24011,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
        recherche, « Tout cocher » (liste filtrée) et « Tout retirer » (avec confirmation). Dans la mise en place et la page Centres.
    D6. Calendrier : « + Compétition » dans la barre du calendrier et dans le jour touché (date déjà remplie), import Coupe Québec. */
 {
-const FC_BUILD='2026-11-21-v4f';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
+const FC_BUILD='2026-11-21-v4g';                 /* à changer à chaque nouvelle version, avec le fichier version.txt */
 const FC_BUILD_LBL='21 nov. 2026 (aperçu : lots 4 à 6, prix après rabais, export comptable mensuel, factures reçues à valider) · Paiements réels v2 (rabais personnels (location gratuite avec carte enregistrée sans frais, part d\'un partenaire, ventes de FidjiCoach : abonnement direct, Athlète Plus, forfaits Solo et Pro); réglage « Web et application », sortie ajoutée à la main, lieu par défaut « Sans lieu précis »; pas de disponibilités en double, prévision du jour du cours, test Ruffier réparé; météo Environnement et Changement climatique Canada, Météo et Centres dans le menu, club retiré de cet appareil à la déconnexion; pied de page FidjiCoach, prix en dollars canadiens, frais estimés 3,1 % + 0,30 $, remboursement complet = cours annulé, paiements désactivés dans la démo, mention CAD sur les factures)';
 window.FC_BUILD=FC_BUILD;
 const C8={newer:null,told:false,hiddenAt:0,sw:null,busy:false};
@@ -25304,7 +25304,7 @@ A.l4Go=async function(){if(L4.busy)return;const M=M4();if(!/^\d{4}-\d{2}$/.test(
         'Avant taxes ($)':Math.abs(s.avant),'TPS ($)':Math.abs(s.tps),'TVQ ($)':Math.abs(s.tvq),'Total ($)':Math.abs(s.total),'Fichier PDF':dir+'/'+fn});continue}
       const f=r.pid?fee[r.pid]:null;const stripe=f?c$(f.fee_stripe_cents):0,com=f?c$(f.fee_com_cents):0;const refd=f?c$(f.refunded_cents):r2_(o.refunded);
       const src=r.src==='frais'?'Frais de location':k==='L'?'Location':KIND[k]||'Facture';
-      rev.push({'Date':o.date,'N° de facture':o.no,'Source':src,'Client':cl,'Description':desc,'Mode de paiement':PAYL[(f&&f.method)||o.method]||o.method||'',
+      rev.push({'Date':o.date,'N° de facture':o.no,'Source':src,'Client':cl,'Description':desc,'Mode de paiement':!(s.total>0)&&s.disc<0?'Aucun paiement (rabais)':PAYL[(f&&f.method)||o.method]||o.method||'',
         'Avant taxes ($)':s.avant,'TPS ($)':s.tps,'TVQ ($)':s.tvq,'Total ($)':s.total,'Rabais inclus ($)':s.disc,'Remboursé ($)':refd,'Frais Stripe ($)':stripe,'Commission FidjiCoach ($)':com,
         'Net reçu ($)':r2_(s.total-refd-stripe-com),'Fichier PDF':dir+'/'+fn})}
     const XL=window.XLSX;const wb=XL.utils.book_new();
