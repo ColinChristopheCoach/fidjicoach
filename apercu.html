@@ -20199,7 +20199,7 @@ qcCard=(old=>function(q,admin,big){let h=old(q,admin,big);if(!big)return h;const
 /* ================= V6 : soutien FidjiCoach — journal d'erreurs, « Signaler un bogue », console de soutien du propriétaire ================= */
 (function(){
 const SUP_VER='FidjiCoach V7 · version 3 (Corrections 1)';
-const SUP_MAIL='admin@fidjicoach.ca';
+const SUP_MAIL='support@fidjicoach.ca';
 NI.bug=SV('<path d="M8 8a4 4 0 0 1 8 0"/><rect x="7" y="8" width="10" height="12" rx="5"/><path d="M12 12v8M3 13h4M17 13h4M4 7l3 2M20 7l-3 2M4 19l3-2M20 19l-3-2"/>');
 NI.shield=SV('<path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6Z"/><path d="M9 12l2 2 4-4"/>');
 
@@ -25170,7 +25170,7 @@ function c27dom(){const ap=document.getElementById('app')||document.body;
     [/Forfaits mensuels payables par carte de crédit seulement, prélevés automatiquement chaque mois\./g,'Payable par carte de crédit seulement, prélevé automatiquement à chaque période (mois ou année).'],
     [/Payé avec le même mode de paiement, chaque mois, annulable en tout temps\./g,'Renouvelé automatiquement, annulable en tout temps.'],
     [/Changer ou comparer les forfaits/g,'Les formules FidjiCoach'],
-    [/colin\.christophe@hotmail\.fr/g,'admin@fidjicoach.ca'],[/avant votre premier cours/g,'pour un plan adapté à vous']])}
+    [/colin\.christophe@hotmail\.fr/g,'support@fidjicoach.ca'],[/avant votre premier cours/g,'pour un plan adapté à vous']])}
 function txt(root,R2){const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode())){let v=n.nodeValue,o=v;R2.forEach(([a,b])=>{v=v.replace(a,b)});if(v!==o)n.nodeValue=v}}
 
 /* ---------- 2b. inscription chez FidjiCoach : sans le choix Club/Entraîneur, avec le code de parrainage ---------- */
@@ -27368,12 +27368,12 @@ if(typeof render==='function')render=(old=>function(){const r=old.apply(this,arg
 <script>
 /* ================= Paiements réels v2 (15 nov. 2026) — APERÇU =================
    1. Pied de page : abonné direct, page publique et page de connexion = « FidjiCoach · La plateforme des entraîneurs »
-      avec admin@fidjicoach.ca (plus de « Entraîneur de ski de fond » ni de séparateur en double); mention CAD partout.
+      avec support@fidjicoach.ca (plus de « Entraîneur de ski de fond » ni de séparateur en double); mention CAD partout.
    2. Fenêtre Rembourser : la virgule est acceptée dans le montant partiel; rappel « un remboursement complet annule le cours ».
    3. Frais de Stripe : 3,1 % + 0,30 $, « estimation avec marge » (7 textes, modifiés dans le texte de la page). */
 (function(){
 const FR=()=>window.fcReal||{};
-const MAIL='admin@fidjicoach.ca';
+const MAIL='support@fidjicoach.ca';
 const direct=()=>{const r=FR();return !!(r.on&&r.direct&&r.role==='client')};
 const yes=f=>{try{return !!f()}catch(e){return false}};
 /* ---------- 1. pied de page ---------- */
